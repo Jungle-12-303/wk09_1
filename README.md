@@ -62,7 +62,7 @@ Docker는 다음 구성요소로 이루어져 있습니다:
 터미널(CMD, PowerShell, zsh 등)에서 아래 명령어로 프로젝트 폴더만 내려받습니다:
 
 ```bash
-git clone --depth=1 https://github.com/krafton-jungle/pintos_lab_docker.git
+git clone --depth=1 https://github.com/krafton-jungle/pintos_22.04_lab_docker.git 
 ```
 
 - `--depth=1` 옵션은 git commit 히스토리를 생략하고 **최신 파일만 가져옵니다.**
