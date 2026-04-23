@@ -269,11 +269,13 @@ backtrace build/kernel.o 0x800... 0x800... 0x800...
 매일 코어타임에 4명의 코드를 비교하고, 머지 담당자가 기준 코드를 선택하여 master에 병합한다.
 
 ```
-master                          (항상 빌드 가능한 상태)
-  +-- member/woonyong           (개인 브랜치)
-  +-- member/teammate-b
-  +-- member/teammate-c
-  +-- member/teammate-d
+main                            (릴리즈, 테스트 통과 상태)
+  +-- hotfix                    (버그 수정 전용)
+  +-- dev                       (개발 머지용)
+       +-- member/woonyong      (개인 브랜치)
+       +-- member/teammate-b
+       +-- member/teammate-c
+       +-- member/teammate-d
 ```
 
 ---

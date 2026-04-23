@@ -74,34 +74,107 @@ Day 5-6(~7) : MLFQS                   — 머지 담당 D
 ### 구조
 
 ```
-master                          (항상 빌드 가능한 상태)
+main                            (릴리즈 버전, 항상 빌드+테스트 통과 상태)
   |
-  +-- member/woonyong          (우녕 개인 브랜치)
-  +-- member/teammate-b        (팀원 B 개인 브랜치)
-  +-- member/teammate-c        (팀원 C 개인 브랜치)
-  +-- member/teammate-d        (팀원 D 개인 브랜치)
+  +-- hotfix                   (버그 수정 전용, 수정 후 main에 머지)
+  |
+  +-- dev                      (개발 내용 머지용, 개인 브랜치를 여기에 머지)
+       |
+       +-- member/woonyong     (개인 브랜치)
+       +-- member/teammate-b
+       +-- member/teammate-c
+       +-- member/teammate-d
 ```
 
-### 개인 브랜치 생성
+main: 테스트가 통과하는 안정된 코드만 올라간다. dev에서 검증이 끝난 뒤 머지한다.
+hotfix: main에서 발견된 버그를 긴급 수정할 때만 사용한다. 수정 후 main과 dev 양쪽에 머지한다.
+dev: 머지 담당자가 개인 브랜치들을 합치는 곳이다. 테스트가 통과하면 main으로 올린다.
+개인 브랜치: 각자 구현하는 작업 공간이다. dev에서 분기하고 dev로 머지한다.
+
+### 초기 세팅
 
 ```bash
-# 최초 1회
-git checkout master
+# main에서 dev 브랜치 생성 (최초 1회, 1명만)
+git checkout main
+git checkout -b dev
+git push origin dev
+
+# 각자 개인 브랜치 생성
+git checkout dev
 git checkout -b member/woonyong
-
-# 새 Phase 시작 시 master 최신화 후 작업
-git checkout master
-git pull origin master
-git checkout member/woonyong
-git merge master
+git push origin member/woonyong
 ```
 
-### 개인 작업 push
+### 일상 작업 흐름
 
 ```bash
+# 오전: 개인 브랜치에서 구현
+git checkout member/woonyong
+# ... 코딩 ...
+
+# 오후: 커밋 및 push
 git add <수정한 파일>
 git commit -m "feat: Alarm Clock sleep_list 방식으로 구현"
 git push origin member/woonyong
+```
+
+### 머지 담당자 흐름
+
+```bash
+# dev를 최신 상태로
+git checkout dev
+git pull origin dev
+
+# 기준 코드를 dev에 머지
+git merge origin/member/teammate-b
+
+# 충돌 해결 후 빌드 및 테스트
+cd pintos/threads && make clean && make
+cd build && make check
+
+# 테스트 통과하면 dev push
+git push origin dev
+
+# Phase 완료 시 main으로 올림
+git checkout main
+git pull origin main
+git merge dev
+git push origin main
+```
+
+### 새 Phase 시작 시 개인 브랜치 동기화
+
+```bash
+git checkout dev
+git pull origin dev
+git checkout member/woonyong
+git merge dev
+```
+
+### hotfix 흐름
+
+main에서 버그가 발견되었을 때만 사용한다.
+
+```bash
+git checkout main
+git checkout -b hotfix
+# ... 버그 수정 ...
+git commit -m "fix: timer_interrupt에서 ticks 비교 조건 오류를 수정"
+git push origin hotfix
+
+# main에 머지
+git checkout main
+git merge hotfix
+git push origin main
+
+# dev에도 반영
+git checkout dev
+git merge hotfix
+git push origin dev
+
+# hotfix 브랜치 삭제
+git branch -d hotfix
+git push origin --delete hotfix
 ```
 
 ---
