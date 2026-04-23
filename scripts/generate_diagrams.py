@@ -160,7 +160,7 @@ def divider(x1, y1, x2, y2):
 # 01 Architecture (1200x780)
 # ---------------------------------------------------------------------------
 def gen_01():
-    W, H = 1200, 780
+    W, H = 1200, 700
     s = svg_open(W, H, "Pintos Project 1 -- 모듈 구조")
 
     # Three cards side by side at y=100
@@ -196,7 +196,7 @@ def gen_01():
     s += text_el(780, ay - 12, "호출", 14, TEXT_CAPTION, "middle")
 
     # Full-width Phase 4 card
-    p4y = 400
+    p4y = 370
     s += card(80, p4y, 1040, 160)
     s += phase_badge(110, p4y + 20, 4)
     s += text_el(110 + 80 + 12, p4y + 36, "MLFQS", 20, TEXT_PRIMARY, "start", "bold")
@@ -206,8 +206,8 @@ def gen_01():
     s += text_el(110, p4y + 132, "매 틱: recent_cpu++ / 매 초: load_avg, recent_cpu 재계산 / 매 4틱: priority 재계산",
               14, TEXT_CAPTION)
 
-    # Legend at y=630
-    ly = 630
+    # Legend at y=590
+    ly = 590
     legend_items = [
         (1, "Phase 1"),
         (2, "Phase 2"),
@@ -324,20 +324,18 @@ def gen_03():
     s += text_el(label_x2, label_y2, "schedule()", 14, TEXT_CAPTION, "middle", mono=True)
     s += phase_badge(label_x2 - 50, label_y2 + 4, 2)
 
-    # RUNNING -> BLOCKED (bezier curve going below naturally)
-    start_x3 = runx + 40
-    start_y3 = runy + sh
-    end_x3 = bx + sw - 40
-    end_y3 = by + sh
-    cx3a = start_x3 + 60
-    cy3a = start_y3 + 120
-    cx3b = end_x3 - 60
-    cy3b = end_y3 + 120
-    d3 = f"M {start_x3},{start_y3} C {cx3a:.0f},{cy3a:.0f} {cx3b:.0f},{cy3b:.0f} {end_x3},{end_y3}"
+    # RUNNING -> BLOCKED (straight horizontal at same y, going left)
+    start_x3 = runx
+    start_y3 = runy + sh - 20
+    end_x3 = bx + sw
+    end_y3 = by + sh - 20
+    d3 = f"M {start_x3},{start_y3} L {end_x3},{end_y3}"
     s += path_el(d3)
-    # Label beside the curve
-    s += text_el(W // 2, cy3a - 10, "sema_down()", 14, TEXT_CAPTION, "middle", mono=True)
-    s += phase_badge(W // 2 - 40, cy3a - 4, 3)
+    # Label above the line
+    mid_x3 = (start_x3 + end_x3) / 2
+    mid_y3 = (start_y3 + end_y3) / 2
+    s += text_el(mid_x3, mid_y3 - 22, "sema_down()", 14, TEXT_CAPTION, "middle", mono=True)
+    s += phase_badge(mid_x3 - 40, mid_y3 - 16, 3)
 
     # RUNNING -> READY (wide arc ABOVE both cards)
     start_x4 = runx + sw // 2
@@ -356,17 +354,17 @@ def gen_03():
     s += text_el((start_x4 + end_x4) / 2, arc_top - 30, "thread_yield()", 14, TEXT_CAPTION, "middle", mono=True)
     s += phase_badge((start_x4 + end_x4) / 2 - 50, arc_top - 24, 2)
 
-    # RUNNING -> DYING (bezier curve)
+    # RUNNING -> DYING (straight down then left)
     dx, dy = states["DYING"]
     start_x5 = runx + sw // 2
     start_y5 = runy + sh
-    end_x5 = dx + sw - 8
+    end_x5 = dx + sw
     end_y5 = dy + sh // 2
-    cx5 = start_x5 + 30
-    cy5 = (start_y5 + end_y5) / 2
-    d5 = f"M {start_x5},{start_y5} Q {cx5:.0f},{cy5:.0f} {end_x5},{end_y5}"
+    # Go down from RUNNING, then curve left to DYING right edge
+    mid_y5 = (start_y5 + end_y5) / 2
+    d5 = f"M {start_x5},{start_y5} L {start_x5},{mid_y5} Q {start_x5},{end_y5} {end_x5},{end_y5}"
     s += path_el(d5)
-    s += text_el(cx5 + 20, cy5 - 12, "thread_exit()", 14, TEXT_CAPTION, "middle", mono=True)
+    s += text_el(start_x5 + 16, mid_y5, "thread_exit()", 14, TEXT_CAPTION, "start", mono=True)
 
     s += svg_close()
     return s
@@ -463,8 +461,8 @@ def gen_05():
     W, H = 1200, 830
     s = svg_open(W, H, "Priority Donation 시나리오")
 
-    # Horizontal timeline at y=300
-    tl_y = 300
+    # Horizontal timeline at y=250
+    tl_y = 250
     s += (f'  <line x1="100" y1="{tl_y}" x2="1100" y2="{tl_y}" '
           f'stroke="{TEXT_CAPTION}" stroke-width="2"/>\n')
 
@@ -501,7 +499,7 @@ def gen_05():
     comp_w = 1040
 
     # Without donation (red left border)
-    wy = 430
+    wy = 380
     wh = 130
     s += card(comp_x, wy, comp_w, wh)
     s += (f'  <rect x="{comp_x}" y="{wy + 16}" width="4" height="{wh - 32}" rx="2" '
@@ -527,7 +525,7 @@ def gen_05():
     s += text_el(bar_start + 856, bar_y + 19, "H가 L보다 늦게 실행됨", 14, BADGE["red"]["text"])
 
     # With donation (green left border)
-    gy = 590
+    gy = 540
     gh = 130
     s += card(comp_x, gy, comp_w, gh)
     s += (f'  <rect x="{comp_x}" y="{gy + 16}" width="4" height="{gh - 32}" rx="2" '
@@ -557,7 +555,7 @@ def gen_05():
 # 06 Struct Thread (1000x980)
 # ---------------------------------------------------------------------------
 def gen_06():
-    W, H = 1000, 980
+    W, H = 1000, 1120
     s = svg_open(W, H, "struct thread 필드 구성")
 
     cx = 100
