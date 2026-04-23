@@ -1,37 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="900" viewBox="0 0 1000 900"
-     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-  <rect width="1000" height="900" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="950" viewBox="0 0 1000 950"
+     font-family="'Inter', 'JetBrains Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <style>
+    .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+  </style>
+  <rect width="1000" height="950" fill="#FFFFFF"/>
   <defs>
     <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
       <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.06"/>
     </filter>
-    <marker id="arrow" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
-      <polygon points="0 0, 12 4, 0 8" fill="#8B95A1"/>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#CBD5E1"/>
     </marker>
   </defs>
   <text x="500" y="56" text-anchor="middle" font-size="28" font-weight="bold" fill="#191F28">Phase 의존 관계</text>
   <rect x="150" y="100" width="700" height="140" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
   <rect x="180" y="124" width="80" height="24" rx="12" fill="#EFF6FF"/>
   <text x="220" y="140" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">Phase 1</text>
-  <text x="276" y="140" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">Alarm Clock</text>
-  <text x="180" y="180" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">timer_sleep 재구현, sleep_list 도입</text>
+  <text x="272" y="140" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">Alarm Clock</text>
+  <text x="180" y="184" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">timer_sleep 재구현, sleep_list 도입</text>
   <rect x="150" y="280" width="700" height="140" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
   <rect x="180" y="304" width="80" height="24" rx="12" fill="#F0FDF4"/>
   <text x="220" y="320" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
-  <text x="276" y="320" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">Priority Scheduling</text>
-  <text x="180" y="360" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">ready_list 우선순위 정렬, 선점 체크</text>
+  <text x="272" y="320" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">Priority Scheduling</text>
+  <text x="180" y="364" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">ready_list 우선순위 정렬, 선점 체크</text>
   <rect x="150" y="460" width="700" height="140" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
   <rect x="180" y="484" width="80" height="24" rx="12" fill="#FFF7ED"/>
   <text x="220" y="500" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">Phase 3</text>
-  <text x="276" y="500" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">Priority Donation</text>
-  <text x="180" y="540" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">lock에서 우선순위 기부/회수</text>
+  <text x="272" y="500" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">Priority Donation</text>
+  <text x="180" y="544" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">lock에서 우선순위 기부/회수</text>
   <rect x="150" y="640" width="700" height="140" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
   <rect x="180" y="664" width="80" height="24" rx="12" fill="#FAF5FF"/>
   <text x="220" y="680" font-size="12" fill="#7E22CE" text-anchor="middle" font-weight="bold">Phase 4</text>
-  <text x="276" y="680" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">MLFQS</text>
-  <text x="180" y="720" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">nice, recent_cpu, load_avg로 자동 계산</text>
-  <line x1="500" y1="240" x2="500" y2="280" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="500" y1="420" x2="500" y2="460" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="500" y1="600" x2="500" y2="640" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="272" y="680" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">MLFQS</text>
+  <text x="180" y="724" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">nice, recent_cpu, load_avg로 자동 계산</text>
+  <path d="M 500,240 C 515,252 485,268 500,272" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M 500,420 C 515,432 485,448 500,452" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M 500,600 C 515,612 485,628 500,632" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
 </svg>
