@@ -1,49 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="1200" height="800" viewBox="0 0 1200 800"
-     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
-  <rect width="1200" height="800" fill="#FFFFFF"/>
-  <text x="600" y="52" text-anchor="middle"
-        font-size="32" font-weight="bold" fill="#191F28">
-    스레드 생명 주기
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="750" viewBox="0 0 1100 750"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <rect width="1100" height="750" fill="#FFFFFF"/>
   <defs>
-    <marker id="arr" markerWidth="16" markerHeight="11"
-            refX="14" refY="5.5" orient="auto">
-      <polygon points="0 0, 16 5.5, 0 11" fill="#4E5968" />
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#8B95A1"/>
     </marker>
   </defs>
-  <rect x="73" y="373" width="220" height="100" rx="20" fill="#F2F4F6" />
-  <rect x="70" y="370" width="220" height="100" rx="20" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
-  <text x="180" y="428" font-size="22" fill="#1D4ED8" text-anchor="middle" font-weight="bold">BLOCKED</text>
-  <rect x="493" y="133" width="220" height="100" rx="20" fill="#F2F4F6" />
-  <rect x="490" y="130" width="220" height="100" rx="20" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
-  <text x="600" y="188" font-size="22" fill="#15803D" text-anchor="middle" font-weight="bold">READY</text>
-  <rect x="913" y="373" width="220" height="100" rx="20" fill="#F2F4F6" />
-  <rect x="910" y="370" width="220" height="100" rx="20" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
-  <text x="1020" y="428" font-size="22" fill="#15803D" text-anchor="middle" font-weight="bold">RUNNING</text>
-  <rect x="493" y="613" width="220" height="100" rx="20" fill="#F2F4F6" />
-  <rect x="490" y="610" width="220" height="100" rx="20" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
-  <text x="600" y="668" font-size="22" fill="#7E22CE" text-anchor="middle" font-weight="bold">DYING</text>
-  <line x1="380" y1="100" x2="500" y2="145" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="350" y="95" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_create()</text>
-  <line x1="290" y1="385" x2="490" y2="215" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="310" y="285" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_unblock()</text>
-  <text x="310" y="308" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">sema_up()</text>
-  <rect x="270" y="315" width="80" height="26" rx="13" fill="#3B82F6" />
-  <text x="310" y="333" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
-  <line x1="710" y1="215" x2="910" y2="385" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="825" y="295" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">schedule()</text>
-  <rect x="785" y="305" width="80" height="26" rx="13" fill="#22C55E" />
-  <text x="825" y="323" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 2</text>
-  <path d="M 910,415 C 700,505 400,505 290,415" fill="none" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="550" y="530" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">sema_down() / lock_acquire()</text>
-  <rect x="510" y="540" width="80" height="26" rx="13" fill="#F97316" />
-  <text x="550" y="558" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 3</text>
-  <path d="M 910,365 C 900,180 750,130 710,175" fill="none" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="830" y="135" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_yield()</text>
-  <rect x="790" y="145" width="80" height="26" rx="13" fill="#22C55E" />
-  <text x="830" y="163" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 2</text>
-  <line x1="1020" y1="475" x2="730" y2="635" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="850" y="600" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_exit()</text>
+  <text x="550" y="56" text-anchor="middle" font-size="28" font-weight="bold" fill="#191F28">스레드 생명 주기</text>
+  <rect x="400" y="120" width="240" height="80" rx="16" fill="#FFFFFF" stroke="#22C55E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="520" y="167" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">READY</text>
+  <rect x="80" y="350" width="240" height="80" rx="16" fill="#FFFFFF" stroke="#3B82F6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="200" y="397" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">BLOCKED</text>
+  <rect x="780" y="350" width="240" height="80" rx="16" fill="#FFFFFF" stroke="#22C55E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="900" y="397" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">RUNNING</text>
+  <rect x="400" y="580" width="240" height="80" rx="16" fill="#FFFFFF" stroke="#8B95A1" stroke-width="2" filter="url(#shadow)"/>
+  <text x="520" y="627" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">DYING</text>
+  <text x="520" y="90" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">thread_create()</text>
+  <line x1="520" y1="100" x2="520" y2="120" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="320" y1="350" x2="400" y2="200" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="340" y="263" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">thread_unblock()</text>
+  <rect x="310" y="270" width="80" height="24" rx="12" fill="#EFF6FF"/>
+  <text x="350" y="286" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">Phase 1</text>
+  <line x1="640" y1="200" x2="780" y2="350" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="730" y="263" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">schedule()</text>
+  <rect x="690" y="270" width="80" height="24" rx="12" fill="#F0FDF4"/>
+  <text x="730" y="286" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
+  <path d="M 780,430 C 700,530 400,530 200,430" fill="none" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="550" y="510" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">sema_down()</text>
+  <rect x="510" y="515" width="80" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="550" y="531" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">Phase 3</text>
+  <path d="M 900,350 C 900,80 640,80 640,130" fill="none" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="760" y="80" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">thread_yield()</text>
+  <rect x="710" y="87" width="80" height="24" rx="12" fill="#F0FDF4"/>
+  <text x="750" y="103" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
+  <line x1="900" y1="430" x2="640" y2="620" stroke="#8B95A1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="800" y="600" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">thread_exit()</text>
 </svg>

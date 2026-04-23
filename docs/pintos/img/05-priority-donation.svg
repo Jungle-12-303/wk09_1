@@ -1,74 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="1200" height="850" viewBox="0 0 1200 850"
-     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
-  <rect width="1200" height="850" fill="#FFFFFF"/>
-  <text x="600" y="52" text-anchor="middle"
-        font-size="32" font-weight="bold" fill="#191F28">
-    Priority Donation 타임라인
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <rect width="1200" height="800" fill="#FFFFFF"/>
   <defs>
-    <marker id="arr" markerWidth="16" markerHeight="11"
-            refX="14" refY="5.5" orient="auto">
-      <polygon points="0 0, 16 5.5, 0 11" fill="#4E5968" />
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#8B95A1"/>
     </marker>
   </defs>
-  <line x1="80" y1="310" x2="1120" y2="310" stroke="#E5E8EB" stroke-width="3" />
-  <circle cx="180" cy="310" r="8" fill="#F97316" />
-  <text x="180" y="340" font-size="22" fill="#C2410C" text-anchor="middle" font-weight="bold">T1</text>
-  <rect x="93" y="218" width="180" height="70" rx="12" fill="#F2F4F6" />
-  <rect x="90" y="215" width="180" height="70" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="180" y="245" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">L(pri=1)이</text>
-  <text x="180" y="267" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 획득</text>
-  <line x1="180" y1="285" x2="180" y2="302" stroke="#F97316" stroke-width="1" stroke-dasharray="4,3" />
-  <rect x="130" y="355" width="100" height="26" rx="13" fill="#F97316" />
-  <text x="180" y="373" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">pri=1</text>
-  <circle cx="440" cy="310" r="8" fill="#F97316" />
-  <text x="440" y="340" font-size="22" fill="#C2410C" text-anchor="middle" font-weight="bold">T2</text>
-  <rect x="353" y="218" width="180" height="70" rx="12" fill="#F2F4F6" />
-  <rect x="350" y="215" width="180" height="70" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="440" y="245" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">H(pri=63)이</text>
-  <text x="440" y="267" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 요청</text>
-  <line x1="440" y1="285" x2="440" y2="302" stroke="#F97316" stroke-width="1" stroke-dasharray="4,3" />
-  <rect x="390" y="355" width="100" height="26" rx="13" fill="#F97316" />
-  <text x="440" y="373" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">63 기부</text>
-  <circle cx="700" cy="310" r="8" fill="#F97316" />
-  <text x="700" y="340" font-size="22" fill="#C2410C" text-anchor="middle" font-weight="bold">T3</text>
-  <rect x="613" y="218" width="180" height="70" rx="12" fill="#F2F4F6" />
-  <rect x="610" y="215" width="180" height="70" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="700" y="245" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">L(pri=63) 완료</text>
-  <text x="700" y="267" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 해제</text>
-  <line x1="700" y1="285" x2="700" y2="302" stroke="#F97316" stroke-width="1" stroke-dasharray="4,3" />
-  <rect x="650" y="355" width="100" height="26" rx="13" fill="#F97316" />
-  <text x="700" y="373" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">pri=1 복원</text>
-  <circle cx="960" cy="310" r="8" fill="#F97316" />
-  <text x="960" y="340" font-size="22" fill="#C2410C" text-anchor="middle" font-weight="bold">T4</text>
-  <rect x="873" y="218" width="180" height="70" rx="12" fill="#F2F4F6" />
-  <rect x="870" y="215" width="180" height="70" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="960" y="245" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">H(pri=63)</text>
-  <text x="960" y="267" font-size="15" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 획득</text>
-  <line x1="960" y1="285" x2="960" y2="302" stroke="#F97316" stroke-width="1" stroke-dasharray="4,3" />
-  <rect x="910" y="355" width="100" height="26" rx="13" fill="#F97316" />
-  <text x="960" y="373" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">pri=63</text>
-  <text x="600" y="440" font-size="22" fill="#191F28" text-anchor="middle" font-weight="bold">비교</text>
-  <rect x="63" y="463" width="1080" height="150" rx="12" fill="#F2F4F6" />
-  <rect x="60" y="460" width="1080" height="150" rx="12" fill="#FEF2F2" stroke="#EF4444" stroke-width="2" />
-  <text x="90" y="492" font-size="18" fill="#DC2626" text-anchor="start" font-weight="bold">기부 없을 때 (우선순위 역전 발생)</text>
-  <rect x="90" y="515" width="320" height="32" rx="6" fill="#FECACA" stroke="#EF4444" stroke-width="1" />
-  <text x="250" y="537" font-size="13" fill="#DC2626" text-anchor="middle" font-weight="normal">L(pri=1) 실행 중 -- Lock A 보유</text>
-  <rect x="430" y="515" width="120" height="32" rx="6" fill="#FED7AA" stroke="#F97316" stroke-width="1" />
-  <text x="490" y="537" font-size="13" fill="#C2410C" text-anchor="middle" font-weight="normal">M(pri=31)</text>
-  <rect x="570" y="515" width="340" height="32" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1" />
-  <text x="740" y="537" font-size="13" fill="#1D4ED8" text-anchor="middle" font-weight="normal">H(pri=63) 대기 -- 역전 발생!</text>
-  <text x="960" y="565" font-size="15" fill="#DC2626" text-anchor="start" font-weight="normal">H가 L보다 늦게 실행됨</text>
-  <rect x="63" y="638" width="1080" height="150" rx="12" fill="#F2F4F6" />
-  <rect x="60" y="635" width="1080" height="150" rx="12" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
-  <text x="90" y="667" font-size="18" fill="#15803D" text-anchor="start" font-weight="bold">기부 있을 때 (해결)</text>
-  <rect x="90" y="690" width="220" height="32" rx="6" fill="#BBF7D0" stroke="#22C55E" stroke-width="1" />
-  <text x="200" y="712" font-size="13" fill="#15803D" text-anchor="middle" font-weight="normal">L(pri=63) 기부받아 실행</text>
-  <rect x="330" y="690" width="280" height="32" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1" />
-  <text x="470" y="712" font-size="13" fill="#1D4ED8" text-anchor="middle" font-weight="normal">H(pri=63) 바로 실행</text>
-  <rect x="630" y="690" width="150" height="32" rx="6" fill="#FED7AA" stroke="#F97316" stroke-width="1" />
-  <text x="705" y="712" font-size="13" fill="#C2410C" text-anchor="middle" font-weight="normal">M(pri=31)</text>
-  <text x="830" y="740" font-size="15" fill="#15803D" text-anchor="start" font-weight="normal">H가 빠르게 실행됨</text>
+  <text x="600" y="56" text-anchor="middle" font-size="28" font-weight="bold" fill="#191F28">Priority Donation 시나리오</text>
+  <line x1="100" y1="300" x2="1100" y2="300" stroke="#8B95A1" stroke-width="2"/>
+  <circle cx="200" cy="300" r="6" fill="#F97316"/>
+  <rect x="110" y="205" width="180" height="70" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="200" y="235" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">L(pri=1)이</text>
+  <text x="200" y="255" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 획득</text>
+  <line x1="200" y1="275" x2="200" y2="294" stroke="#F2F4F6" stroke-width="1"/>
+  <rect x="150" y="320" width="100" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="200" y="336" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">pri=1</text>
+  <circle cx="450" cy="300" r="6" fill="#F97316"/>
+  <rect x="360" y="205" width="180" height="70" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="235" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">H(pri=63)이</text>
+  <text x="450" y="255" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 요청</text>
+  <line x1="450" y1="275" x2="450" y2="294" stroke="#F2F4F6" stroke-width="1"/>
+  <rect x="400" y="320" width="100" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="450" y="336" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">63 기부</text>
+  <circle cx="700" cy="300" r="6" fill="#F97316"/>
+  <rect x="610" y="205" width="180" height="70" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="700" y="235" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">L(pri=63) 완료</text>
+  <text x="700" y="255" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 해제</text>
+  <line x1="700" y1="275" x2="700" y2="294" stroke="#F2F4F6" stroke-width="1"/>
+  <rect x="650" y="320" width="100" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="700" y="336" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">pri=1 복원</text>
+  <circle cx="950" cy="300" r="6" fill="#F97316"/>
+  <rect x="860" y="205" width="180" height="70" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="950" y="235" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">H(pri=63)</text>
+  <text x="950" y="255" font-size="14" fill="#191F28" text-anchor="middle" font-weight="normal">Lock A 획득</text>
+  <line x1="950" y1="275" x2="950" y2="294" stroke="#F2F4F6" stroke-width="1"/>
+  <rect x="900" y="320" width="100" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="950" y="336" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">pri=63</text>
+  <rect x="80" y="420" width="1040" height="120" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="80" y="420" width="4" height="120" rx="0" fill="#EF4444"/>
+  <text x="104" y="450" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">기부 없을 때 (우선순위 역전 발생)</text>
+  <rect x="104" y="470" width="300" height="28" rx="6" fill="#FEF2F2" stroke="#EF4444" stroke-width="1"/>
+  <text x="254" y="489" font-size="12" fill="#DC2626" text-anchor="middle" font-weight="bold">L(pri=1) Lock A 보유</text>
+  <rect x="420" y="470" width="200" height="28" rx="6" fill="#FFF7ED" stroke="#F97316" stroke-width="1"/>
+  <text x="520" y="489" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">M(pri=31) 선점</text>
+  <rect x="636" y="470" width="300" height="28" rx="6" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+  <text x="786" y="489" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">H(pri=63) 대기 -- 역전!</text>
+  <text x="960" y="489" font-size="14" fill="#DC2626" text-anchor="start" font-weight="normal">H가 L보다 늦게 실행됨</text>
+  <rect x="80" y="570" width="1040" height="120" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="80" y="570" width="4" height="120" rx="0" fill="#22C55E"/>
+  <text x="104" y="600" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">기부 있을 때 (해결)</text>
+  <rect x="104" y="620" width="200" height="28" rx="6" fill="#F0FDF4" stroke="#22C55E" stroke-width="1"/>
+  <text x="204" y="639" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">L(pri=63) 기부받아 실행</text>
+  <rect x="320" y="620" width="300" height="28" rx="6" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+  <text x="470" y="639" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">H(pri=63) 바로 실행</text>
+  <rect x="636" y="620" width="200" height="28" rx="6" fill="#FFF7ED" stroke="#F97316" stroke-width="1"/>
+  <text x="736" y="639" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">M(pri=31) 마지막</text>
+  <text x="860" y="639" font-size="14" fill="#15803D" text-anchor="start" font-weight="normal">H가 빠르게 실행됨</text>
 </svg>
