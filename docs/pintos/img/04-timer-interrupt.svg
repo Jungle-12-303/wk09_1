@@ -1,51 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="950" viewBox="0 0 1200 950"
-     font-family="system-ui, -apple-system, sans-serif">
-  <rect width="1200" height="950" fill="#FFFFFF"/>
-  <text x="600" y="52" text-anchor="middle" font-size="32" font-weight="bold" fill="#191F28">timer_interrupt() 처리 흐름</text>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="900" viewBox="0 0 1200 900"
+     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#FFFFFF"/>
+  <text x="600" y="52" text-anchor="middle"
+        font-size="32" font-weight="bold" fill="#191F28">
+    timer_interrupt() 처리 흐름
+  </text>
   <defs>
-    <marker id="arr_ti" markerWidth="16" markerHeight="11" refX="14" refY="5.5" orient="auto">
+    <marker id="arr" markerWidth="16" markerHeight="11"
+            refX="14" refY="5.5" orient="auto">
       <polygon points="0 0, 16 5.5, 0 11" fill="#4E5968" />
     </marker>
   </defs>
-  <rect x="403" y="93" width="400" height="50" rx="12" fill="#F2F4F6" />
-  <rect x="400" y="90" width="400" height="50" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
-  <text x="600" y="123" font-size="22" fill="#191F28" text-anchor="middle" font-weight="bold">timer_interrupt()</text>
-  <rect x="163" y="193" width="880" height="50" rx="12" fill="#F2F4F6" />
-  <rect x="160" y="190" width="880" height="50" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
-  <text x="190" y="223" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">ticks++</text>
-  <line x1="600" y1="140" x2="600" y2="190" stroke="#4E5968" stroke-width="2" marker-end="url(#arr_ti)" />
-  <rect x="163" y="283" width="880" height="50" rx="12" fill="#F2F4F6" />
-  <rect x="160" y="280" width="880" height="50" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
-  <text x="190" y="313" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_tick() -- 선점 판단</text>
-  <line x1="600" y1="260" x2="600" y2="280" stroke="#4E5968" stroke-width="2" marker-end="url(#arr_ti)" />
-  <rect x="163" y="373" width="880" height="90" rx="12" fill="#F2F4F6" />
-  <rect x="160" y="370" width="880" height="90" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
-  <rect x="175" y="382" width="80" height="26" rx="13" fill="#3B82F6" />
-  <text x="215" y="401" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
-  <text x="270" y="403" font-size="18" fill="#1D4ED8" text-anchor="start" font-weight="bold">thread_awake() -- sleep 스레드 깨우기</text>
-  <text x="270" y="435" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">sleep_list 순회, wake_tick <= ticks 인 스레드 unblock</text>
-  <line x1="600" y1="350" x2="600" y2="370" stroke="#4E5968" stroke-width="2" marker-end="url(#arr_ti)" />
-  <rect x="163" y="513" width="880" height="380" rx="20" fill="#F2F4F6" />
-  <rect x="160" y="510" width="880" height="380" rx="20" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
-  <rect x="175" y="525" width="80" height="26" rx="13" fill="#A855F7" />
-  <text x="215" y="544" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 4</text>
-  <text x="270" y="546" font-size="22" fill="#7E22CE" text-anchor="start" font-weight="bold">MLFQS 연산</text>
-  <line x1="600" y1="460" x2="600" y2="510" stroke="#4E5968" stroke-width="2" marker-end="url(#arr_ti)" />
-  <rect x="203" y="593" width="800" height="70" rx="10" fill="#F2F4F6" />
-  <rect x="200" y="590" width="800" height="70" rx="10" fill="#FFFFFF" stroke="#A855F7" stroke-width="2" />
-  <rect x="220" y="602" width="59" height="26" rx="13" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
-  <text x="249" y="621" font-size="14" fill="#7E22CE" text-anchor="middle" font-weight="bold">매 틱</text>
-  <text x="309" y="621" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">recent_cpu += 1 (현재 스레드)</text>
-  <rect x="203" y="663" width="800" height="100" rx="10" fill="#F2F4F6" />
-  <rect x="200" y="660" width="800" height="100" rx="10" fill="#FFFFFF" stroke="#A855F7" stroke-width="2" />
-  <rect x="220" y="672" width="241" height="26" rx="13" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
-  <text x="340" y="691" font-size="14" fill="#7E22CE" text-anchor="middle" font-weight="bold">매 TIMER_FREQ (1초)</text>
-  <text x="491" y="691" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">load_avg 재계산</text>
-  <text x="491" y="715" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">recent_cpu 전체 스레드 재계산</text>
-  <rect x="203" y="793" width="800" height="70" rx="10" fill="#F2F4F6" />
-  <rect x="200" y="790" width="800" height="70" rx="10" fill="#FFFFFF" stroke="#A855F7" stroke-width="2" />
-  <rect x="220" y="802" width="72" height="26" rx="13" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
-  <text x="256" y="821" font-size="14" fill="#7E22CE" text-anchor="middle" font-weight="bold">매 4틱</text>
-  <text x="322" y="821" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">priority 재계산 (전체 스레드)</text>
+  <rect x="403" y="93" width="400" height="60" rx="12" fill="#F2F4F6" />
+  <rect x="400" y="90" width="400" height="60" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
+  <text x="600" y="128" font-size="22" fill="#191F28" text-anchor="middle" font-weight="bold">timer_interrupt()</text>
+  <rect x="123" y="193" width="960" height="55" rx="12" fill="#F2F4F6" />
+  <rect x="120" y="190" width="960" height="55" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
+  <text x="150" y="225" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">ticks++</text>
+  <line x1="600" y1="155" x2="600" y2="185" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <rect x="123" y="278" width="960" height="55" rx="12" fill="#F2F4F6" />
+  <rect x="120" y="275" width="960" height="55" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
+  <text x="150" y="310" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_tick() -- 타임 슬라이스 소진 시 선점 플래그 설정</text>
+  <line x1="600" y1="250" x2="600" y2="270" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <rect x="123" y="363" width="960" height="80" rx="12" fill="#F2F4F6" />
+  <rect x="120" y="360" width="960" height="80" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <rect x="140" y="374" width="80" height="26" rx="13" fill="#3B82F6" />
+  <text x="180" y="392" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
+  <text x="235" y="394" font-size="18" fill="#1D4ED8" text-anchor="start" font-weight="bold">thread_awake() -- sleep 스레드 깨우기</text>
+  <text x="235" y="422" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">sleep_list 순회, wake_tick <= ticks 인 스레드 unblock</text>
+  <line x1="600" y1="335" x2="600" y2="355" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <rect x="123" y="483" width="960" height="360" rx="20" fill="#F2F4F6" />
+  <rect x="120" y="480" width="960" height="360" rx="20" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
+  <rect x="140" y="498" width="80" height="26" rx="13" fill="#A855F7" />
+  <text x="180" y="516" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 4</text>
+  <text x="235" y="518" font-size="22" fill="#7E22CE" text-anchor="start" font-weight="bold">MLFQS 연산</text>
+  <line x1="600" y1="445" x2="600" y2="475" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <rect x="163" y="563" width="880" height="67" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="560" width="880" height="67" rx="12" fill="#FFFFFF" stroke="#A855F7" stroke-width="2" />
+  <rect x="175" y="572" width="80" height="26" rx="13" fill="#FAF5FF" />
+  <text x="215" y="590" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">매 틱</text>
+  <rect x="175" y="572" width="60" height="26" rx="13" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
+  <text x="205" y="590" font-size="13" fill="#7E22CE" text-anchor="middle" font-weight="bold">매 틱</text>
+  <text x="260" y="590" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">recent_cpu += 1 (현재 스레드)</text>
+  <rect x="163" y="653" width="880" height="94" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="650" width="880" height="94" rx="12" fill="#FFFFFF" stroke="#A855F7" stroke-width="2" />
+  <rect x="175" y="662" width="80" height="26" rx="13" fill="#FAF5FF" />
+  <text x="215" y="680" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">매 TIMER_FREQ (1초)</text>
+  <rect x="175" y="662" width="228" height="26" rx="13" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
+  <text x="289" y="680" font-size="13" fill="#7E22CE" text-anchor="middle" font-weight="bold">매 TIMER_FREQ (1초)</text>
+  <text x="428" y="680" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">load_avg 재계산</text>
+  <text x="428" y="707" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">recent_cpu 전체 스레드 재계산</text>
+  <rect x="163" y="763" width="880" height="67" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="760" width="880" height="67" rx="12" fill="#FFFFFF" stroke="#A855F7" stroke-width="2" />
+  <rect x="175" y="772" width="80" height="26" rx="13" fill="#FAF5FF" />
+  <text x="215" y="790" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">매 4틱</text>
+  <rect x="175" y="772" width="72" height="26" rx="13" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
+  <text x="211" y="790" font-size="13" fill="#7E22CE" text-anchor="middle" font-weight="bold">매 4틱</text>
+  <text x="272" y="790" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">priority 재계산 (전체 스레드)</text>
 </svg>

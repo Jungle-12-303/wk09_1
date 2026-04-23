@@ -1,38 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1000" viewBox="0 0 1200 1000"
-     font-family="system-ui, -apple-system, sans-serif">
-  <rect width="1200" height="1000" fill="#FFFFFF"/>
-  <text x="600" y="52" text-anchor="middle" font-size="32" font-weight="bold" fill="#191F28">Phase 의존 관계</text>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="950" viewBox="0 0 1200 950"
+     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="950" fill="#FFFFFF"/>
+  <text x="600" y="52" text-anchor="middle"
+        font-size="32" font-weight="bold" fill="#191F28">
+    Phase 의존 관계
+  </text>
   <defs>
-    <marker id="arr_dep" markerWidth="16" markerHeight="11" refX="14" refY="5.5" orient="auto">
+    <marker id="arr" markerWidth="16" markerHeight="11"
+            refX="14" refY="5.5" orient="auto">
       <polygon points="0 0, 16 5.5, 0 11" fill="#4E5968" />
     </marker>
   </defs>
   <rect x="203" y="103" width="800" height="140" rx="20" fill="#F2F4F6" />
   <rect x="200" y="100" width="800" height="140" rx="20" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
-  <text x="240" y="140" font-size="22" fill="#1D4ED8" text-anchor="start" font-weight="bold">Phase 1: Alarm Clock</text>
+  <rect x="220" y="118" width="80" height="26" rx="13" fill="#3B82F6" />
+  <text x="260" y="136" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
+  <text x="315" y="138" font-size="22" fill="#1D4ED8" text-anchor="start" font-weight="bold">Alarm Clock</text>
   <text x="240" y="175" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">timer_sleep 재구현, sleep_list 도입</text>
-  <rect x="240" y="192" width="176" height="30" rx="15" fill="#3B82F620" stroke="#3B82F6" stroke-width="1" />
-  <text x="250" y="213" font-size="15" fill="#1D4ED8" text-anchor="start" font-weight="normal">busy-wait 제거</text>
-  <line x1="600" y1="240" x2="600" y2="300" stroke="#3B82F6" stroke-width="3" marker-end="url(#arr_dep)" />
+  <rect x="240" y="195" width="172" height="28" rx="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1" />
+  <text x="326" y="214" font-size="15" fill="#1D4ED8" text-anchor="middle" font-weight="bold">busy-wait 제거</text>
+  <line x1="600" y1="245" x2="600" y2="295" stroke="#3B82F6" stroke-width="3" marker-end="url(#arr)" />
   <rect x="203" y="303" width="800" height="140" rx="20" fill="#F2F4F6" />
   <rect x="200" y="300" width="800" height="140" rx="20" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
-  <text x="240" y="340" font-size="22" fill="#15803D" text-anchor="start" font-weight="bold">Phase 2: Priority Scheduling</text>
+  <rect x="220" y="318" width="80" height="26" rx="13" fill="#22C55E" />
+  <text x="260" y="336" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 2</text>
+  <text x="315" y="338" font-size="22" fill="#15803D" text-anchor="start" font-weight="bold">Priority Scheduling</text>
   <text x="240" y="375" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">ready_list 우선순위 정렬, 선점 체크</text>
-  <rect x="240" y="392" width="189" height="30" rx="15" fill="#22C55E20" stroke="#22C55E" stroke-width="1" />
-  <text x="250" y="413" font-size="15" fill="#15803D" text-anchor="start" font-weight="normal">높은 우선순위 먼저 실행</text>
-  <line x1="600" y1="440" x2="600" y2="500" stroke="#22C55E" stroke-width="3" marker-end="url(#arr_dep)" />
+  <rect x="240" y="395" width="183" height="28" rx="14" fill="#F0FDF4" stroke="#22C55E" stroke-width="1" />
+  <text x="331" y="414" font-size="15" fill="#15803D" text-anchor="middle" font-weight="bold">높은 우선순위 먼저 실행</text>
+  <line x1="600" y1="445" x2="600" y2="495" stroke="#22C55E" stroke-width="3" marker-end="url(#arr)" />
   <rect x="203" y="503" width="800" height="140" rx="20" fill="#F2F4F6" />
   <rect x="200" y="500" width="800" height="140" rx="20" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="240" y="540" font-size="22" fill="#C2410C" text-anchor="start" font-weight="bold">Phase 3: Priority Donation</text>
+  <rect x="220" y="518" width="80" height="26" rx="13" fill="#F97316" />
+  <text x="260" y="536" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 3</text>
+  <text x="315" y="538" font-size="22" fill="#C2410C" text-anchor="start" font-weight="bold">Priority Donation</text>
   <text x="240" y="575" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">lock에서 우선순위 기부/회수</text>
-  <rect x="240" y="592" width="150" height="30" rx="15" fill="#F9731620" stroke="#F97316" stroke-width="1" />
-  <text x="250" y="613" font-size="15" fill="#C2410C" text-anchor="start" font-weight="normal">우선순위 역전 방지</text>
-  <line x1="600" y1="640" x2="600" y2="700" stroke="#F97316" stroke-width="3" marker-end="url(#arr_dep)" />
+  <rect x="240" y="595" width="150" height="28" rx="14" fill="#FFF7ED" stroke="#F97316" stroke-width="1" />
+  <text x="315" y="614" font-size="15" fill="#C2410C" text-anchor="middle" font-weight="bold">우선순위 역전 방지</text>
+  <line x1="600" y1="645" x2="600" y2="695" stroke="#F97316" stroke-width="3" marker-end="url(#arr)" />
   <rect x="203" y="703" width="800" height="140" rx="20" fill="#F2F4F6" />
   <rect x="200" y="700" width="800" height="140" rx="20" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
-  <text x="240" y="740" font-size="22" fill="#7E22CE" text-anchor="start" font-weight="bold">Phase 4: MLFQS</text>
+  <rect x="220" y="718" width="80" height="26" rx="13" fill="#A855F7" />
+  <text x="260" y="736" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 4</text>
+  <text x="315" y="738" font-size="22" fill="#7E22CE" text-anchor="start" font-weight="bold">MLFQS</text>
   <text x="240" y="775" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">nice, recent_cpu, load_avg로 자동 계산</text>
-  <rect x="240" y="792" width="150" height="30" rx="15" fill="#A855F720" stroke="#A855F7" stroke-width="1" />
-  <text x="250" y="813" font-size="15" fill="#7E22CE" text-anchor="start" font-weight="normal">공정한 CPU 분배</text>
+  <rect x="240" y="795" width="150" height="28" rx="14" fill="#FAF5FF" stroke="#A855F7" stroke-width="1" />
+  <text x="315" y="814" font-size="15" fill="#7E22CE" text-anchor="middle" font-weight="bold">공정한 CPU 분배</text>
 </svg>
