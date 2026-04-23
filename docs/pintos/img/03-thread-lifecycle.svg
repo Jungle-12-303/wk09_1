@@ -23,7 +23,7 @@
   <rect x="400" y="620" width="240" height="80" rx="16" fill="#FFFFFF" stroke="#8B95A1" stroke-width="2" filter="url(#shadow)"/>
   <text x="520" y="667" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">DYING</text>
   <text x="520" y="120" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">thread_create()</text>
-  <path d="M 520,130 Q 520,121 520,142" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="520" y1="130" x2="520" y2="142" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
   <path d="M 320,400 Q 334,340 408,222" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="304.0" y="332" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">thread_unblock()</text>
   <rect x="254.0" y="336" width="80" height="24" rx="12" fill="#EFF6FF"/>

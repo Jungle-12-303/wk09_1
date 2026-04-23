@@ -40,9 +40,9 @@
   <text x="830" y="248" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">lock_release()</text>
   <text x="830" y="276" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">sema_down()</text>
   <text x="830" y="304" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">sema_up()</text>
-  <path d="M 400,220 Q 416,210 432,220" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="400" y1="220" x2="432" y2="220" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="420" y="208" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">호출</text>
-  <path d="M 760,220 Q 776,210 792,220" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="760" y1="220" x2="792" y2="220" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="780" y="208" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">호출</text>
   <rect x="80" y="400" width="1040" height="160" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
   <rect x="110" y="420" width="80" height="24" rx="12" fill="#FAF5FF"/>

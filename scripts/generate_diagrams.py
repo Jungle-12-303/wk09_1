@@ -108,7 +108,7 @@ def text_el(x, y, content, size=16, fill=TEXT_BODY, anchor="start", weight="norm
 
 
 def arrow_line(x1, y1, x2, y2, with_arrow=True):
-    """Bezier curve arrow between two points. Stops 8px before endpoint."""
+    """Arrow between two points. Short vertical = straight, long diagonal = curve."""
     end = ' marker-end="url(#arrow)"' if with_arrow else ""
     # Shorten endpoint by 8px
     dx = x2 - x1
@@ -117,15 +117,10 @@ def arrow_line(x1, y1, x2, y2, with_arrow=True):
     if dist > 0:
         x2 = x2 - 8 * dx / dist
         y2 = y2 - 8 * dy / dist
-    # For mostly-vertical arrows, add slight S-curve
-    if abs(dy) > abs(dx) * 1.5 and abs(dy) > 20:
-        cx1 = x1 + 15
-        cy1 = y1 + dy * 0.3
-        cx2 = x2 - 15
-        cy2 = y1 + dy * 0.7
-        d = f"M {x1:.0f},{y1:.0f} C {cx1:.0f},{cy1:.0f} {cx2:.0f},{cy2:.0f} {x2:.0f},{y2:.0f}"
+    # Short vertical (under 100px) or nearly straight: use straight line
+    if abs(dy) <= 100 or abs(dx) < 5:
         return (
-            f'  <path d="{d}" fill="none" '
+            f'  <line x1="{x1:.0f}" y1="{y1:.0f}" x2="{x2:.0f}" y2="{y2:.0f}" '
             f'stroke="{ARROW_COLOR}" stroke-width="1.5"{end}/>\n'
         )
     # For mostly-horizontal arrows, use quadratic bezier with slight vertical offset
@@ -509,7 +504,7 @@ def gen_05():
     wy = 430
     wh = 130
     s += card(comp_x, wy, comp_w, wh)
-    s += (f'  <rect x="{comp_x}" y="{wy}" width="4" height="{wh}" rx="0" '
+    s += (f'  <rect x="{comp_x}" y="{wy + 16}" width="4" height="{wh - 32}" rx="2" '
           f'fill="{BADGE["red"]["border"]}"/>\n')
     s += text_el(comp_x + 28, wy + 32, "기부 없을 때 (우선순위 역전 발생)", 16, TEXT_PRIMARY, "start", "bold")
 
@@ -535,7 +530,7 @@ def gen_05():
     gy = 590
     gh = 130
     s += card(comp_x, gy, comp_w, gh)
-    s += (f'  <rect x="{comp_x}" y="{gy}" width="4" height="{gh}" rx="0" '
+    s += (f'  <rect x="{comp_x}" y="{gy + 16}" width="4" height="{gh - 32}" rx="2" '
           f'fill="{BADGE["green"]["border"]}"/>\n')
     s += text_el(comp_x + 28, gy + 32, "기부 있을 때 (해결)", 16, TEXT_PRIMARY, "start", "bold")
 

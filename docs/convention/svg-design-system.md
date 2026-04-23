@@ -194,8 +194,8 @@ def arrow_path(d, marker_id="arrowhead", color="#CBD5E1", sw=1.5):
 - stroke-width: 1.5px (기본).
 - 화살표 끝점은 카드 테두리에서 **최소 8px** 떨어뜨린다.
 - 화살표 마커 크기: markerWidth="10", markerHeight="7" (작고 우아하게).
-- 모든 연결선은 직선(`<line>`) 대신 **bezier curve**(`<path>`)를 사용한다.
-- 수직 화살표에는 약간의 S-curve를 추가하여 딱딱하지 않게 한다.
+- **짧은 수직 연결 (100px 이하)**: 직선(`<line>`)을 사용한다. 같은 열에서 바로 아래 카드로 내려가는 연결이 해당한다.
+- **먼 거리, 대각선, 되돌아가는 연결 (100px 초과)**: bezier curve(`<path>`)를 사용한다.
 - 화살표 라벨은 화살표 위에 겹치지 않고 **옆이나 위쪽에** 배치한다 (y = arrow_y - 12 이상).
 - 강조 화살표(Phase 연결 등)는 해당 Phase의 border 색상을 사용할 수 있다.
 

@@ -44,7 +44,7 @@
   <rect x="900" y="324" width="100" height="24" rx="12" fill="#FFF7ED"/>
   <text x="950" y="340" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">pri=63</text>
   <rect x="80" y="430" width="1040" height="130" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
-  <rect x="80" y="430" width="4" height="130" rx="0" fill="#EF4444"/>
+  <rect x="80" y="446" width="4" height="98" rx="2" fill="#EF4444"/>
   <text x="108" y="462" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">기부 없을 때 (우선순위 역전 발생)</text>
   <rect x="112" y="486" width="300" height="28" rx="6" fill="#FEF2F2" stroke="#EF4444" stroke-width="1"/>
   <text x="262" y="505" font-size="12" fill="#DC2626" text-anchor="middle" font-weight="bold">L(pri=1) Lock A 보유</text>
@@ -54,7 +54,7 @@
   <text x="794" y="505" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">H(pri=63) 대기 -- 역전!</text>
   <text x="968" y="505" font-size="14" fill="#DC2626" text-anchor="start" font-weight="normal">H가 L보다 늦게 실행됨</text>
   <rect x="80" y="590" width="1040" height="130" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
-  <rect x="80" y="590" width="4" height="130" rx="0" fill="#22C55E"/>
+  <rect x="80" y="606" width="4" height="98" rx="2" fill="#22C55E"/>
   <text x="108" y="622" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">기부 있을 때 (해결)</text>
   <rect x="112" y="646" width="200" height="28" rx="6" fill="#F0FDF4" stroke="#22C55E" stroke-width="1"/>
   <text x="212" y="665" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">L(pri=63) 기부받아 실행</text>
