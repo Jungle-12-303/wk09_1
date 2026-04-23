@@ -1,0 +1,48 @@
+<svg viewBox="0 0 750 680" xmlns="http://www.w3.org/2000/svg" style="background:#fff">
+<defs><style>
+text { font-family: Arial, sans-serif; }
+.title { font-size: 20px; font-weight: bold; fill: #222; }
+.section { font-size: 14px; font-weight: bold; }
+.field { font-size: 13px; fill: #333; font-family: "Courier New", monospace; }
+.comment { font-size: 12px; fill: #777; }
+</style></defs>
+<text x="375" y="35" text-anchor="middle" class="title">struct thread 구조체 진화</text>
+<text x="375" y="55" text-anchor="middle" font-size="12" fill="#999" font-family="Arial, sans-serif">Phase별 추가 필드 (색상으로 구분)</text>
+<rect x="40" y="62" width="670" height="583" rx="10" fill="#fff" stroke="#333" stroke-width="2"/>
+<rect x="55" y="70" width="640" height="231" rx="6" fill="#ECEFF1" stroke="#607D8B" stroke-width="1.5"/>
+<text x="75" y="92" class="section" fill="#607D8B">기본 필드 (Original)</text>
+<text x="95" y="120" class="field">tid_t tid;</text>
+<text x="470" y="120" class="comment">// 스레드 ID</text>
+<text x="95" y="148" class="field">enum thread_status status;</text>
+<text x="470" y="148" class="comment">// 현재 상태</text>
+<text x="95" y="176" class="field">char name[16];</text>
+<text x="470" y="176" class="comment">// 스레드 이름</text>
+<text x="95" y="204" class="field">int priority;</text>
+<text x="470" y="204" class="comment">// 현재 우선순위</text>
+<text x="95" y="232" class="field">struct list_elem elem;</text>
+<text x="470" y="232" class="comment">// 리스트 연결 요소</text>
+<text x="95" y="260" class="field">struct intr_frame tf;</text>
+<text x="470" y="260" class="comment">// 컨텍스트 스위칭용 프레임</text>
+<text x="95" y="288" class="field">unsigned magic;</text>
+<text x="470" y="288" class="comment">// 스택 오버플로 감지</text>
+<rect x="55" y="313" width="640" height="63" rx="6" fill="#E3F2FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="75" y="335" class="section" fill="#1565C0">Phase 1 추가 (Alarm Clock)</text>
+<text x="95" y="363" class="field">int64_t wake_tick;</text>
+<text x="470" y="363" class="comment">// 깨어날 틱 시각</text>
+<rect x="55" y="388" width="640" height="147" rx="6" fill="#FFF3E0" stroke="#E65100" stroke-width="1.5"/>
+<text x="75" y="410" class="section" fill="#E65100">Phase 3 추가 (Priority Donation)</text>
+<text x="95" y="438" class="field">int original_priority;</text>
+<text x="470" y="438" class="comment">// 기부 전 원래 우선순위</text>
+<text x="95" y="466" class="field">struct lock *wait_on_lock;</text>
+<text x="470" y="466" class="comment">// 대기 중인 lock</text>
+<text x="95" y="494" class="field">struct list donations;</text>
+<text x="470" y="494" class="comment">// 기부자 목록</text>
+<text x="95" y="522" class="field">struct list_elem donation_elem;</text>
+<text x="470" y="522" class="comment">// 기부 리스트 연결 요소</text>
+<rect x="55" y="547" width="640" height="91" rx="6" fill="#F3E5F5" stroke="#7B1FA2" stroke-width="1.5"/>
+<text x="75" y="569" class="section" fill="#7B1FA2">Phase 4 추가 (MLFQS)</text>
+<text x="95" y="597" class="field">int nice;</text>
+<text x="470" y="597" class="comment">// nice 값 (-20 ~ 20)</text>
+<text x="95" y="625" class="field">int recent_cpu;</text>
+<text x="470" y="625" class="comment">// 최근 CPU 사용량 (고정소수점)</text>
+</svg>

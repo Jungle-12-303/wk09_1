@@ -1,0 +1,77 @@
+<svg viewBox="0 0 950 550" xmlns="http://www.w3.org/2000/svg" style="background:#fff">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1565C0"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2E7D32"/>
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; }
+      .title { font-size: 20px; font-weight: bold; fill: #222; }
+      .state { font-size: 16px; font-weight: bold; fill: #fff; }
+      .trans { font-size: 12px; fill: #444; }
+      .phase-tag { font-size: 10px; font-weight: bold; }
+      .small { font-size: 11px; fill: #666; }
+    </style>
+  </defs>
+  <text x="475" y="35" text-anchor="middle" class="title">스레드 상태 전이 다이어그램</text>
+
+  <!-- BLOCKED -->
+  <rect x="50" y="200" width="160" height="70" rx="12" fill="#78909C"/>
+  <text x="130" y="240" text-anchor="middle" class="state">BLOCKED</text>
+  <text x="130" y="258" text-anchor="middle" font-size="11" fill="#ECEFF1">(대기 중)</text>
+
+  <!-- READY -->
+  <rect x="330" y="200" width="160" height="70" rx="12" fill="#43A047"/>
+  <text x="410" y="240" text-anchor="middle" class="state">READY</text>
+  <text x="410" y="258" text-anchor="middle" font-size="11" fill="#E8F5E9">(실행 대기)</text>
+
+  <!-- RUNNING -->
+  <rect x="610" y="200" width="160" height="70" rx="12" fill="#1E88E5"/>
+  <text x="690" y="240" text-anchor="middle" class="state">RUNNING</text>
+  <text x="690" y="258" text-anchor="middle" font-size="11" fill="#E3F2FD">(실행 중)</text>
+
+  <!-- DYING -->
+  <rect x="610" y="420" width="160" height="70" rx="12" fill="#E53935"/>
+  <text x="690" y="460" text-anchor="middle" class="state">DYING</text>
+  <text x="690" y="478" text-anchor="middle" font-size="11" fill="#FFEBEE">(종료)</text>
+
+  <!-- thread_create -> READY -->
+  <line x1="410" y1="120" x2="410" y2="195" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="415" y="110" text-anchor="middle" class="trans">thread_create()</text>
+  <text x="415" y="155" text-anchor="middle" class="phase-tag" fill="#2E7D32">[Phase 2] 생성 시 선점 확인</text>
+
+  <!-- BLOCKED -> READY: thread_unblock -->
+  <line x1="210" y1="225" x2="325" y2="225" stroke="#1565C0" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="267" y="218" text-anchor="middle" class="trans">thread_unblock()</text>
+  <text x="267" y="250" text-anchor="middle" class="phase-tag" fill="#1565C0">[Phase 1] 깨어난 스레드</text>
+
+  <!-- READY -> RUNNING: schedule -->
+  <line x1="490" y1="225" x2="605" y2="225" stroke="#2E7D32" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="547" y="218" text-anchor="middle" class="trans">schedule()</text>
+  <text x="547" y="250" text-anchor="middle" class="phase-tag" fill="#2E7D32">[Phase 2] 최고 우선순위 선택</text>
+
+  <!-- RUNNING -> READY: thread_yield -->
+  <path d="M 690 200 Q 690 160 550 160 Q 410 160 410 195" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="550" y="148" text-anchor="middle" class="trans">thread_yield()</text>
+
+  <!-- RUNNING -> BLOCKED: thread_block -->
+  <path d="M 610 255 Q 400 320 200 270 Q 150 260 130 270" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="380" y="310" text-anchor="middle" class="trans">thread_block()</text>
+  <text x="380" y="328" text-anchor="middle" class="phase-tag" fill="#E65100">[Phase 3] lock_acquire 시 블록</text>
+
+  <!-- RUNNING -> DYING: thread_exit -->
+  <line x1="690" y1="270" x2="690" y2="415" stroke="#E53935" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="705" y="350" class="trans">thread_exit()</text>
+
+  <!-- Legend -->
+  <rect x="50" y="430" width="440" height="90" rx="6" fill="#FAFAFA" stroke="#DDD"/>
+  <text x="70" y="455" class="small" font-weight="bold">Phase별 주요 영향:</text>
+  <text x="70" y="475" class="phase-tag" fill="#1565C0">Phase 1: thread_unblock 시 sleep_list에서 깨어남</text>
+  <text x="70" y="492" class="phase-tag" fill="#2E7D32">Phase 2: schedule에서 우선순위 기반 선택, 생성 시 선점</text>
+  <text x="70" y="509" class="phase-tag" fill="#E65100">Phase 3: lock_acquire에서 블록 + 우선순위 기부</text>
+</svg>

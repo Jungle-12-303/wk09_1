@@ -161,10 +161,12 @@ static void schedule(void) {
 
 | 파일 | 내용 |
 |------|------|
-| `00-overview.md` | 이 문서 — 전체 개요 |
-| `01-alarm-clock.md` | Alarm Clock 구현 가이드 |
-| `02-priority-scheduling.md` | Priority Scheduling + Priority Donation |
-| `03-advanced-scheduler.md` | MLFQS (4.4BSD 스케줄러) |
-| `04-data-structures.md` | Pintos 자료구조 (list, list_entry, offsetof) |
-| `05-synchronization.md` | 동기화 프리미티브 상세 분석 |
-| `06-implementation-guide.md` | 구현 순서 및 전략 가이드 |
+| `01-big-picture.md` | 전체 흐름 Big Picture |
+| `02-overview.md` | 이 문서 — 전체 개요 |
+| `03-data-structures.md` | Pintos 자료구조 (list, list_entry, offsetof) |
+| `04-synchronization.md` | 동기화 프리미티브 상세 분석 |
+| `05-alarm-clock.md` | Alarm Clock 구현 가이드 |
+| `06-priority-scheduling.md` | Priority Scheduling + Priority Donation |
+| `07-advanced-scheduler.md` | MLFQS (4.4BSD 스케줄러) |
+| `08-implementation-guide.md` | 구현 순서 및 전략 가이드 |
+| `09-team-strategy.md` | 팀 협업 전략 |

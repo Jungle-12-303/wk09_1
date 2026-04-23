@@ -1,0 +1,97 @@
+<svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg" style="background:#fff">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#C62828"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2E7D32"/>
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; }
+      .title { font-size: 20px; font-weight: bold; fill: #222; }
+      .time { font-size: 13px; font-weight: bold; fill: #444; }
+      .desc { font-size: 12px; fill: #555; }
+      .pri { font-size: 13px; font-weight: bold; }
+      .small { font-size: 11px; fill: #777; }
+      .problem { font-size: 13px; font-weight: bold; fill: #C62828; }
+      .solution { font-size: 13px; font-weight: bold; fill: #2E7D32; }
+    </style>
+  </defs>
+  <text x="450" y="35" text-anchor="middle" class="title">Priority Donation 시나리오</text>
+
+  <!-- Timeline axis -->
+  <line x1="80" y1="100" x2="820" y2="100" stroke="#CCC" stroke-width="2"/>
+  <text x="450" y="90" text-anchor="middle" class="small">시간 흐름 --></text>
+
+  <!-- Time markers -->
+  <line x1="120" y1="95" x2="120" y2="105" stroke="#999" stroke-width="2"/>
+  <text x="120" y="80" text-anchor="middle" class="time">T1</text>
+
+  <line x1="300" y1="95" x2="300" y2="105" stroke="#999" stroke-width="2"/>
+  <text x="300" y="80" text-anchor="middle" class="time">T2</text>
+
+  <line x1="500" y1="95" x2="500" y2="105" stroke="#999" stroke-width="2"/>
+  <text x="500" y="80" text-anchor="middle" class="time">T3</text>
+
+  <line x1="680" y1="95" x2="680" y2="105" stroke="#999" stroke-width="2"/>
+  <text x="680" y="80" text-anchor="middle" class="time">T4</text>
+
+  <!-- T1: L holds lock -->
+  <rect x="50" y="120" width="180" height="80" rx="8" fill="#E3F2FD" stroke="#1565C0"/>
+  <text x="140" y="145" text-anchor="middle" class="pri" fill="#1565C0">L (priority = 1)</text>
+  <text x="140" y="165" text-anchor="middle" class="desc">Lock A 획득</text>
+  <text x="140" y="185" text-anchor="middle" class="desc">작업 수행 중...</text>
+
+  <!-- T2: H requests lock -->
+  <rect x="240" y="120" width="180" height="100" rx="8" fill="#FFF3E0" stroke="#E65100"/>
+  <text x="330" y="145" text-anchor="middle" class="pri" fill="#E65100">H (priority = 63)</text>
+  <text x="330" y="165" text-anchor="middle" class="desc">Lock A 요청</text>
+  <text x="330" y="185" text-anchor="middle" class="desc">L이 보유 중 -> 블록!</text>
+  <text x="330" y="205" text-anchor="middle" class="solution">H가 L에게 우선순위 기부</text>
+
+  <!-- Donation arrow -->
+  <path d="M 300 220 Q 250 260 180 200" fill="none" stroke="#2E7D32" stroke-width="2.5" stroke-dasharray="6,3" marker-end="url(#arrowGreen)"/>
+  <text x="220" y="260" text-anchor="middle" font-size="12" font-weight="bold" fill="#2E7D32">donate: 1 -> 63</text>
+
+  <!-- T3: L finishes with donated priority -->
+  <rect x="440" y="120" width="180" height="100" rx="8" fill="#E8F5E9" stroke="#2E7D32"/>
+  <text x="530" y="145" text-anchor="middle" class="pri" fill="#2E7D32">L (priority = 63)</text>
+  <text x="530" y="165" text-anchor="middle" class="desc">기부받은 우선순위로</text>
+  <text x="530" y="185" text-anchor="middle" class="desc">빠르게 작업 완료</text>
+  <text x="530" y="205" text-anchor="middle" class="desc">Lock A 해제, priority 복원</text>
+
+  <!-- T4: H gets lock -->
+  <rect x="620" y="120" width="180" height="80" rx="8" fill="#FFF3E0" stroke="#E65100"/>
+  <text x="710" y="145" text-anchor="middle" class="pri" fill="#E65100">H (priority = 63)</text>
+  <text x="710" y="165" text-anchor="middle" class="desc">Lock A 획득</text>
+  <text x="710" y="185" text-anchor="middle" class="desc">정상 실행</text>
+
+  <!-- Problem section -->
+  <rect x="50" y="300" width="380" height="130" rx="8" fill="#FFEBEE" stroke="#C62828" stroke-width="2"/>
+  <text x="240" y="328" text-anchor="middle" class="problem">문제: Priority Inversion</text>
+  <text x="240" y="350" text-anchor="middle" class="desc">기부 없이는 L(pri=1)이 낮은 우선순위로</text>
+  <text x="240" y="370" text-anchor="middle" class="desc">느리게 실행되어 H(pri=63)가 오래 대기.</text>
+  <text x="240" y="395" text-anchor="middle" class="desc">M(pri=31)이 L보다 먼저 실행되면</text>
+  <text x="240" y="415" text-anchor="middle" class="desc">H는 사실상 M보다 늦게 실행됨!</text>
+
+  <!-- Solution section -->
+  <rect x="470" y="300" width="380" height="130" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2"/>
+  <text x="660" y="328" text-anchor="middle" class="solution">해결: Priority Donation</text>
+  <text x="660" y="350" text-anchor="middle" class="desc">H가 L에게 자신의 우선순위(63)를 기부.</text>
+  <text x="660" y="370" text-anchor="middle" class="desc">L이 높은 우선순위로 빠르게 완료 후 Lock 해제.</text>
+  <text x="660" y="395" text-anchor="middle" class="desc">Nested donation: L이 다른 Lock을 기다리면</text>
+  <text x="660" y="415" text-anchor="middle" class="desc">그 Lock의 holder에게도 연쇄 기부.</text>
+
+  <!-- Key functions -->
+  <rect x="50" y="460" width="800" height="100" rx="8" fill="#FAFAFA" stroke="#DDD"/>
+  <text x="450" y="488" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">핵심 구현 함수</text>
+  <text x="170" y="515" text-anchor="middle" class="desc" font-weight="bold">donate_priority()</text>
+  <text x="170" y="535" text-anchor="middle" class="small">lock holder에게 기부</text>
+  <text x="420" y="515" text-anchor="middle" class="desc" font-weight="bold">remove_with_lock()</text>
+  <text x="420" y="535" text-anchor="middle" class="small">해제 시 기부 목록에서 제거</text>
+  <text x="680" y="515" text-anchor="middle" class="desc" font-weight="bold">refresh_priority()</text>
+  <text x="680" y="535" text-anchor="middle" class="small">기부 목록에서 최대값 재계산</text>
+</svg>
