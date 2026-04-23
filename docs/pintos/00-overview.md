@@ -9,9 +9,9 @@ Pintos의 최소 스레드 시스템을 확장하여 **동기화(synchronization
 
 | # | 과제 | 핵심 키워드 | 난이도 |
 |---|------|-----------|--------|
-| 1 | Alarm Clock | busy-wait 제거, sleep list | ★☆☆ |
-| 2 | Priority Scheduling | 선점, priority donation, nested donation | ★★★ |
-| 3 | Advanced Scheduler (MLFQS) | 4.4BSD, fixed-point, nice/recent_cpu/load_avg | ★★☆ |
+| 1 | Alarm Clock | busy-wait 제거, sleep list | 하 |
+| 2 | Priority Scheduling | 선점, priority donation, nested donation | 상 |
+| 3 | Advanced Scheduler (MLFQS) | 4.4BSD, fixed-point, nice/recent_cpu/load_avg | 중 |
 
 세 과제 모두 필수이며 옵션 사항은 없다.
 

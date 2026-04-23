@@ -265,19 +265,17 @@ backtrace build/kernel.o 0x800... 0x800... 0x800...
 
 ## 팀 협업 전략
 
-- **Git 브랜치**: 각 팀원이 개인 브랜치에서 작업 후 PR로 병합
-- **조기 통합**: 과제를 나눠서 독립 작업 후 마지막에 합치는 것은 위험. 자주 통합하라
-- **코어타임**: 매일 코어타임에 PR 검토 및 병합
-- **master 브랜치**: 항상 빌드 가능한 상태 유지
+별도 문서 `07-team-strategy.md` 에 상세히 정리되어 있다.
 
-### 권장 브랜치 전략
+핵심 방침: **각자 전부 구현하고, 머지 담당은 돌아가면서 맡는다.**
+매일 코어타임에 4명의 코드를 비교하고, 머지 담당자가 기준 코드를 선택하여 master에 병합한다.
 
 ```
-master ────────────────────── (빌드 가능 상태 유지)
-  ├── feature/alarm-clock
-  ├── feature/priority-scheduling
-  ├── feature/priority-donation
-  └── feature/mlfqs
+master                          (항상 빌드 가능한 상태)
+  +-- member/woonyong           (개인 브랜치)
+  +-- member/teammate-b
+  +-- member/teammate-c
+  +-- member/teammate-d
 ```
 
 ---
