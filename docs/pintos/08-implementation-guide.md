@@ -2,14 +2,16 @@
 
 ## 권장 구현 순서
 
-```
-Phase 1: Alarm Clock (1일)
-    ↓
-Phase 2: Priority Scheduling 기본 (1일)
-    ↓
-Phase 3: Priority Donation (2일)
-    ↓
-Phase 4: Advanced Scheduler — MLFQS (1~2일)
+```mermaid
+graph TD
+    P1["Phase 1: Alarm Clock (1일)"]
+    P2["Phase 2: Priority Scheduling 기본 (1일)"]
+    P3["Phase 3: Priority Donation (2일)"]
+    P4["Phase 4: Advanced Scheduler -- MLFQS (1~2일)"]
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
 ```
 
 ---
@@ -299,14 +301,22 @@ backtrace build/kernel.o 0x800... 0x800... 0x800...
 핵심 방침: **각자 전부 구현하고, 머지 담당은 돌아가면서 맡는다.**
 매일 코어타임에 4명의 코드를 비교하고, 머지 담당자가 기준 코드를 선택하여 master에 병합한다.
 
-```
-main                            (릴리즈, 테스트 통과 상태)
-  +-- hotfix                    (버그 수정 전용)
-  +-- dev                       (개발 머지용)
-       +-- member/woonyong      (개인 브랜치)
-       +-- member/teammate-b
-       +-- member/teammate-c
-       +-- member/teammate-d
+```mermaid
+graph TD
+    MAIN["main (릴리즈, 테스트 통과 상태)"]
+    HOTFIX["hotfix (버그 수정 전용)"]
+    DEV["dev (개발 머지용)"]
+    W["member/woonyong (개인 브랜치)"]
+    B["member/teammate-b"]
+    C["member/teammate-c"]
+    D["member/teammate-d"]
+
+    MAIN --- HOTFIX
+    MAIN --- DEV
+    DEV --- W
+    DEV --- B
+    DEV --- C
+    DEV --- D
 ```
 
 ---
