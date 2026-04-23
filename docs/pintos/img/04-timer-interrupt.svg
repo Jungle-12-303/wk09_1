@@ -1,0 +1,67 @@
+<svg viewBox="0 0 850 620" xmlns="http://www.w3.org/2000/svg" style="background:#fff">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; }
+      .title { font-size: 20px; font-weight: bold; fill: #222; }
+      .func { font-size: 14px; font-weight: bold; fill: #333; }
+      .desc { font-size: 12px; fill: #555; }
+      .phase { font-size: 11px; font-weight: bold; }
+      .tick { font-size: 11px; fill: #888; font-style: italic; }
+    </style>
+  </defs>
+  <text x="425" y="35" text-anchor="middle" class="title">timer_interrupt() 처리 흐름</text>
+
+  <!-- Root -->
+  <rect x="300" y="60" width="250" height="45" rx="8" fill="#37474F"/>
+  <text x="425" y="88" text-anchor="middle" font-size="15" font-weight="bold" fill="#fff">timer_interrupt()</text>
+
+  <!-- Branch line -->
+  <line x1="425" y1="105" x2="425" y2="130" stroke="#555" stroke-width="2"/>
+
+  <!-- ticks++ -->
+  <line x1="425" y1="130" x2="130" y2="130" stroke="#555" stroke-width="2"/>
+  <line x1="130" y1="130" x2="130" y2="155" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="50" y="160" width="160" height="40" rx="6" fill="#ECEFF1" stroke="#90A4AE"/>
+  <text x="130" y="185" text-anchor="middle" class="func">ticks++</text>
+  <text x="130" y="220" text-anchor="middle" class="desc">글로벌 틱 카운터 증가</text>
+
+  <!-- thread_tick -->
+  <line x1="425" y1="130" x2="425" y2="155" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="320" y="160" width="210" height="40" rx="6" fill="#ECEFF1" stroke="#90A4AE"/>
+  <text x="425" y="185" text-anchor="middle" class="func">thread_tick()</text>
+  <text x="425" y="220" text-anchor="middle" class="desc">time slice 소진 시 선점 플래그 설정</text>
+
+  <!-- thread_awake (Phase 1) -->
+  <line x1="425" y1="130" x2="710" y2="130" stroke="#555" stroke-width="2"/>
+  <line x1="710" y1="130" x2="710" y2="155" stroke="#1565C0" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="610" y="160" width="200" height="40" rx="6" fill="#E3F2FD" stroke="#1565C0" stroke-width="2"/>
+  <text x="710" y="185" text-anchor="middle" class="func" fill="#1565C0">thread_awake(ticks)</text>
+  <text x="710" y="220" text-anchor="middle" class="phase" fill="#1565C0">[Phase 1] sleep_list 순회, 깨울 스레드 unblock</text>
+
+  <!-- MLFQS Section (Phase 4) -->
+  <rect x="100" y="270" width="650" height="320" rx="10" fill="#F3E5F5" stroke="#7B1FA2" stroke-width="2"/>
+  <text x="425" y="300" text-anchor="middle" font-size="16" font-weight="bold" fill="#7B1FA2">[Phase 4] MLFQS 업데이트</text>
+  <text x="425" y="320" text-anchor="middle" class="tick">thread_mlfqs == true 일 때만 실행</text>
+
+  <!-- Every tick -->
+  <rect x="140" y="340" width="260" height="55" rx="6" fill="#fff" stroke="#9C27B0"/>
+  <text x="270" y="362" text-anchor="middle" class="func" fill="#7B1FA2">매 틱 (every tick)</text>
+  <text x="270" y="382" text-anchor="middle" class="desc">running thread의 recent_cpu += 1</text>
+
+  <!-- Every TIMER_FREQ -->
+  <rect x="140" y="415" width="560" height="55" rx="6" fill="#fff" stroke="#9C27B0"/>
+  <text x="420" y="437" text-anchor="middle" class="func" fill="#7B1FA2">TIMER_FREQ 틱마다 (매 1초)</text>
+  <text x="420" y="457" text-anchor="middle" class="desc">load_avg 재계산 + 모든 스레드의 recent_cpu 재계산</text>
+
+  <!-- Every 4 ticks -->
+  <rect x="140" y="490" width="560" height="55" rx="6" fill="#fff" stroke="#9C27B0"/>
+  <text x="420" y="512" text-anchor="middle" class="func" fill="#7B1FA2">4틱마다 (TIME_SLICE)</text>
+  <text x="420" y="532" text-anchor="middle" class="desc">모든 스레드의 priority 재계산: PRI_MAX - (recent_cpu/4) - (nice*2)</text>
+
+  <!-- Formulas -->
+  <text x="425" y="572" text-anchor="middle" font-size="11" fill="#6A1B9A">load_avg = (59/60)*load_avg + (1/60)*ready_threads</text>
+  <text x="425" y="588" text-anchor="middle" font-size="11" fill="#6A1B9A">recent_cpu = (2*load_avg)/(2*load_avg+1) * recent_cpu + nice</text>
+</svg>
