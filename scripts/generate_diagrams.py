@@ -298,82 +298,43 @@ def gen_03():
     s += text_el(rx + sw // 2, ry - 30, "thread_create()", 14, TEXT_CAPTION, "middle", mono=True)
     s += arrow_line(rx + sw // 2, ry - 20, rx + sw // 2, ry)
 
-    # BLOCKED -> READY (bezier curve)
+    # --- All arrows hand-tuned for natural curves ---
     bx, by = states["BLOCKED"]
-    # Curve from BLOCKED top-right area to READY bottom-left area
-    start_x = bx + sw
-    start_y = by + 20
-    end_x = rx + 8
-    end_y = ry + sh - 8
-    cx1 = (start_x + end_x) / 2 - 30
-    cy1 = start_y - 60
-    d = f"M {start_x},{start_y} Q {cx1:.0f},{cy1:.0f} {end_x},{end_y}"
-    s += path_el(d)
-    # Label offset from arrow
-    label_x = (start_x + end_x) / 2 - 60
-    label_y = cy1 - 8
-    s += text_el(label_x, label_y, "thread_unblock()", 14, TEXT_CAPTION, "middle", mono=True)
-    s += phase_badge(label_x - 50, label_y + 4, 1)
-
-    # READY -> RUNNING (bezier curve)
     runx, runy = states["RUNNING"]
-    start_x2 = rx + sw
-    start_y2 = ry + sh - 20
-    end_x2 = runx
-    end_y2 = runy + 20
-    cx2 = (start_x2 + end_x2) / 2 + 30
-    cy2 = start_y2 + 40
-    d2 = f"M {start_x2},{start_y2} Q {cx2:.0f},{cy2:.0f} {end_x2},{end_y2}"
-    s += path_el(d2)
-    label_x2 = cx2 + 20
-    label_y2 = cy2 - 8
-    s += text_el(label_x2, label_y2, "schedule()", 14, TEXT_CAPTION, "middle", mono=True)
-    s += phase_badge(label_x2 - 50, label_y2 + 4, 2)
-
-    # RUNNING -> BLOCKED (straight horizontal at same y, going left)
-    start_x3 = runx
-    start_y3 = runy + sh - 20
-    end_x3 = bx + sw
-    end_y3 = by + sh - 20
-    d3 = f"M {start_x3},{start_y3} L {end_x3},{end_y3}"
-    s += path_el(d3)
-    # Label above the line
-    mid_x3 = (start_x3 + end_x3) / 2
-    mid_y3 = (start_y3 + end_y3) / 2
-    s += text_el(mid_x3, mid_y3 - 22, "sema_down()", 14, TEXT_CAPTION, "middle", mono=True)
-    s += phase_badge(mid_x3 - 40, mid_y3 - 16, 3)
-
-    # RUNNING -> READY (wide arc ABOVE both cards)
-    start_x4 = runx + sw // 2
-    start_y4 = runy
-    end_x4 = rx + sw - 20
-    end_y4 = ry
-    # Wide arc going high above
-    arc_top = ry - 80
-    cx4a = start_x4 + 40
-    cy4a = arc_top - 20
-    cx4b = end_x4 - 40
-    cy4b = arc_top - 20
-    d4 = f"M {start_x4},{start_y4} C {cx4a:.0f},{cy4a:.0f} {cx4b:.0f},{cy4b:.0f} {end_x4},{end_y4}"
-    s += path_el(d4)
-    # Label above the arc but with enough margin from top
-    label_y4 = max(arc_top - 10, 80)
-    s += text_el((start_x4 + end_x4) / 2, label_y4 - 20, "thread_yield()", 14, TEXT_CAPTION, "middle", mono=True)
-    s += phase_badge((start_x4 + end_x4) / 2 - 50, label_y4 - 14, 2)
-
-    # RUNNING -> DYING (curve down-left to DYING top)
     dx, dy = states["DYING"]
-    start_x5 = runx + sw // 2
-    start_y5 = runy + sh
-    end_x5 = dx + sw // 2
-    end_y5 = dy
-    cx5 = start_x5
-    cy5 = end_y5 - 30
-    d5 = f"M {start_x5},{start_y5} Q {cx5},{cy5} {end_x5},{end_y5}"
-    s += path_el(d5)
-    label_x5 = (start_x5 + end_x5) / 2 + 40
-    label_y5 = (start_y5 + end_y5) / 2
-    s += text_el(label_x5, label_y5, "thread_exit()", 14, TEXT_CAPTION, "start", mono=True)
+
+    # 1) BLOCKED -> READY: gentle upward arc from BLOCKED top to READY left
+    #    Start: BLOCKED top-center, End: READY left-center
+    s += path_el(f"M {bx+sw//2},{by} C {bx+sw//2},{by-80} {rx},{ry+sh} {rx+20},{ry+sh}")
+    s += text_el(bx + sw//2 - 80, by - 60, "thread_unblock()", 14, TEXT_CAPTION, "start", mono=True)
+    s += phase_badge(bx + sw//2 - 80, by - 48, 1)
+
+    # 2) READY -> RUNNING: smooth downward-right arc
+    #    Start: READY right-center, End: RUNNING top-center
+    s += path_el(f"M {rx+sw},{ry+sh//2} C {rx+sw+80},{ry+sh//2} {runx+sw//2},{runy-80} {runx+sw//2},{runy}")
+    s += text_el(rx + sw + 60, ry + sh//2 + 50, "schedule()", 14, TEXT_CAPTION, "start", mono=True)
+    s += phase_badge(rx + sw + 60, ry + sh//2 + 56, 2)
+
+    # 3) RUNNING -> BLOCKED: straight horizontal line at y=440 (bottom area of both cards)
+    s += path_el(f"M {runx},{runy+sh-20} L {bx+sw},{by+sh-20}")
+    mid_x3 = (runx + bx + sw) // 2
+    mid_y3 = runy + sh - 20
+    s += text_el(mid_x3, mid_y3 - 16, "sema_down()", 14, TEXT_CAPTION, "middle", mono=True)
+    s += phase_badge(mid_x3 - 40, mid_y3 - 10, 3)
+
+    # 4) RUNNING -> READY (yield): arc going RIGHT then UP then LEFT to READY top-right
+    #    Start: RUNNING top-right, End: READY top-right
+    s += path_el(f"M {runx+sw-20},{runy} C {runx+sw+20},{ry-40} {rx+sw+20},{ry-40} {rx+sw-20},{ry}")
+    label_x4 = (runx + sw + rx + sw) // 2
+    s += text_el(label_x4, ry - 55, "thread_yield()", 14, TEXT_CAPTION, "middle", mono=True)
+    s += phase_badge(label_x4 - 40, ry - 48, 2)
+
+    # 5) RUNNING -> DYING: smooth curve going down then left
+    #    Start: RUNNING bottom-left, End: DYING right-center
+    s += path_el(f"M {runx},{runy+sh} C {runx},{runy+sh+100} {dx+sw+40},{dy+sh//2} {dx+sw},{dy+sh//2}")
+    label_x5 = (runx + dx + sw) // 2 + 30
+    label_y5 = (runy + sh + dy + sh//2) // 2
+    s += text_el(label_x5, label_y5 - 8, "thread_exit()", 14, TEXT_CAPTION, "start", mono=True)
 
     s += svg_close()
     return s
