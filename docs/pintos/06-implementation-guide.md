@@ -5,13 +5,11 @@
 ```
 Phase 1: Alarm Clock (1일)
     ↓
-Phase 2: Priority Scheduling 기본 (1~2일)
+Phase 2: Priority Scheduling 기본 (1일)
     ↓
-Phase 3: Priority Donation (2~3일)
+Phase 3: Priority Donation (2일)
     ↓
 Phase 4: Advanced Scheduler — MLFQS (1~2일)
-    ↓
-Phase 5: 통합 테스트 및 디버깅
 ```
 
 ---
