@@ -14,36 +14,36 @@
     </marker>
   </defs>
   <text x="600" y="56" text-anchor="middle" font-size="28" font-weight="bold" fill="#191F28">Pintos Project 1 -- 모듈 구조</text>
-  <rect x="80" y="100" width="320" height="240" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
-  <text x="240" y="140" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">timer.c</text>
+  <rect x="80" y="100" width="300" height="240" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="230" y="140" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">timer.c</text>
   <rect x="110" y="155" width="80" height="24" rx="12" fill="#EFF6FF"/>
   <text x="150" y="171" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">Phase 1</text>
-  <line x1="100" y1="190" x2="380" y2="190" stroke="#F2F4F6" stroke-width="1"/>
+  <line x1="100" y1="190" x2="360" y2="190" stroke="#F2F4F6" stroke-width="1"/>
   <text x="110" y="220" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">timer_sleep()</text>
   <text x="110" y="248" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">timer_interrupt()</text>
   <text x="110" y="276" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">thread_awake()</text>
-  <rect x="440" y="100" width="320" height="240" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
-  <text x="600" y="140" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">thread.c</text>
+  <rect x="440" y="100" width="300" height="240" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="590" y="140" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">thread.c</text>
   <rect x="470" y="155" width="80" height="24" rx="12" fill="#F0FDF4"/>
   <text x="510" y="171" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
-  <line x1="460" y1="190" x2="740" y2="190" stroke="#F2F4F6" stroke-width="1"/>
+  <line x1="460" y1="190" x2="720" y2="190" stroke="#F2F4F6" stroke-width="1"/>
   <text x="470" y="220" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">thread_create()</text>
   <text x="470" y="248" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">thread_unblock()</text>
   <text x="470" y="276" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">thread_yield()</text>
   <text x="470" y="304" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">schedule()</text>
-  <rect x="800" y="100" width="320" height="240" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
-  <text x="960" y="140" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">synch.c</text>
+  <rect x="800" y="100" width="300" height="240" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="950" y="140" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">synch.c</text>
   <rect x="830" y="155" width="80" height="24" rx="12" fill="#FFF7ED"/>
   <text x="870" y="171" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">Phase 3</text>
-  <line x1="820" y1="190" x2="1100" y2="190" stroke="#F2F4F6" stroke-width="1"/>
+  <line x1="820" y1="190" x2="1080" y2="190" stroke="#F2F4F6" stroke-width="1"/>
   <text x="830" y="220" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">lock_acquire()</text>
   <text x="830" y="248" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">lock_release()</text>
   <text x="830" y="276" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">sema_down()</text>
   <text x="830" y="304" font-size="14" fill="#333D4B" text-anchor="start" font-weight="normal" class="mono">sema_up()</text>
-  <line x1="400" y1="220" x2="432" y2="220" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="420" y="208" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">호출</text>
-  <line x1="760" y1="220" x2="792" y2="220" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="780" y="208" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">호출</text>
+  <line x1="380" y1="220" x2="432" y2="220" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="410" y="206" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">호출</text>
+  <line x1="740" y1="220" x2="792" y2="220" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="770" y="206" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal">호출</text>
   <rect x="80" y="370" width="1040" height="160" rx="16" fill="#FFFFFF" stroke="#F2F4F6" stroke-width="1" filter="url(#shadow)"/>
   <rect x="110" y="390" width="80" height="24" rx="12" fill="#FAF5FF"/>
   <text x="150" y="406" font-size="12" fill="#7E22CE" text-anchor="middle" font-weight="bold">Phase 4</text>

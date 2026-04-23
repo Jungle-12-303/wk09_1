@@ -163,14 +163,15 @@ def gen_01():
     W, H = 1200, 700
     s = svg_open(W, H, "Pintos Project 1 -- 모듈 구조")
 
-    # Three cards side by side at y=100
-    cw, ch = 320, 240
+    # Three cards side by side at y=100, with 60px gaps
+    cw, ch = 300, 240
+    gap = 60
     y0 = 100
 
     modules = [
-        (80,  "timer.c",  1, ["timer_sleep()", "timer_interrupt()", "thread_awake()"]),
-        (440, "thread.c", 2, ["thread_create()", "thread_unblock()", "thread_yield()", "schedule()"]),
-        (800, "synch.c",  3, ["lock_acquire()", "lock_release()", "sema_down()", "sema_up()"]),
+        (80,           "timer.c",  1, ["timer_sleep()", "timer_interrupt()", "thread_awake()"]),
+        (80+cw+gap,    "thread.c", 2, ["thread_create()", "thread_unblock()", "thread_yield()", "schedule()"]),
+        (80+2*(cw+gap),"synch.c",  3, ["lock_acquire()", "lock_release()", "sema_down()", "sema_up()"]),
     ]
 
     for cx, name, pn, funcs in modules:
@@ -187,13 +188,18 @@ def gen_01():
 
     # Arrows between cards -- labels ABOVE arrows
     ay = y0 + ch // 2
-    # Arrow from timer.c to thread.c (stop 8px before card edges)
-    s += arrow_line(400, ay, 440, ay)
-    s += text_el(420, ay - 12, "호출", 14, TEXT_CAPTION, "middle")
+    c1_right = 80 + cw
+    c2_left = 80 + cw + gap
+    c2_right = c2_left + cw
+    c3_left = 80 + 2 * (cw + gap)
+    mid1 = (c1_right + c2_left) // 2
+    mid2 = (c2_right + c3_left) // 2
 
-    # Arrow from thread.c to synch.c
-    s += arrow_line(760, ay, 800, ay)
-    s += text_el(780, ay - 12, "호출", 14, TEXT_CAPTION, "middle")
+    s += arrow_line(c1_right, ay, c2_left, ay)
+    s += text_el(mid1, ay - 14, "호출", 14, TEXT_CAPTION, "middle")
+
+    s += arrow_line(c2_right, ay, c3_left, ay)
+    s += text_el(mid2, ay - 14, "호출", 14, TEXT_CAPTION, "middle")
 
     # Full-width Phase 4 card
     p4y = 370
@@ -227,26 +233,26 @@ def gen_01():
 # 02 Phase Dependency (1000x950)
 # ---------------------------------------------------------------------------
 def gen_02():
-    W, H = 1000, 950
+    W, H = 1000, 820
     s = svg_open(W, H, "Phase 의존 관계")
 
-    cw, ch = 700, 140
+    cw, ch = 700, 110
     cx = 150
 
+    spacing = ch + 60  # card height + gap
     phases = [
-        (100, 1, "Alarm Clock", "timer_sleep 재구현, sleep_list 도입"),
-        (280, 2, "Priority Scheduling", "ready_list 우선순위 정렬, 선점 체크"),
-        (460, 3, "Priority Donation", "lock에서 우선순위 기부/회수"),
-        (640, 4, "MLFQS", "nice, recent_cpu, load_avg로 자동 계산"),
+        (100,              1, "Alarm Clock", "timer_sleep 재구현, sleep_list 도입"),
+        (100 + spacing,    2, "Priority Scheduling", "ready_list 우선순위 정렬, 선점 체크"),
+        (100 + spacing*2,  3, "Priority Donation", "lock에서 우선순위 기부/회수"),
+        (100 + spacing*3,  4, "MLFQS", "nice, recent_cpu, load_avg로 자동 계산"),
     ]
 
     for cy, pn, title, desc in phases:
         s += card(cx, cy, cw, ch)
-        s += phase_badge(cx + 30, cy + 24, pn)
+        s += phase_badge(cx + 30, cy + 20, pn)
         bw = len(f"Phase {pn}") * 8 + 24
-        # 12px gap between badge right edge and title text
-        s += text_el(cx + 30 + bw + 12, cy + 40, title, 20, TEXT_PRIMARY, "start", "bold")
-        s += text_el(cx + 30, cy + 84, desc, 16, TEXT_BODY)
+        s += text_el(cx + 30 + bw + 12, cy + 36, title, 20, TEXT_PRIMARY, "start", "bold")
+        s += text_el(cx + 30, cy + 72, desc, 16, TEXT_BODY)
 
     # Arrows between cards -- vertical S-curves
     ax = 500
@@ -350,21 +356,24 @@ def gen_03():
     cy4b = arc_top - 20
     d4 = f"M {start_x4},{start_y4} C {cx4a:.0f},{cy4a:.0f} {cx4b:.0f},{cy4b:.0f} {end_x4},{end_y4}"
     s += path_el(d4)
-    # Label above the arc
-    s += text_el((start_x4 + end_x4) / 2, arc_top - 30, "thread_yield()", 14, TEXT_CAPTION, "middle", mono=True)
-    s += phase_badge((start_x4 + end_x4) / 2 - 50, arc_top - 24, 2)
+    # Label above the arc but with enough margin from top
+    label_y4 = max(arc_top - 10, 80)
+    s += text_el((start_x4 + end_x4) / 2, label_y4 - 20, "thread_yield()", 14, TEXT_CAPTION, "middle", mono=True)
+    s += phase_badge((start_x4 + end_x4) / 2 - 50, label_y4 - 14, 2)
 
-    # RUNNING -> DYING (straight down then left)
+    # RUNNING -> DYING (curve down-left to DYING top)
     dx, dy = states["DYING"]
     start_x5 = runx + sw // 2
     start_y5 = runy + sh
-    end_x5 = dx + sw
-    end_y5 = dy + sh // 2
-    # Go down from RUNNING, then curve left to DYING right edge
-    mid_y5 = (start_y5 + end_y5) / 2
-    d5 = f"M {start_x5},{start_y5} L {start_x5},{mid_y5} Q {start_x5},{end_y5} {end_x5},{end_y5}"
+    end_x5 = dx + sw // 2
+    end_y5 = dy
+    cx5 = start_x5
+    cy5 = end_y5 - 30
+    d5 = f"M {start_x5},{start_y5} Q {cx5},{cy5} {end_x5},{end_y5}"
     s += path_el(d5)
-    s += text_el(start_x5 + 16, mid_y5, "thread_exit()", 14, TEXT_CAPTION, "start", mono=True)
+    label_x5 = (start_x5 + end_x5) / 2 + 40
+    label_y5 = (start_y5 + end_y5) / 2
+    s += text_el(label_x5, label_y5, "thread_exit()", 14, TEXT_CAPTION, "start", mono=True)
 
     s += svg_close()
     return s
@@ -458,7 +467,7 @@ def gen_04():
 # 05 Priority Donation (1200x830)
 # ---------------------------------------------------------------------------
 def gen_05():
-    W, H = 1200, 830
+    W, H = 1200, 720
     s = svg_open(W, H, "Priority Donation 시나리오")
 
     # Horizontal timeline at y=250
