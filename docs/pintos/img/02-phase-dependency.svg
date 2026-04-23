@@ -34,7 +34,7 @@
   <text x="220" y="680" font-size="12" fill="#7E22CE" text-anchor="middle" font-weight="bold">Phase 4</text>
   <text x="272" y="680" font-size="20" fill="#191F28" text-anchor="start" font-weight="bold">MLFQS</text>
   <text x="180" y="724" font-size="16" fill="#333D4B" text-anchor="start" font-weight="normal">nice, recent_cpu, load_avg로 자동 계산</text>
-  <path d="M 500,240 C 515,252 485,268 500,272" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <path d="M 500,420 C 515,432 485,448 500,452" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <path d="M 500,600 C 515,612 485,628 500,632" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="240" x2="500" y2="272" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="420" x2="500" y2="452" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="600" x2="500" y2="632" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
 </svg>
