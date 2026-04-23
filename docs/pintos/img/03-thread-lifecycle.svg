@@ -24,22 +24,22 @@
   <text x="520" y="667" font-size="20" fill="#191F28" text-anchor="middle" font-weight="bold">DYING</text>
   <text x="520" y="120" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">thread_create()</text>
   <line x1="520" y1="130" x2="520" y2="142" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <path d="M 320,400 Q 334,340 408,222" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="304.0" y="332" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">thread_unblock()</text>
-  <rect x="254.0" y="336" width="80" height="24" rx="12" fill="#EFF6FF"/>
-  <text x="294.0" y="352" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">Phase 1</text>
-  <path d="M 640,210 Q 740,250 780,400" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="760.0" y="242" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">schedule()</text>
-  <rect x="710.0" y="246" width="80" height="24" rx="12" fill="#F0FDF4"/>
-  <text x="750.0" y="262" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
+  <path d="M 200,380 C 200,300 400,230 420,230" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="120" y="320" font-size="14" fill="#8B95A1" text-anchor="start" font-weight="normal" class="mono">thread_unblock()</text>
+  <rect x="120" y="332" width="80" height="24" rx="12" fill="#EFF6FF"/>
+  <text x="160" y="348" font-size="12" fill="#1D4ED8" text-anchor="middle" font-weight="bold">Phase 1</text>
+  <path d="M 640,190 C 720,190 900,300 900,380" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="700" y="240" font-size="14" fill="#8B95A1" text-anchor="start" font-weight="normal" class="mono">schedule()</text>
+  <rect x="700" y="246" width="80" height="24" rx="12" fill="#F0FDF4"/>
+  <text x="740" y="262" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
   <path d="M 780,440 L 320,440" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="550.0" y="418.0" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">sema_down()</text>
-  <rect x="510.0" y="424.0" width="80" height="24" rx="12" fill="#FFF7ED"/>
-  <text x="550.0" y="440.0" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">Phase 3</text>
-  <path d="M 900,380 C 940,50 580,50 620,150" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="760.0" y="60" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">thread_yield()</text>
-  <rect x="710.0" y="66" width="80" height="24" rx="12" fill="#F0FDF4"/>
-  <text x="750.0" y="82" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
-  <path d="M 900,460 Q 900,590 520,620" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="750.0" y="540.0" font-size="14" fill="#8B95A1" text-anchor="start" font-weight="normal" class="mono">thread_exit()</text>
+  <text x="550" y="424" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">sema_down()</text>
+  <rect x="510" y="430" width="80" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="550" y="446" font-size="12" fill="#C2410C" text-anchor="middle" font-weight="bold">Phase 3</text>
+  <path d="M 1000,380 C 1040,110 660,110 620,150" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="830" y="95" font-size="14" fill="#8B95A1" text-anchor="middle" font-weight="normal" class="mono">thread_yield()</text>
+  <rect x="790" y="102" width="80" height="24" rx="12" fill="#F0FDF4"/>
+  <text x="830" y="118" font-size="12" fill="#15803D" text-anchor="middle" font-weight="bold">Phase 2</text>
+  <path d="M 780,460 C 780,560 680,660 640,660" fill="none" stroke="#CBD5E1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="740" y="552" font-size="14" fill="#8B95A1" text-anchor="start" font-weight="normal" class="mono">thread_exit()</text>
 </svg>
