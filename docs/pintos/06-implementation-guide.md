@@ -110,6 +110,37 @@ Phase 4: Advanced Scheduler — MLFQS (1~2일)
 
 ---
 
+## 코딩 스타일
+
+Pintos는 C 프로젝트이므로 `docs/convention/c-style.md`를 따른다.
+핵심 규칙만 요약하면 다음과 같다.
+
+- 들여쓰기: 4칸 스페이스 (탭 금지)
+- 네이밍: snake_case (변수, 함수), UPPER_SNAKE_CASE (상수, 매크로)
+- 포인터: `int *ptr` (변수에 붙인다)
+- 중괄호: 함수 정의만 다음 줄, 나머지(if/for/while)는 같은 줄
+- 단일 문장 블록도 중괄호 필수
+- 조건문: 변수를 왼쪽, 상수를 오른쪽 (`if (ptr == NULL)`)
+- 함수 50줄 이내, 파라미터 4개 이하 권장
+- 파일 외부에 노출 불필요한 함수/변수는 `static`
+- malloc 반환값 NULL 체크, free 후 NULL 대입
+- 주석은 "왜(why)"를 적는다
+
+### 커밋 메시지
+
+`docs/convention/commit-convention.md`를 따른다.
+
+```
+<type>: <한국어 제목>
+
+예시:
+feat: Alarm Clock sleep_list 방식으로 구현
+fix: sema_up에서 우선순위 비교 조건 오류를 수정
+refactor: donate_priority 중첩 루프를 단순화
+```
+
+---
+
 ## 코드 작성 가이드라인
 
 ### 인터럽트 관리 원칙
