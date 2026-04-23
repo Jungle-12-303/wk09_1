@@ -21,24 +21,29 @@ Pintos의 최소 스레드 시스템을 확장하여 **동기화(synchronization
 
 Pintos는 x86-64 아키텍처를 타겟으로 하는 교육용 OS 프레임워크이며, 실제 하드웨어 대신 **QEMU** 에뮬레이터 위에서 동작한다.
 
-```
-pintos/
-├── threads/        ← Project 1 핵심 작업 디렉터리
-│   ├── thread.c/h  ← struct thread, 스케줄러, thread_create 등
-│   ├── synch.c/h   ← semaphore, lock, condition variable
-│   ├── init.c      ← 커널 main(), 부팅 시퀀스
-│   ├── interrupt.c ← 인터럽트 on/off, 핸들러 등록
-│   ├── palloc.c    ← 4KB 페이지 할당기
-│   └── malloc.c    ← 커널 malloc/free
-├── devices/
-│   ├── timer.c/h   ← 시스템 타이머 (100 ticks/sec), timer_sleep 수정 대상
-│   └── ...         ← vga, serial, kbd 등
-├── include/
-│   ├── threads/    ← 헤더 파일
-│   └── lib/kernel/ ← list.h (doubly-linked list) — 반드시 숙지
-├── lib/            ← 표준 C 라이브러리 서브셋
-├── tests/          ← 테스트 케이스
-└── utils/          ← pintos 실행 스크립트
+```mermaid
+graph TD
+    pintos["pintos/"]
+
+    pintos --> threads["threads/ -- Project 1 핵심 작업 디렉터리"]
+    threads --> thread_ch["thread.c/h -- struct thread, 스케줄러, thread_create 등"]
+    threads --> synch_ch["synch.c/h -- semaphore, lock, condition variable"]
+    threads --> init_c["init.c -- 커널 main(), 부팅 시퀀스"]
+    threads --> interrupt_c["interrupt.c -- 인터럽트 on/off, 핸들러 등록"]
+    threads --> palloc_c["palloc.c -- 4KB 페이지 할당기"]
+    threads --> malloc_c["malloc.c -- 커널 malloc/free"]
+
+    pintos --> devices["devices/"]
+    devices --> timer_ch["timer.c/h -- 시스템 타이머 (100 ticks/sec), timer_sleep 수정 대상"]
+    devices --> devices_etc["... -- vga, serial, kbd 등"]
+
+    pintos --> include["include/"]
+    include --> include_threads["threads/ -- 헤더 파일"]
+    include --> lib_kernel["lib/kernel/ -- list.h (doubly-linked list) -- 반드시 숙지"]
+
+    pintos --> lib["lib/ -- 표준 C 라이브러리 서브셋"]
+    pintos --> tests["tests/ -- 테스트 케이스"]
+    pintos --> utils["utils/ -- pintos 실행 스크립트"]
 ```
 
 ---
@@ -63,27 +68,14 @@ struct thread {
 
 ## 스레드 생명주기
 
-```
-                    thread_create()
-                         │
-                         ▼
-              ┌──── BLOCKED ────┐
-              │   (초기 상태)    │
-              │                 │
-    thread_unblock()         thread_block()
-              │                 │
-              ▼                 │
-           READY ◄──────────────┘
-              │
-    schedule() — next_thread_to_run()
-              │
-              ▼
-          RUNNING
-              │
-    thread_exit()
-              │
-              ▼
-           DYING → 메모리 해제
+```mermaid
+stateDiagram-v2
+    [*] --> BLOCKED : thread_create()
+    BLOCKED --> READY : thread_unblock()
+    READY --> BLOCKED : thread_block()
+    READY --> RUNNING : schedule() -- next_thread_to_run()
+    RUNNING --> DYING : thread_exit()
+    DYING --> [*] : 메모리 해제
 ```
 
 ---

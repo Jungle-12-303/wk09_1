@@ -73,17 +73,22 @@ Day 5-6(~7) : MLFQS                   — 머지 담당 D
 
 ### 구조
 
-```
-main                            (릴리즈 버전, 항상 빌드+테스트 통과 상태)
-  |
-  +-- hotfix                   (버그 수정 전용, 수정 후 main에 머지)
-  |
-  +-- dev                      (개발 내용 머지용, 개인 브랜치를 여기에 머지)
-       |
-       +-- member/woonyong     (개인 브랜치)
-       +-- member/teammate-b
-       +-- member/teammate-c
-       +-- member/teammate-d
+```mermaid
+graph TD
+    MAIN["main (릴리즈 버전, 항상 빌드+테스트 통과 상태)"]
+    HOTFIX["hotfix (버그 수정 전용, 수정 후 main에 머지)"]
+    DEV["dev (개발 내용 머지용, 개인 브랜치를 여기에 머지)"]
+    W["member/woonyong (개인 브랜치)"]
+    B["member/teammate-b"]
+    C["member/teammate-c"]
+    D["member/teammate-d"]
+
+    MAIN --- HOTFIX
+    MAIN --- DEV
+    DEV --- W
+    DEV --- B
+    DEV --- C
+    DEV --- D
 ```
 
 main: 테스트가 통과하는 안정된 코드만 올라간다. dev에서 검증이 끝난 뒤 머지한다.
