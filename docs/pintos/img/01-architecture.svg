@@ -1,63 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900"
-     font-family="system-ui, -apple-system, sans-serif">
-  <rect width="1200" height="900" fill="#FFFFFF"/>
-  <text x="600" y="52" text-anchor="middle" font-size="32" font-weight="bold" fill="#191F28">PintOS Threads -- 모듈 구조</text>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="850" viewBox="0 0 1200 850"
+     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="850" fill="#FFFFFF"/>
+  <text x="600" y="52" text-anchor="middle"
+        font-size="32" font-weight="bold" fill="#191F28">
+    PintOS Threads -- 모듈 구조
+  </text>
   <defs>
-    <marker id="arr" markerWidth="16" markerHeight="11" refX="14" refY="5.5" orient="auto">
+    <marker id="arr" markerWidth="16" markerHeight="11"
+            refX="14" refY="5.5" orient="auto">
       <polygon points="0 0, 16 5.5, 0 11" fill="#4E5968" />
     </marker>
   </defs>
-  <rect x="63" y="103" width="320" height="280" rx="12" fill="#F2F4F6" />
-  <rect x="60" y="100" width="320" height="280" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
-  <text x="220" y="135" font-size="22" fill="#1D4ED8" text-anchor="middle" font-weight="bold">timer.c</text>
-  <line x1="80" y1="150" x2="360" y2="150" stroke="#3B82F6" stroke-width="1" />
-  <text x="90" y="185" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">timer_sleep()</text>
-  <text x="90" y="217" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">timer_interrupt()</text>
-  <text x="90" y="249" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_awake()</text>
-  <text x="90" y="281" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">mlfqs_recalc()</text>
-  <rect x="423" y="103" width="320" height="280" rx="12" fill="#F2F4F6" />
-  <rect x="420" y="100" width="320" height="280" rx="12" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
-  <text x="580" y="135" font-size="22" fill="#15803D" text-anchor="middle" font-weight="bold">thread.c</text>
-  <line x1="440" y1="150" x2="720" y2="150" stroke="#22C55E" stroke-width="1" />
-  <text x="450" y="185" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_create()</text>
-  <text x="450" y="217" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_unblock()</text>
-  <text x="450" y="249" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_yield()</text>
-  <text x="450" y="281" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_set_priority()</text>
-  <rect x="783" y="103" width="320" height="280" rx="12" fill="#F2F4F6" />
-  <rect x="780" y="100" width="320" height="280" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="940" y="135" font-size="22" fill="#C2410C" text-anchor="middle" font-weight="bold">synch.c</text>
-  <line x1="800" y1="150" x2="1080" y2="150" stroke="#F97316" stroke-width="1" />
-  <text x="810" y="185" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">lock_acquire()</text>
-  <text x="810" y="217" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">lock_release()</text>
-  <text x="810" y="249" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">sema_down()</text>
-  <text x="810" y="281" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">sema_up()</text>
-  <line x1="380" y1="240" x2="420" y2="240" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="390" y="228" font-size="15" fill="#4E5968" text-anchor="middle" font-weight="normal">call</text>
-  <line x1="740" y1="240" x2="780" y2="240" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <text x="750" y="228" font-size="15" fill="#4E5968" text-anchor="middle" font-weight="normal">call</text>
-  <path d="M 780,290 C 760,320 740,320 740,290" fill="none" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
-  <rect x="63" y="433" width="1040" height="200" rx="20" fill="#F2F4F6" />
-  <rect x="60" y="430" width="1040" height="200" rx="20" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
-  <text x="580" y="470" font-size="22" fill="#7E22CE" text-anchor="middle" font-weight="bold">Phase 4: MLFQS -- 전체 모듈에 걸친 변경</text>
-  <text x="110" y="515" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">timer.c</text>
-  <text x="110" y="545" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">mlfqs_increment()</text>
-  <text x="110" y="573" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">mlfqs_recalc()</text>
-  <text x="110" y="601" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">mlfqs_priority()</text>
-  <text x="450" y="515" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">thread.c</text>
-  <text x="450" y="545" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_set_nice()</text>
-  <text x="450" y="573" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_get_nice()</text>
-  <text x="450" y="601" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_get_recent_cpu()</text>
-  <text x="790" y="515" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">synch.c</text>
-  <text x="790" y="545" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">priority donation 비활성화</text>
-  <text x="790" y="573" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">(MLFQS 모드)</text>
-  <text x="60" y="680" font-size="18" fill="#191F28" text-anchor="start" font-weight="bold">범례</text>
-  <rect x="60" y="692" width="20" height="20" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
-  <text x="90" y="708" font-size="15" fill="#1D4ED8" text-anchor="start" font-weight="normal">Phase 1: Alarm Clock</text>
-  <rect x="340" y="692" width="20" height="20" rx="4" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
-  <text x="370" y="708" font-size="15" fill="#15803D" text-anchor="start" font-weight="normal">Phase 2: Priority</text>
-  <rect x="620" y="692" width="20" height="20" rx="4" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <text x="650" y="708" font-size="15" fill="#C2410C" text-anchor="start" font-weight="normal">Phase 3: Donation</text>
-  <rect x="900" y="692" width="20" height="20" rx="4" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
-  <text x="930" y="708" font-size="15" fill="#7E22CE" text-anchor="start" font-weight="normal">Phase 4: MLFQS</text>
+  <rect x="93" y="93" width="320" height="280" rx="12" fill="#F2F4F6" />
+  <rect x="90" y="90" width="320" height="280" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <text x="250" y="128" font-size="22" fill="#1D4ED8" text-anchor="middle" font-weight="bold">timer.c</text>
+  <line x1="110" y1="142" x2="390" y2="142" stroke="#3B82F6" stroke-width="1" opacity="0.5" />
+  <text x="120" y="178" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">timer_sleep()</text>
+  <text x="120" y="210" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">timer_interrupt()</text>
+  <text x="120" y="242" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_awake()</text>
+  <text x="120" y="274" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">mlfqs_recalc()</text>
+  <rect x="310" y="330" width="80" height="26" rx="13" fill="#3B82F6" />
+  <text x="350" y="348" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
+  <rect x="443" y="93" width="320" height="280" rx="12" fill="#F2F4F6" />
+  <rect x="440" y="90" width="320" height="280" rx="12" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
+  <text x="600" y="128" font-size="22" fill="#15803D" text-anchor="middle" font-weight="bold">thread.c</text>
+  <line x1="460" y1="142" x2="740" y2="142" stroke="#22C55E" stroke-width="1" opacity="0.5" />
+  <text x="470" y="178" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_create()</text>
+  <text x="470" y="210" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_unblock()</text>
+  <text x="470" y="242" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_yield()</text>
+  <text x="470" y="274" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">thread_set_priority()</text>
+  <rect x="660" y="330" width="80" height="26" rx="13" fill="#22C55E" />
+  <text x="700" y="348" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 2</text>
+  <rect x="793" y="93" width="320" height="280" rx="12" fill="#F2F4F6" />
+  <rect x="790" y="90" width="320" height="280" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
+  <text x="950" y="128" font-size="22" fill="#C2410C" text-anchor="middle" font-weight="bold">synch.c</text>
+  <line x1="810" y1="142" x2="1090" y2="142" stroke="#F97316" stroke-width="1" opacity="0.5" />
+  <text x="820" y="178" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">lock_acquire()</text>
+  <text x="820" y="210" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">lock_release()</text>
+  <text x="820" y="242" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">sema_down()</text>
+  <text x="820" y="274" font-size="18" fill="#191F28" text-anchor="start" font-weight="normal">sema_up()</text>
+  <rect x="1010" y="330" width="80" height="26" rx="13" fill="#F97316" />
+  <text x="1050" y="348" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 3</text>
+  <line x1="415" y1="230" x2="435" y2="230" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <text x="425" y="220" font-size="15" fill="#4E5968" text-anchor="middle" font-weight="normal">호출</text>
+  <line x1="765" y1="230" x2="785" y2="230" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <text x="775" y="220" font-size="15" fill="#4E5968" text-anchor="middle" font-weight="normal">호출</text>
+  <path d="M 785,260 C 775,280 775,280 765,260" fill="none" stroke="#4E5968" stroke-width="2" marker-end="url(#arr)" />
+  <text x="775" y="295" font-size="15" fill="#4E5968" text-anchor="middle" font-weight="normal">콜백</text>
+  <rect x="93" y="413" width="1020" height="200" rx="20" fill="#F2F4F6" />
+  <rect x="90" y="410" width="1020" height="200" rx="20" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
+  <rect x="110" y="428" width="80" height="26" rx="13" fill="#A855F7" />
+  <text x="150" y="446" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 4</text>
+  <text x="205" y="448" font-size="22" fill="#7E22CE" text-anchor="start" font-weight="bold">MLFQS -- 전체 모듈에 걸친 변경</text>
+  <text x="130" y="490" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">timer.c</text>
+  <text x="130" y="518" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">mlfqs_increment()</text>
+  <text x="130" y="545" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">mlfqs_recalc()</text>
+  <text x="130" y="572" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">mlfqs_priority()</text>
+  <text x="463" y="490" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">thread.c</text>
+  <text x="463" y="518" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_set_nice()</text>
+  <text x="463" y="545" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_get_nice()</text>
+  <text x="463" y="572" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">thread_get_recent_cpu()</text>
+  <text x="796" y="490" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">synch.c</text>
+  <text x="796" y="518" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">priority donation 비활성화</text>
+  <text x="796" y="545" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">(MLFQS 모드)</text>
+  <text x="60" y="770" font-size="18" fill="#191F28" text-anchor="start" font-weight="bold">범례</text>
+  <rect x="60" y="784" width="20" height="20" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <text x="90" y="800" font-size="15" fill="#1D4ED8" text-anchor="start" font-weight="normal">Phase 1: Alarm Clock</text>
+  <rect x="330" y="784" width="20" height="20" rx="4" fill="#F0FDF4" stroke="#22C55E" stroke-width="2" />
+  <text x="360" y="800" font-size="15" fill="#15803D" text-anchor="start" font-weight="normal">Phase 2: Priority Scheduling</text>
+  <rect x="600" y="784" width="20" height="20" rx="4" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
+  <text x="630" y="800" font-size="15" fill="#C2410C" text-anchor="start" font-weight="normal">Phase 3: Priority Donation</text>
+  <rect x="870" y="784" width="20" height="20" rx="4" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
+  <text x="900" y="800" font-size="15" fill="#7E22CE" text-anchor="start" font-weight="normal">Phase 4: MLFQS</text>
 </svg>

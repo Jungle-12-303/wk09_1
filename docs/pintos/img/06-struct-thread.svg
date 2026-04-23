@@ -1,88 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1050" viewBox="0 0 1200 1050"
-     font-family="system-ui, -apple-system, sans-serif">
-  <rect width="1200" height="1050" fill="#FFFFFF"/>
-  <text x="600" y="52" text-anchor="middle" font-size="32" font-weight="bold" fill="#191F28">struct thread 필드 구성</text>
-  <rect x="203" y="93" width="800" height="406" rx="12" fill="#F2F4F6" />
-  <rect x="200" y="90" width="800" height="406" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
-  <text x="220" y="125" font-size="18" fill="#191F28" text-anchor="start" font-weight="bold">기본 필드 (Original)</text>
-  <text x="230" y="145" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
-  <text x="450" y="145" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
-  <text x="660" y="145" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
-  <text x="230" y="177" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">tid_t</text>
-  <text x="450" y="177" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">tid</text>
-  <text x="660" y="177" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">스레드 식별자</text>
-  <line x1="220" y1="199" x2="980" y2="199" stroke="#E5E8EB" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="225" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">enum thread_status</text>
-  <text x="450" y="225" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">status</text>
-  <text x="660" y="225" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">현재 상태</text>
-  <line x1="220" y1="247" x2="980" y2="247" stroke="#E5E8EB" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="273" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">char[16]</text>
-  <text x="450" y="273" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">name</text>
-  <text x="660" y="273" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">스레드 이름</text>
-  <line x1="220" y1="295" x2="980" y2="295" stroke="#E5E8EB" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="321" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
-  <text x="450" y="321" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">priority</text>
-  <text x="660" y="321" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">우선순위 (0-63)</text>
-  <line x1="220" y1="343" x2="980" y2="343" stroke="#E5E8EB" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="369" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct list_elem</text>
-  <text x="450" y="369" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">elem</text>
-  <text x="660" y="369" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">리스트 요소</text>
-  <line x1="220" y1="391" x2="980" y2="391" stroke="#E5E8EB" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="417" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct intr_frame</text>
-  <text x="450" y="417" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">tf</text>
-  <text x="660" y="417" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">인터럽트 프레임</text>
-  <line x1="220" y1="439" x2="980" y2="439" stroke="#E5E8EB" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="465" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">unsigned</text>
-  <text x="450" y="465" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">magic</text>
-  <text x="660" y="465" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">스택 오버플로 감지</text>
-  <rect x="203" y="515" width="800" height="118" rx="12" fill="#F2F4F6" />
-  <rect x="200" y="512" width="800" height="118" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
-  <rect x="220" y="526" width="80" height="26" rx="13" fill="#3B82F6" />
-  <text x="260" y="545" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
-  <text x="315" y="547" font-size="18" fill="#1D4ED8" text-anchor="start" font-weight="bold">Phase 1 추가 필드</text>
-  <text x="230" y="567" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
-  <text x="450" y="567" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
-  <text x="660" y="567" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
-  <text x="230" y="599" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int64_t</text>
-  <text x="450" y="599" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">wake_tick</text>
-  <text x="660" y="599" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">깨어날 틱</text>
-  <rect x="203" y="649" width="800" height="262" rx="12" fill="#F2F4F6" />
-  <rect x="200" y="646" width="800" height="262" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
-  <rect x="220" y="660" width="80" height="26" rx="13" fill="#F97316" />
-  <text x="260" y="679" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 3</text>
-  <text x="315" y="681" font-size="18" fill="#C2410C" text-anchor="start" font-weight="bold">Phase 3 추가 필드</text>
-  <text x="230" y="701" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
-  <text x="450" y="701" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
-  <text x="660" y="701" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
-  <text x="230" y="733" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
-  <text x="450" y="733" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">original_priority</text>
-  <text x="660" y="733" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">기부 전 원래 우선순위</text>
-  <line x1="220" y1="755" x2="980" y2="755" stroke="#F97316" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="781" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct lock*</text>
-  <text x="450" y="781" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">wait_on_lock</text>
-  <text x="660" y="781" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">대기 중인 락</text>
-  <line x1="220" y1="803" x2="980" y2="803" stroke="#F97316" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="829" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct list</text>
-  <text x="450" y="829" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">donations</text>
-  <text x="660" y="829" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">기부 목록</text>
-  <line x1="220" y1="851" x2="980" y2="851" stroke="#F97316" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="877" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct list_elem</text>
-  <text x="450" y="877" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">donation_elem</text>
-  <text x="660" y="877" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">기부 리스트 요소</text>
-  <rect x="203" y="927" width="800" height="166" rx="12" fill="#F2F4F6" />
-  <rect x="200" y="924" width="800" height="166" rx="12" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
-  <rect x="220" y="938" width="80" height="26" rx="13" fill="#A855F7" />
-  <text x="260" y="957" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 4</text>
-  <text x="315" y="959" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">Phase 4 추가 필드</text>
-  <text x="230" y="979" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
-  <text x="450" y="979" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
-  <text x="660" y="979" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
-  <text x="230" y="1011" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
-  <text x="450" y="1011" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">nice</text>
-  <text x="660" y="1011" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">nice 값 (-20~20)</text>
-  <line x1="220" y1="1033" x2="980" y2="1033" stroke="#A855F7" stroke-width="0.5" opacity="0.4" />
-  <text x="230" y="1059" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
-  <text x="450" y="1059" font-size="16" fill="#191F28" text-anchor="start" font-weight="bold">recent_cpu</text>
-  <text x="660" y="1059" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">최근 CPU 사용량 (고정소수점)</text>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="1000" viewBox="0 0 1200 1000"
+     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="1000" fill="#FFFFFF"/>
+  <text x="600" y="52" text-anchor="middle"
+        font-size="32" font-weight="bold" fill="#191F28">
+    struct thread 필드 구성
+  </text>
+  <rect x="163" y="93" width="880" height="383" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="90" width="880" height="383" rx="12" fill="#F8FAFC" stroke="#E5E8EB" stroke-width="2" />
+  <text x="180" y="125" font-size="18" fill="#191F28" text-anchor="start" font-weight="bold">기본 필드 (Original)</text>
+  <text x="190" y="145" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
+  <text x="400" y="145" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
+  <text x="620" y="145" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
+  <text x="190" y="179" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">tid_t</text>
+  <text x="400" y="179" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">tid</text>
+  <text x="620" y="179" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">스레드 식별자</text>
+  <line x1="180" y1="199" x2="1020" y2="199" stroke="#E5E8EB" stroke-width="1" opacity="0.4" />
+  <text x="190" y="223" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">enum thread_status</text>
+  <text x="400" y="223" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">status</text>
+  <text x="620" y="223" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">현재 상태</text>
+  <line x1="180" y1="243" x2="1020" y2="243" stroke="#E5E8EB" stroke-width="1" opacity="0.4" />
+  <text x="190" y="267" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">char[16]</text>
+  <text x="400" y="267" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">name</text>
+  <text x="620" y="267" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">스레드 이름</text>
+  <line x1="180" y1="287" x2="1020" y2="287" stroke="#E5E8EB" stroke-width="1" opacity="0.4" />
+  <text x="190" y="311" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
+  <text x="400" y="311" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">priority</text>
+  <text x="620" y="311" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">우선순위 (0-63)</text>
+  <line x1="180" y1="331" x2="1020" y2="331" stroke="#E5E8EB" stroke-width="1" opacity="0.4" />
+  <text x="190" y="355" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct list_elem</text>
+  <text x="400" y="355" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">elem</text>
+  <text x="620" y="355" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">리스트 요소</text>
+  <line x1="180" y1="375" x2="1020" y2="375" stroke="#E5E8EB" stroke-width="1" opacity="0.4" />
+  <text x="190" y="399" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct intr_frame</text>
+  <text x="400" y="399" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">tf</text>
+  <text x="620" y="399" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">인터럽트 프레임</text>
+  <line x1="180" y1="419" x2="1020" y2="419" stroke="#E5E8EB" stroke-width="1" opacity="0.4" />
+  <text x="190" y="443" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">unsigned</text>
+  <text x="400" y="443" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">magic</text>
+  <text x="620" y="443" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">스택 오버플로 감지</text>
+  <rect x="163" y="496" width="880" height="119" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="493" width="880" height="119" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <rect x="180" y="508" width="80" height="26" rx="13" fill="#3B82F6" />
+  <text x="220" y="526" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 1</text>
+  <text x="275" y="528" font-size="18" fill="#1D4ED8" text-anchor="start" font-weight="bold">Phase 1 추가 필드</text>
+  <text x="190" y="548" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
+  <text x="400" y="548" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
+  <text x="620" y="548" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
+  <text x="190" y="582" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int64_t</text>
+  <text x="400" y="582" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">wake_tick</text>
+  <text x="620" y="582" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">깨어날 틱</text>
+  <rect x="163" y="635" width="880" height="251" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="632" width="880" height="251" rx="12" fill="#FFF7ED" stroke="#F97316" stroke-width="2" />
+  <rect x="180" y="647" width="80" height="26" rx="13" fill="#F97316" />
+  <text x="220" y="665" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 3</text>
+  <text x="275" y="667" font-size="18" fill="#C2410C" text-anchor="start" font-weight="bold">Phase 3 추가 필드</text>
+  <text x="190" y="687" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
+  <text x="400" y="687" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
+  <text x="620" y="687" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
+  <text x="190" y="721" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
+  <text x="400" y="721" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">original_priority</text>
+  <text x="620" y="721" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">기부 전 원래 우선순위</text>
+  <line x1="180" y1="741" x2="1020" y2="741" stroke="#F97316" stroke-width="1" opacity="0.4" />
+  <text x="190" y="765" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct lock*</text>
+  <text x="400" y="765" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">wait_on_lock</text>
+  <text x="620" y="765" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">대기 중인 락</text>
+  <line x1="180" y1="785" x2="1020" y2="785" stroke="#F97316" stroke-width="1" opacity="0.4" />
+  <text x="190" y="809" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct list</text>
+  <text x="400" y="809" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">donations</text>
+  <text x="620" y="809" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">기부 목록</text>
+  <line x1="180" y1="829" x2="1020" y2="829" stroke="#F97316" stroke-width="1" opacity="0.4" />
+  <text x="190" y="853" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">struct list_elem</text>
+  <text x="400" y="853" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">donation_elem</text>
+  <text x="620" y="853" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">기부 리스트 요소</text>
+  <rect x="163" y="906" width="880" height="163" rx="12" fill="#F2F4F6" />
+  <rect x="160" y="903" width="880" height="163" rx="12" fill="#FAF5FF" stroke="#A855F7" stroke-width="2" />
+  <rect x="180" y="918" width="80" height="26" rx="13" fill="#A855F7" />
+  <text x="220" y="936" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">Phase 4</text>
+  <text x="275" y="938" font-size="18" fill="#7E22CE" text-anchor="start" font-weight="bold">Phase 4 추가 필드</text>
+  <text x="190" y="958" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Type</text>
+  <text x="400" y="958" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Field</text>
+  <text x="620" y="958" font-size="15" fill="#4E5968" text-anchor="start" font-weight="bold">Description</text>
+  <text x="190" y="992" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
+  <text x="400" y="992" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">nice</text>
+  <text x="620" y="992" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">nice 값 (-20~20)</text>
+  <line x1="180" y1="1012" x2="1020" y2="1012" stroke="#A855F7" stroke-width="1" opacity="0.4" />
+  <text x="190" y="1036" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">int</text>
+  <text x="400" y="1036" font-size="15" fill="#191F28" text-anchor="start" font-weight="bold">recent_cpu</text>
+  <text x="620" y="1036" font-size="15" fill="#4E5968" text-anchor="start" font-weight="normal">최근 CPU 사용량 (고정소수점)</text>
 </svg>
