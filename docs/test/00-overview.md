@@ -13,21 +13,29 @@
 
 ## 테스트 실행 방법
 
-```bash
-# 도커 컨테이너 접속 후
-source /IdeaProjects/SW_AI-W09-pintos/pintos/activate
+프로젝트 루트(`SW_AI-W09-pintos/`)에서 실행한다.
 
+```bash
 # 빌드
-cd pintos/threads && make
+make
+
+# 빌드 + 테스트 실행 (한방에)
+make br T=alarm-multiple
+
+# 실행만 (빌드 없이)
+make run T=alarm-multiple
+
+# 개별 테스트 채점 (기대 출력과 비교)
+make result T=alarm-multiple
 
 # 전체 테스트
 make check
 
-# 개별 테스트
-make tests/threads/alarm-multiple.result
-
 # MLFQS 테스트 (별도 플래그)
-pintos -- -q -mlfqs run mlfqs-load-1
+make mlfqs T=mlfqs-load-1
+
+# 테스트 목록 보기
+make run
 ```
 
 ## 수정 대상 파일 요약
