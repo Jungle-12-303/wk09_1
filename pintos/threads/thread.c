@@ -258,9 +258,10 @@ thread_start (void) {
  * ============================================================ */
 void
 thread_tick (void) {
-	struct thread *t = thread_current ();
+	struct thread *t = thread_current (); /* 현재 실행 중인 스레드를 가져온다. */
 
 	/* 통계 업데이트: 어떤 종류의 스레드가 CPU를 사용했는지 기록 */
+	/* idle_thread: 할 일이 없을 때 CPU가 실행하는 대기용 스레드 */
 	if (t == idle_thread)
 		idle_ticks++;              /* idle 스레드가 돌았다 = CPU가 놀고 있었다 */
 #ifdef USERPROG
@@ -496,22 +497,22 @@ thread_exit (void) {
  * ============================================================ */
 void
 thread_yield (void) {
-	struct thread *curr = thread_current ();
+	struct thread *curr = thread_current (); /* 현재 스레드를 얻어온다. */
 	enum intr_level old_level;
 
 	ASSERT (!intr_context ());  /* 인터럽트 핸들러에서 호출 금지 */
 
-	old_level = intr_disable ();
+	old_level = intr_disable (); /* 인터럽트를 비활성화한다. */
 
 	/* idle 스레드는 ready_list에 넣지 않는다.
 	 * idle은 ready_list가 빌 때만 next_thread_to_run()에서 직접 반환된다. */
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_push_back (&ready_list, &curr->elem); /* ready_list 뒤에 넣는다. */
 
 	/* 현재 스레드를 READY로 바꾸고 다른 스레드로 전환한다. */
-	do_schedule (THREAD_READY);
+	do_schedule (THREAD_READY); /* 다음 스레드를 실행하는 스케줄링 함수로 들어간다. */
 
-	intr_set_level (old_level);
+	intr_set_level (old_level); /* 이전 인터럽트 상태로 복구한다. */
 }
 
 /* ============================================================

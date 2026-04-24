@@ -89,12 +89,12 @@ timer_elapsed (int64_t then) {
 
 /* Suspends execution for approximately TICKS timer ticks. */
 void
-timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
+timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
+	int64_t start = timer_ticks (); /* 현재 tick을 시작점으로 기록한다. */
 
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+	while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
+		thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -124,8 +124,8 @@ timer_print_stats (void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-	ticks++;
-	thread_tick ();
+	ticks++;       /* 운영체제 시간을 1 tick 증가시킨다. */
+	thread_tick (); /* 현재 실행 중인 스레드가 CPU를 얼마나 썼는지 체크한다. */
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
