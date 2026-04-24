@@ -30,3 +30,6 @@ core
 .DS_Store
 .idea/
 .idea/
+-e 
+# CLion 전용 (IDE 코드 분석용)
+CMakeLists.txt
