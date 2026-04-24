@@ -44,114 +44,110 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Reads and returns a byte from PORT. */
+/*=======================================================================
+ * x86 I/O 포트 접근 함수
+ *=======================================================================
+ * CPU가 하드웨어 장치와 통신할 때 사용하는 인라인 어셈블리 래퍼.
+ * in 계열 = 포트에서 읽기, out 계열 = 포트에 쓰기.
+ *
+ * loader.S에서 IDE 디스크를 읽을 때 (insl/outb),
+ * timer.c에서 PIT를 설정할 때 (outb),
+ * interrupt.c에서 PIC를 제어할 때 (inb/outb) 등에 사용된다.
+ *
+ * volatile: 컴파일러가 최적화로 이 명령을 제거/재배치하지 못하게 한다.
+ *=======================================================================*/
+
+/* PORT에서 1바이트를 읽어 반환. */
 static inline uint8_t
 inb (uint16_t port) {
-	/* See [IA32-v2a] "IN". */
 	uint8_t data;
 	asm volatile ("inb %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT bytes from PORT, one after another, and stores them
-   into the buffer starting at ADDR. */
+/* PORT에서 CNT바이트를 연속으로 읽어 ADDR 버퍼에 저장. */
 static inline void
 insb (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
 	asm volatile ("cld; repne; insb"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Reads and returns 16 bits from PORT. */
+/* PORT에서 16비트(2바이트)를 읽어 반환. */
 static inline uint16_t
 inw (uint16_t port) {
 	uint16_t data;
-	/* See [IA32-v2a] "IN". */
 	asm volatile ("inw %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT 16-bit (halfword) units from PORT, one after
-   another, and stores them into the buffer starting at ADDR. */
+/* PORT에서 CNT개의 16비트 워드를 연속으로 읽어 ADDR 버퍼에 저장.
+ * loader.S에서 IDE 디스크를 읽을 때 rep insw로 사용. */
 static inline void
 insw (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
 	asm volatile ("cld; repne; insw"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Reads and returns 32 bits from PORT. */
+/* PORT에서 32비트(4바이트)를 읽어 반환. */
 static inline uint32_t
 inl (uint16_t port) {
-	/* See [IA32-v2a] "IN". */
 	uint32_t data;
 	asm volatile ("inl %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT 32-bit (word) units from PORT, one after another,
-   and stores them into the buffer starting at ADDR. */
+/* PORT에서 CNT개의 32비트 워드를 연속으로 읽어 ADDR 버퍼에 저장. */
 static inline void
 insl (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
 	asm volatile ("cld; repne; insl"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Writes byte DATA to PORT. */
+/* PORT에 1바이트 DATA를 쓴다. */
 static inline void
 outb (uint16_t port, uint8_t data) {
-	/* See [IA32-v2b] "OUT". */
 	asm volatile ("outb %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each byte of data in the CNT-byte buffer
-   starting at ADDR. */
+/* ADDR 버퍼의 CNT바이트를 PORT에 순서대로 쓴다. */
 static inline void
 outsb (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
 	asm volatile ("cld; repne; outsb"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-/* Writes the 16-bit DATA to PORT. */
+/* PORT에 16비트 DATA를 쓴다. */
 static inline void
 outw (uint16_t port, uint16_t data) {
-	/* See [IA32-v2b] "OUT". */
 	asm volatile ("outw %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each 16-bit unit (halfword) of data in the
-   CNT-halfword buffer starting at ADDR. */
+/* ADDR 버퍼의 CNT개 16비트 워드를 PORT에 순서대로 쓴다. */
 static inline void
 outsw (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
 	asm volatile ("cld; repne; outsw"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-/* Writes the 32-bit DATA to PORT. */
+/* PORT에 32비트 DATA를 쓴다. */
 static inline void
 outl (uint16_t port, uint32_t data) {
-	/* See [IA32-v2b] "OUT". */
 	asm volatile ("outl %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each 32-bit unit (word) of data in the CNT-word
-   buffer starting at ADDR. */
+/* ADDR 버퍼의 CNT개 32비트 워드를 PORT에 순서대로 쓴다. */
 static inline void
 outsl (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
 	asm volatile ("cld; repne; outsl"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)

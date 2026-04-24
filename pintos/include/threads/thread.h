@@ -10,38 +10,39 @@
 #endif
 
 
-/* States in a thread's life cycle. */
+/* 스레드 생명주기 상태.
+ * 스레드는 항상 아래 네 상태 중 하나에 있다. */
 enum thread_status {
-	THREAD_RUNNING,     /* Running thread. */
-	THREAD_READY,       /* Not running but ready to run. */
-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
+	THREAD_RUNNING,     /* 현재 CPU에서 실행 중. */
+	THREAD_READY,       /* 실행 준비 완료, ready_list에서 대기 중. */
+	THREAD_BLOCKED,     /* 이벤트(세마포어 등) 대기 중. sema_up 등으로 깨워야 함. */
+	THREAD_DYING        /* 곧 파괴될 예정. schedule()에서 destruction_req에 등록됨. */
 };
 
-/* Thread identifier type.
-   You can redefine this to whatever type you like. */
+/* 스레드 식별자 타입. 필요하면 다른 타입으로 재정의 가능. */
 typedef int tid_t;
-#define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
+#define TID_ERROR ((tid_t) -1)          /* tid_t 에러 값. */
 
-/* Thread priorities. */
-#define PRI_MIN 0                       /* Lowest priority. */
-#define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+/* 스레드 우선순위 범위.
+ *   PRI_MIN = 0  (최저), PRI_DEFAULT = 31 (기본), PRI_MAX = 63 (최고)
+ *   숫자가 클수록 높은 우선순위. */
+#define PRI_MIN 0                       /* 최저 우선순위. */
+#define PRI_DEFAULT 31                  /* 기본 우선순위. */
+#define PRI_MAX 63                      /* 최고 우선순위. */
 
-/* A kernel thread or user process.
+/* 커널 스레드 또는 유저 프로세스.
  *
- * Each thread structure is stored in its own 4 kB page.  The
- * thread structure itself sits at the very bottom of the page
- * (at offset 0).  The rest of the page is reserved for the
- * thread's kernel stack, which grows downward from the top of
- * the page (at offset 4 kB).  Here's an illustration:
+ * 각 스레드 구조체는 자체 4KB 페이지에 저장된다.
+ * 구조체 자체는 페이지 맨 아래(오프셋 0)에 위치하고,
+ * 나머지 공간은 커널 스택으로 사용되며 페이지 꼭대기(오프셋 4KB)에서
+ * 아래 방향으로 자란다. 그림으로 보면:
  *
  *      4 kB +---------------------------------+
- *           |          kernel stack           |
+ *           |          커널 스택              |
  *           |                |                |
  *           |                |                |
  *           |                V                |
- *           |         grows downward          |
+ *           |         아래로 성장              |
  *           |                                 |
  *           |                                 |
  *           |                                 |
@@ -59,59 +60,58 @@ typedef int tid_t;
  *           |              status             |
  *      0 kB +---------------------------------+
  *
- * The upshot of this is twofold:
+ * 이 구조에서 주의할 점 두 가지:
  *
- *    1. First, `struct thread' must not be allowed to grow too
- *       big.  If it does, then there will not be enough room for
- *       the kernel stack.  Our base `struct thread' is only a
- *       few bytes in size.  It probably should stay well under 1
- *       kB.
+ *    1. struct thread가 너무 커지면 안 된다.
+ *       커지면 커널 스택 공간이 부족해진다.
+ *       기본 struct thread는 수십 바이트 수준이며,
+ *       1KB 미만으로 유지하는 것이 좋다.
  *
- *    2. Second, kernel stacks must not be allowed to grow too
- *       large.  If a stack overflows, it will corrupt the thread
- *       state.  Thus, kernel functions should not allocate large
- *       structures or arrays as non-static local variables.  Use
- *       dynamic allocation with malloc() or palloc_get_page()
- *       instead.
+ *    2. 커널 스택이 너무 커지면 안 된다.
+ *       스택 오버플로가 발생하면 스레드 상태를 훼손한다.
+ *       따라서 커널 함수에서 큰 구조체나 배열을
+ *       지역 변수로 선언하면 안 된다.
+ *       대신 malloc()이나 palloc_get_page()로
+ *       동적 할당을 사용한다.
  *
- * The first symptom of either of these problems will probably be
- * an assertion failure in thread_current(), which checks that
- * the `magic' member of the running thread's `struct thread' is
- * set to THREAD_MAGIC.  Stack overflow will normally change this
- * value, triggering the assertion. */
-/* The `elem' member has a dual purpose.  It can be an element in
- * the run queue (thread.c), or it can be an element in a
- * semaphore wait list (synch.c).  It can be used these two ways
- * only because they are mutually exclusive: only a thread in the
- * ready state is on the run queue, whereas only a thread in the
- * blocked state is on a semaphore wait list. */
-struct thread {
-	/* Owned by thread.c. */
-	tid_t tid;                          /* Thread identifier. */
-	enum thread_status status;          /* Thread state. */
-	char name[16];                      /* Name (for debugging purposes). */
-	int priority;                       /* Priority. */
+ * 두 문제 모두 첫 증상은 thread_current()의 ASSERT 실패다.
+ * thread_current()는 실행 중인 스레드의 magic 멤버가
+ * THREAD_MAGIC으로 설정되어 있는지 검사하는데,
+ * 스택 오버플로가 발생하면 이 값이 바뀌어 ASSERT가 터진다. */
 
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
+/* elem 멤버는 이중 용도다.
+ * ready_list의 원소(thread.c)이거나,
+ * 세마포어 대기 리스트의 원소(synch.c)일 수 있다.
+ * 이 두 용도는 상호 배타적이기 때문에 가능하다:
+ * READY 상태 스레드만 ready_list에, BLOCKED 상태 스레드만
+ * 세마포어 대기 리스트에 들어간다. */
+struct thread {
+	/* thread.c 소유. */
+	tid_t tid;                          /* 스레드 식별자. */
+	enum thread_status status;          /* 스레드 상태. */
+	char name[16];                      /* 이름 (디버깅용). */
+	int priority;                       /* 우선순위 (0~63). */
+
+	/* thread.c와 synch.c가 공유. */
+	struct list_elem elem;              /* 리스트 원소 (ready_list 또는 waiters). */
 
 #ifdef USERPROG
-	/* Owned by userprog/process.c. */
-	uint64_t *pml4;                     /* Page map level 4 */
+	/* userprog/process.c 소유. */
+	uint64_t *pml4;                     /* 4단계 페이지 맵 (유저 프로세스용). */
 #endif
 #ifdef VM
-	/* Table for whole virtual memory owned by thread. */
+	/* 이 스레드가 소유한 전체 가상 메모리 테이블. */
 	struct supplemental_page_table spt;
 #endif
 
-	/* Owned by thread.c. */
-	struct intr_frame tf;               /* Information for switching */
-	unsigned magic;                     /* Detects stack overflow. */
+	/* thread.c 소유. */
+	struct intr_frame tf;               /* 컨텍스트 스위칭 정보. */
+	unsigned magic;                     /* 스택 오버플로 감지용 매직 넘버 (THREAD_MAGIC). */
 };
 
-/* If false (default), use round-robin scheduler.
-   If true, use multi-level feedback queue scheduler.
-   Controlled by kernel command-line option "-o mlfqs". */
+/* false(기본값)이면 라운드 로빈 스케줄러 사용.
+ * true이면 다단계 피드백 큐(MLFQS) 스케줄러 사용.
+ * 커널 커맨드라인 옵션 "-o mlfqs"로 제어. */
 extern bool thread_mlfqs;
 
 void thread_init (void);
