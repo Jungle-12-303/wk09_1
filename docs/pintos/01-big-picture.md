@@ -41,12 +41,6 @@ graph TD
 
     Thread --> Synch
 
-    style T1 fill:#EFF6FF,stroke:#3B82F6
-    style T4 fill:#FAF5FF,stroke:#A855F7
-    style Th2 fill:#F0FDF4,stroke:#22C55E
-    style Th4 fill:#FAF5FF,stroke:#A855F7
-    style S2 fill:#F0FDF4,stroke:#22C55E
-    style S3 fill:#FFF7ED,stroke:#F97316
 ```
 
 ---
@@ -63,11 +57,6 @@ graph TD
 
     P1 --> P2 --> P3 --> P4 --> DONE
 
-    style P1 fill:#EFF6FF,stroke:#3B82F6
-    style P2 fill:#F0FDF4,stroke:#22C55E
-    style P3 fill:#FFF7ED,stroke:#F97316
-    style P4 fill:#FAF5FF,stroke:#A855F7
-    style DONE fill:#f5f5f5,stroke:#666
 ```
 
 각 Phase는 이전 Phase의 코드 위에 쌓인다.
@@ -144,13 +133,6 @@ graph TD
     MLFQS --> EVERY_SEC
     MLFQS --> EVERY_4
 
-    style AWAKE fill:#EFF6FF,stroke:#3B82F6
-    style SLEEP fill:#EFF6FF,stroke:#3B82F6
-    style WAKE fill:#EFF6FF,stroke:#3B82F6
-    style MLFQS fill:#FAF5FF,stroke:#A855F7
-    style EVERY_TICK fill:#FAF5FF,stroke:#A855F7
-    style EVERY_SEC fill:#FAF5FF,stroke:#A855F7
-    style EVERY_4 fill:#FAF5FF,stroke:#A855F7
 ```
 
 ---
@@ -183,7 +165,6 @@ graph TD
     PH2 --> SET
     SET --> SWITCH
 
-    style PH2 fill:#F0FDF4,stroke:#22C55E
 ```
 
 ---
@@ -226,9 +207,6 @@ graph LR
     M -->|대기| LA["Lock A"]
     LA -->|보유| L["L(1)"]
 
-    style H fill:#FAF5FF,stroke:#A855F7
-    style M fill:#FFF7ED,stroke:#F97316
-    style L fill:#EFF6FF,stroke:#3B82F6
 ```
 
 ```
@@ -278,15 +256,6 @@ graph TD
     PRI --> RESORT
     PRI --> PREEMPT
 
-    style TICK fill:#FAF5FF,stroke:#A855F7
-    style SEC fill:#FAF5FF,stroke:#A855F7
-    style LAVG fill:#FAF5FF,stroke:#A855F7
-    style RCPU fill:#FAF5FF,stroke:#A855F7
-    style FOUR fill:#FAF5FF,stroke:#A855F7
-    style PRI fill:#FAF5FF,stroke:#A855F7
-    style CLAMP fill:#FAF5FF,stroke:#A855F7
-    style RESORT fill:#FAF5FF,stroke:#A855F7
-    style PREEMPT fill:#FAF5FF,stroke:#A855F7
 ```
 
 ```mermaid
