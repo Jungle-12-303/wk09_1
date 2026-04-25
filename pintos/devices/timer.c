@@ -88,6 +88,8 @@ timer_elapsed (int64_t then) {
 /* 대략 TICKS 만큼의 타이머 틱 동안 실행을 중단한다. */
 void
 timer_sleep (int64_t ticks) {
+	if (ticks <= 0) return;
+
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
