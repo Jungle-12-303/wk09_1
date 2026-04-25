@@ -369,9 +369,8 @@ thread_create (const char *name, int priority,
 	/* 4. ready_list에 넣는다 (BLOCKED -> READY 전환) */
 	thread_unblock (t);
 
-	/* [Phase 2] 여기에 선점 체크 추가 필요:
-	 * if (t->priority > thread_current()->priority)
-	 *     thread_yield(); */
+	if (t->priority > thread_current ()->priority)
+		thread_yield ();
 
 	return tid;
 }
@@ -420,9 +419,8 @@ thread_unblock (struct thread *t) {
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 
-	/* ready_list 뒤에 넣는다 (FIFO).
-	 * [Phase 2] 우선순위 순 삽입으로 변경 필요. */
-	list_push_back (&ready_list, &t->elem);
+	list_insert_ordered (&ready_list, &t->elem,
+	                     thread_priority_greater, NULL);
 	t->status = THREAD_READY;
 
 	intr_set_level (old_level);
@@ -511,7 +509,8 @@ thread_yield (void) {
 	/* idle 스레드는 ready_list에 넣지 않는다.
 	 * idle은 ready_list가 빌 때만 next_thread_to_run()에서 직접 반환된다. */
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered (&ready_list, &curr->elem,
+		                     thread_priority_greater, NULL);
 
 	/* 현재 스레드를 READY로 바꾸고 다른 스레드로 전환한다. */
 	do_schedule (THREAD_READY);
@@ -570,6 +569,24 @@ thread_awake (int64_t current_tick) {
 		                               struct thread, elem)->wakeup_tick;
 }
 
+static bool
+thread_priority_greater (const struct list_elem *lhs,
+                         const struct list_elem *rhs,
+                         void *aux UNUSED) {
+	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
+	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
+	return lhs_thread->priority > rhs_thread->priority;
+}
+
+bool
+thread_priority_less (const struct list_elem *lhs,
+                      const struct list_elem *rhs,
+                      void *aux UNUSED) {
+	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
+	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
+	return lhs_thread->priority < rhs_thread->priority;
+}
+
 /* ============================================================
  * thread_set_priority -- 현재 스레드의 우선순위를 변경
  *
@@ -587,6 +604,13 @@ thread_awake (int64_t current_tick) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+
+	if (!list_empty (&ready_list)) {
+		struct thread *front = list_entry (list_front (&ready_list),
+		                                   struct thread, elem);
+		if (front->priority > new_priority)
+			thread_yield ();
+	}
 }
 
 /* 현재 스레드의 우선순위를 반환한다. */

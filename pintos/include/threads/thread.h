@@ -130,6 +130,10 @@ void thread_unblock (struct thread *);
 void thread_sleep (int64_t wakeup_tick);
 void thread_awake (int64_t current_tick);
 
+bool thread_priority_less (const struct list_elem *lhs,
+                           const struct list_elem *rhs,
+                           void *aux);
+
 struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);

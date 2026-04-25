@@ -186,20 +186,29 @@ sema_try_down (struct semaphore *sema) {
 void
 sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
+	struct thread *unblocked = NULL;
 
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
 
-	if (!list_empty (&sema->waiters))
-		/* waiters의 맨 앞 스레드를 꺼내서 READY로 전환한다.
-		 * [Phase 2] 우선순위 최대 스레드를 꺼내도록 변경 필요 */
-		thread_unblock (list_entry (list_pop_front (&sema->waiters),
-					struct thread, elem));
+	if (!list_empty (&sema->waiters)) {
+		struct list_elem *max_elem = list_max (&sema->waiters,
+		                                       thread_priority_less, NULL);
+		list_remove (max_elem);
+		unblocked = list_entry (max_elem, struct thread, elem);
+		thread_unblock (unblocked);
+	}
 
-	sema->value++;  /* 자원 반환 */
-	/* [Phase 2] 여기서 선점 체크 필요:
-	 * 깨운 스레드가 현재 스레드보다 우선순위가 높으면 thread_yield() */
+	sema->value++;
+
+	if (unblocked != NULL
+	    && unblocked->priority > thread_current ()->priority) {
+		if (intr_context ())
+			intr_yield_on_return ();
+		else
+			thread_yield ();
+	}
 
 	intr_set_level (old_level);
 }
@@ -485,6 +494,21 @@ cond_wait (struct condition *cond, struct lock *lock) {
  *           방법: waiters의 각 semaphore_elem 안의 semaphore.waiters에서
  *                 스레드를 꺼내 우선순위를 비교한다.
  * ============================================================ */
+static bool
+sema_priority_less (const struct list_elem *lhs,
+                    const struct list_elem *rhs,
+                    void *aux UNUSED) {
+	const struct semaphore_elem *lhs_sema =
+		list_entry (lhs, struct semaphore_elem, elem);
+	const struct semaphore_elem *rhs_sema =
+		list_entry (rhs, struct semaphore_elem, elem);
+	const struct thread *lhs_thread = list_entry (
+		list_front (&lhs_sema->semaphore.waiters), struct thread, elem);
+	const struct thread *rhs_thread = list_entry (
+		list_front (&rhs_sema->semaphore.waiters), struct thread, elem);
+	return lhs_thread->priority < rhs_thread->priority;
+}
+
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (cond != NULL);
@@ -492,10 +516,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
 
-	if (!list_empty (&cond->waiters))
-		/* [Phase 2] 우선순위 최대 waiter를 꺼내도록 변경 필요 */
-		sema_up (&list_entry (list_pop_front (&cond->waiters),
-					struct semaphore_elem, elem)->semaphore);
+	if (!list_empty (&cond->waiters)) {
+		struct list_elem *max_elem = list_max (&cond->waiters,
+		                                       sema_priority_less, NULL);
+		list_remove (max_elem);
+		sema_up (&list_entry (max_elem, struct semaphore_elem, elem)->semaphore);
+	}
 }
 
 /* ============================================================
