@@ -23,12 +23,16 @@ static int64_t ticks;
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
+static struct list sleep_list;
+
 
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
+// static struct list sleep_list;
+ 
 /* Sets up the 8254 Programmable Interval Timer (PIT) to
    interrupt PIT_FREQ times per second, and registers the
    corresponding interrupt. */
@@ -90,11 +94,59 @@ timer_elapsed (int64_t then) {
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
+	
+	if(ticks < 0)
+	{
+		printf("tick이 음수입니다");
+		return;
+	}
+	 else if(ticks == 0)
+	 {
+	 	printf("tick이 0입니다.");
+	 	return;
+	}
+	
 	int64_t start = timer_ticks (); /* 현재 tick을 시작점으로 기록한다. */
 
-	ASSERT (intr_get_level () == INTR_ON);
+	ASSERT (intr_get_level () == INTR_ON); // 인터럽트 켜져 있는지 확인
+
 	while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
-		thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
+	 	thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
+
+	// 시작시간 
+	int64_t startTime = timer_ticks();
+
+	if(ticks < 0)
+	{
+		printf("tick이 음수입니다");
+		return;
+	}
+	else if(ticks == 0)
+	{
+		printf("tick이 0입니다.");
+		return;
+	}
+
+	// tick이 양수인 경우
+
+	// 현재 스레드 
+	struct thread *curr = thread_current ();
+
+
+
+	// 현재 스레드 구조체에 나중에 sleep 깰 시간 저장
+	curr->wakeupTime = startTime + ticks;
+	
+	// sleep_list 뒤에 저장
+	list_push_back(&sleep_list, &(curr->elem));
+	printf("sleep_list에 현재 스레드 push_back");
+
+
+	// thread 상태 block으로 처리
+	thread_block();
+	
+	
+	
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -125,7 +177,35 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;       /* 운영체제 시간을 1 tick 증가시킨다. */
+
+	// sleeping list 돌면서 시간 다 되었으면 unblock() 처리한다
+	struct list_elem* sleep_list_head = &(sleep_list.head);
+
+
 	thread_tick (); /* 현재 실행 중인 스레드가 CPU를 얼마나 썼는지 체크한다. */
+
+	
+	//slee_list_head 가 null이 아닐때
+	while(sleep_list_head != NULL)
+	{	
+		// 연결리스트의 노드의 스레드를 가져온다
+		struct thread* t = list_entry(sleep_list_head, struct thread, elem);
+		
+		// ticks가 그 스레드의 깨어나는 시간보다 크거나 같다면
+		if(t->wakeupTime <= ticks)
+		{
+			// 그 스레드를 ready_list에 넣는다
+			thread_unblock(t);
+
+			// 연결리스트에서 그 스레드를 제거한다.
+			list_remove(sleep_list_head); 
+		}
+		
+
+		sleep_list_head = list_next(sleep_list_head);
+	}
+
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
