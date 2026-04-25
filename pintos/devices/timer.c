@@ -98,42 +98,8 @@ void
 timer_sleep (int64_t ticks) {
 	if (ticks <= 0) return;
 
-	int64_t start = timer_ticks ();
-
-	enum intr_level old_level;
-	old_level = intr_disable ();
-	
-	// int64_t start = timer_ticks (); /* 현재 tick을 시작점으로 기록한다. */
-
-	// ASSERT (intr_get_level () == INTR_ON); // 인터럽트 켜져 있는지 확인
-
-	// while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
-	 	// thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
-
-	// printf("startTime에 시작 시간 저장\n");
-
-	// tick이 양수인 경우
-
-	// 현재 스레드
-
-
-	struct thread *curr = thread_current ();
-
-
-
-	// 현재 스레드 구조체에 나중에 sleep 깰 시간 저장
-	curr->wakeupTime = start + ticks;
-	
-	// sleep_list 뒤에 저장
-	list_push_back(&sleep_list, &(curr->elem));
-	// printf("sleep_list에 현재 스레드 push_back\n");
-
-
-	// thread 상태 block으로 처리
-	thread_block();
-	
-	
-	intr_set_level (old_level);
+	ASSERT (intr_get_level () == INTR_ON);
+	thread_sleep (timer_ticks () + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -163,51 +129,10 @@ timer_print_stats (void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-	// printf("timer_interrupt 진입\n");
-	ticks++;       /* 운영체제 시간을 1 tick 증가시킨다. */
-
-	// sleeping list 돌면서 시간 다 되었으면 unblock() 처리한다
-	// struct list_elem* sleep_list_head = &(sleep_list.head);
+	ticks++;    
 	thread_tick ();
-	// printf("tick 돈다\n");
 
-	// thread_tick (); /* 현재 실행 중인 스레드가 CPU를 얼마나 썼는지 체크한다. */
-
-
-	//slee_list_head 가 null이 아닐때
-
-	// list begin : head->next부터
-	for(struct list_elem* e = list_begin(&sleep_list); e != list_end(&sleep_list);)
-	{	
-		// if(e == list_end(&sleep_list))
-		// {
-		// 	return;
-		// }
-		// 연결리스트의 노드의 스레드를 가져온다
-		struct thread* t = list_entry(e, struct thread, elem);
-		struct list_elem* next = list_next(e);
-		if(t == NULL)
-		{
-			return;
-		}
-		// ticks가 그 스레드의 깨어나는 시간보다 크거나 같다면
-		if(t->wakeupTime <= ticks)
-		{
-
-			list_remove(e); 
-			// printf("sleep_list에서 스레드 제거\n");
-			// 그 스레드를 ready_list에 넣는다
-			thread_unblock(t);
-
-			// 연결리스트에서 그 스레드를 제거한다.
-			
-		}
-
-		e = next;
-		// sleep_list_head = list_next(sleep_list_head);
-	}
-
-	
+	thread_awake (ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

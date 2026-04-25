@@ -86,13 +86,13 @@ typedef int tid_t;
  * ready state is on the run queue, whereas only a thread in the
  * blocked state is on a semaphore wait list. */
 struct thread {
-	/* Owned by thread.c. */
-	tid_t tid;                          /* Thread identifier. */
-	enum thread_status status;          /* Thread state. */
-	char name[16];                      /* Name (for debugging purposes). */
-	int priority;                       /* Priority. */
-	// 이 스레드가 깰 시간
-	unsigned int wakeupTime;
+
+	/* thread.c 소유. */
+	tid_t tid;                          /* 스레드 식별자. */
+	enum thread_status status;          /* 스레드 상태. */
+	char name[16];                      /* 이름 (디버깅용). */
+	int64_t wakeup_tick;                /* sleep 깨어날 절대 tick. 0 = 자고 있지 않음. */
+	int priority;                       /* 우선순위 (0~63). */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;      //이전 노드와 다음 노드를 가리킨다        /* List element. */
@@ -127,6 +127,9 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+
+void thread_sleep (int64_t wakeup_tick);
+void thread_awake (int64_t current_tick);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
