@@ -33,3 +33,6 @@ core
 -e 
 # CLion 전용 (IDE 코드 분석용)
 CMakeLists.txt
+
+# Claude Code 로컬 설정
+.claude/
