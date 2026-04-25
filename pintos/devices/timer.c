@@ -90,11 +90,8 @@ void
 timer_sleep (int64_t ticks) {
 	if (ticks <= 0) return;
 
-	int64_t start = timer_ticks ();
-
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+	thread_sleep (timer_ticks () + ticks);
 }
 
 /* 대략 MS 밀리초 동안 실행을 중단한다. */
@@ -126,6 +123,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
+	thread_awake (ticks);
 }
 
 /* LOOPS 번의 반복이 타이머 틱 한 번보다 오래 걸리면 true 를,

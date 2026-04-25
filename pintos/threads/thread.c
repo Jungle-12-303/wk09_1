@@ -60,6 +60,9 @@
  * 최고 우선순위 스레드가 나온다. */
 static struct list ready_list;
 
+static struct list sleep_list;
+static int64_t next_wakeup_tick;
+
 /* idle 스레드 포인터.
  * ready_list가 비었을 때 CPU를 차지하는 특수 스레드.
  * hlt 명령어로 CPU를 저전력 대기 상태로 만든다. */
@@ -198,6 +201,8 @@ thread_init (void) {
 	/* 전역 자료구조 초기화 */
 	lock_init (&tid_lock);       /* tid 할당용 락 */
 	list_init (&ready_list);     /* 실행 대기 큐 */
+	list_init (&sleep_list);
+	next_wakeup_tick = INT64_MAX;
 	list_init (&destruction_req); /* 종료 스레드 해제 대기열 */
 
 	/* 현재 실행 흐름을 "main" 스레드로 등록한다.
@@ -512,6 +517,57 @@ thread_yield (void) {
 	do_schedule (THREAD_READY);
 
 	intr_set_level (old_level);
+}
+
+static bool
+wakeup_tick_less (const struct list_elem *lhs,
+                  const struct list_elem *rhs,
+                  void *aux UNUSED) {
+	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
+	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
+	return lhs_thread->wakeup_tick < rhs_thread->wakeup_tick;
+}
+
+void
+thread_sleep (int64_t wakeup_tick) {
+	struct thread *curr = thread_current ();
+	enum intr_level old_level;
+
+	ASSERT (!intr_context ());
+	ASSERT (curr != idle_thread);
+
+	old_level = intr_disable ();
+
+	curr->wakeup_tick = wakeup_tick;
+	list_insert_ordered (&sleep_list, &curr->elem, wakeup_tick_less, NULL);
+	if (wakeup_tick < next_wakeup_tick)
+		next_wakeup_tick = wakeup_tick;
+	thread_block ();
+
+	intr_set_level (old_level);
+}
+
+void
+thread_awake (int64_t current_tick) {
+	if (current_tick < next_wakeup_tick)
+		return;
+
+	while (!list_empty (&sleep_list)) {
+		struct list_elem *front = list_front (&sleep_list);
+		struct thread *sleeper = list_entry (front, struct thread, elem);
+
+		if (sleeper->wakeup_tick > current_tick)
+			break;
+
+		list_pop_front (&sleep_list);
+		thread_unblock (sleeper);
+	}
+
+	if (list_empty (&sleep_list))
+		next_wakeup_tick = INT64_MAX;
+	else
+		next_wakeup_tick = list_entry (list_front (&sleep_list),
+		                               struct thread, elem)->wakeup_tick;
 }
 
 /* ============================================================
