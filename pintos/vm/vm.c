@@ -1,11 +1,11 @@
-/* vm.c: Generic interface for virtual memory objects. */
+/* vm.c: 가상 메모리 객체를 위한 일반적인 인터페이스. */
 
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
 
-/* Initializes the virtual memory subsystem by invoking each subsystem's
- * intialize codes. */
+/* 각 서브시스템의 초기화 코드를 호출하여 가상 메모리 서브시스템을
+ * 초기화함. */
 void
 vm_init (void) {
 	vm_anon_init ();
@@ -14,13 +14,13 @@ vm_init (void) {
 	pagecache_init ();
 #endif
 	register_inspect_intr ();
-	/* DO NOT MODIFY UPPER LINES. */
-	/* TODO: Your code goes here. */
+	/* 위의 코드를 수정하지 마세요. */
+	/* TODO: 여기에 코드를 작성하세요. */
 }
 
-/* Get the type of the page. This function is useful if you want to know the
- * type of the page after it will be initialized.
- * This function is fully implemented now. */
+/* 페이지의 타입을 받아옴. 이 함수는 페이지가 초기화된 후의 타입을 알고
+ * 싶을 때 유용함.
+ * 이 함수는 이제 완전히 구현됨. */
 enum vm_type
 page_get_type (struct page *page) {
 	int ty = VM_TYPE (page->operations->type);
@@ -32,14 +32,13 @@ page_get_type (struct page *page) {
 	}
 }
 
-/* Helpers */
+/* 헬퍼 함수들 */
 static struct frame *vm_get_victim (void);
 static bool vm_do_claim_page (struct page *page);
 static struct frame *vm_evict_frame (void);
 
-/* Create the pending page object with initializer. If you want to create a
- * page, do not create it directly and make it through this function or
- * `vm_alloc_page`. */
+/* 초기화자와 함께 대기 중인 페이지 객체를 생성. 페이지를 생성하고 싶다면,
+ * 직접 생성하지 말고 이 함수나 `vm_alloc_page`를 통해 만드세요. */
 bool
 vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		vm_initializer *init, void *aux) {

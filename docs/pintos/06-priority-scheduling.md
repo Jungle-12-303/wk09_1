@@ -35,23 +35,34 @@
 
 ## 핵심 개념: Priority Inversion (우선순위 역전)
 
+```mermaid
+sequenceDiagram
+    participant L as L(1)
+    participant M as M(32)
+    participant H as H(63)
+
+    Note over L: Lock A 획득, 실행 중
+    Note over H: 생성 → L 선점
+    H->>L: Lock A 요청 (L이 보유 중)
+    Note over H: BLOCKED
+    Note over L: 다시 실행되어야 하지만...
+    Note over M: 생성 → L 선점, M 실행
+    Note over L,H: H는 L을 기다리고, L은 M에게 밀림<br/>H가 영원히 실행 불가!
 ```
-시나리오:
-  H(63) — 높은 우선순위
-  M(32) — 중간 우선순위
-  L(1)  — 낮은 우선순위
 
-1. L이 Lock A를 획득하고 실행 중
-2. H가 생성되어 L을 선점하고 실행
-3. H가 Lock A를 요청 → L이 보유 중이므로 BLOCKED
-4. L이 다시 실행되어야 하는데...
-5. M이 생성되어 L을 선점 → M 실행
-6. H는 L을 기다리고, L은 M에게 밀림 → H가 영원히 실행 불가!
+**해결: Priority Donation**
 
-해결: Priority Donation
-  H가 Lock A를 요청할 때 L에게 자신의 우선순위(63)를 기부
-  → L이 63으로 승격되어 M보다 먼저 실행
-  → L이 Lock A 해제 → H 실행 가능
+```mermaid
+sequenceDiagram
+    participant L as L(1)
+    participant M as M(32)
+    participant H as H(63)
+
+    H->>L: Lock A 요청 → L에게 우선순위 63 기부
+    Note over L: 우선순위 1 → 63 승격
+    Note over L: M(32)보다 높으므로 먼저 실행
+    L->>H: Lock A 해제
+    Note over H: Lock A 획득, 실행 가능
 ```
 
 ---
@@ -303,29 +314,39 @@ void thread_set_priority(int new_priority) {
 
 ## 중첩 기부(Nested Donation) 시나리오
 
-```
-스레드 H(63) → Lock B 요청 → 스레드 M(32) 보유 중
-                              M → Lock A 요청 → 스레드 L(1) 보유 중
+```mermaid
+sequenceDiagram
+    participant L as L(1)
+    participant M as M(32)
+    participant H as H(63)
 
-donate_priority() 동작:
-  1. H가 M에게 63 기부 (M: 32 → 63)
-  2. M이 Lock A를 기다리므로, M을 따라가서 L에게도 63 기부 (L: 1 → 63)
-  깊이 제한: 8단계까지
+    Note over M: Lock A 보유 중
+    Note over L: Lock A 보유 중 (M이 대기)
+    H->>M: Lock B 요청 → M에게 63 기부 (M: 32 → 63)
+    Note over M: M이 Lock A를 기다리는 중
+    M->>L: 체인 전파 → L에게도 63 기부 (L: 1 → 63)
+    Note over L,H: 깊이 제한: 8단계까지
 ```
 
 ---
 
 ## 다중 기부(Multiple Donation) 시나리오
 
-```
-스레드 L이 Lock A와 Lock B를 모두 보유
-스레드 M(32)이 Lock A 대기 → L에게 32 기부
-스레드 H(63)이 Lock B 대기 → L에게 63 기부
+```mermaid
+sequenceDiagram
+    participant L as L(원래 우선순위)
+    participant M as M(32)
+    participant H as H(63)
 
-L의 실효 우선순위 = max(원래, 32, 63) = 63
+    Note over L: Lock A, Lock B 모두 보유
+    M->>L: Lock A 대기 → L에게 32 기부
+    H->>L: Lock B 대기 → L에게 63 기부
+    Note over L: 실효 우선순위 = max(원래, 32, 63) = 63
 
-L이 Lock B 해제 → H의 기부 제거 → L의 우선순위 = max(원래, 32)
-L이 Lock A 해제 → M의 기부 제거 → L의 우선순위 = 원래값
+    L->>H: Lock B 해제 → H의 기부 제거
+    Note over L: 우선순위 = max(원래, 32)
+    L->>M: Lock A 해제 → M의 기부 제거
+    Note over L: 우선순위 = 원래값
 ```
 
 ---
