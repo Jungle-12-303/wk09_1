@@ -1,112 +1,39 @@
-/* Starts 60 threads numbered 0 through 59.  Thread #i sleeps for
-   (10+i) seconds, then spins in a loop for 60 seconds, then
-   sleeps until a total of 120 seconds have passed.  Every 2
-   seconds, starting 10 seconds in, the main thread prints the
-   load average.
-
-   The expected output is listed below.  Some margin of error is
-   allowed.
-
-   If your implementation fails this test but passes most other
-   tests, then consider whether you are doing too much work in
-   the timer interrupt.  If the timer interrupt handler takes too
-   long, then the test's main thread will not have enough time to
-   do its own work (printing a message) and go back to sleep
-   before the next tick arrives.  Then the main thread will be
-   ready, instead of sleeping, when the tick arrives,
-   artificially driving up the load average.
-
-   After 0 seconds, load average=0.00.
-   After 2 seconds, load average=0.05.
-   After 4 seconds, load average=0.16.
-   After 6 seconds, load average=0.34.
-   After 8 seconds, load average=0.58.
-   After 10 seconds, load average=0.87.
-   After 12 seconds, load average=1.22.
-   After 14 seconds, load average=1.63.
-   After 16 seconds, load average=2.09.
-   After 18 seconds, load average=2.60.
-   After 20 seconds, load average=3.16.
-   After 22 seconds, load average=3.76.
-   After 24 seconds, load average=4.42.
-   After 26 seconds, load average=5.11.
-   After 28 seconds, load average=5.85.
-   After 30 seconds, load average=6.63.
-   After 32 seconds, load average=7.46.
-   After 34 seconds, load average=8.32.
-   After 36 seconds, load average=9.22.
-   After 38 seconds, load average=10.15.
-   After 40 seconds, load average=11.12.
-   After 42 seconds, load average=12.13.
-   After 44 seconds, load average=13.16.
-   After 46 seconds, load average=14.23.
-   After 48 seconds, load average=15.33.
-   After 50 seconds, load average=16.46.
-   After 52 seconds, load average=17.62.
-   After 54 seconds, load average=18.81.
-   After 56 seconds, load average=20.02.
-   After 58 seconds, load average=21.26.
-   After 60 seconds, load average=22.52.
-   After 62 seconds, load average=23.71.
-   After 64 seconds, load average=24.80.
-   After 66 seconds, load average=25.78.
-   After 68 seconds, load average=26.66.
-   After 70 seconds, load average=27.45.
-   After 72 seconds, load average=28.14.
-   After 74 seconds, load average=28.75.
-   After 76 seconds, load average=29.27.
-   After 78 seconds, load average=29.71.
-   After 80 seconds, load average=30.06.
-   After 82 seconds, load average=30.34.
-   After 84 seconds, load average=30.55.
-   After 86 seconds, load average=30.68.
-   After 88 seconds, load average=30.74.
-   After 90 seconds, load average=30.73.
-   After 92 seconds, load average=30.66.
-   After 94 seconds, load average=30.52.
-   After 96 seconds, load average=30.32.
-   After 98 seconds, load average=30.06.
-   After 100 seconds, load average=29.74.
-   After 102 seconds, load average=29.37.
-   After 104 seconds, load average=28.95.
-   After 106 seconds, load average=28.47.
-   After 108 seconds, load average=27.94.
-   After 110 seconds, load average=27.36.
-   After 112 seconds, load average=26.74.
-   After 114 seconds, load average=26.07.
-   After 116 seconds, load average=25.36.
-   After 118 seconds, load average=24.60.
-   After 120 seconds, load average=23.81.
-   After 122 seconds, load average=23.02.
-   After 124 seconds, load average=22.26.
-   After 126 seconds, load average=21.52.
-   After 128 seconds, load average=20.81.
-   After 130 seconds, load average=20.12.
-   After 132 seconds, load average=19.46.
-   After 134 seconds, load average=18.81.
-   After 136 seconds, load average=18.19.
-   After 138 seconds, load average=17.59.
-   After 140 seconds, load average=17.01.
-   After 142 seconds, load average=16.45.
-   After 144 seconds, load average=15.90.
-   After 146 seconds, load average=15.38.
-   After 148 seconds, load average=14.87.
-   After 150 seconds, load average=14.38.
-   After 152 seconds, load average=13.90.
-   After 154 seconds, load average=13.44.
-   After 156 seconds, load average=13.00.
-   After 158 seconds, load average=12.57.
-   After 160 seconds, load average=12.15.
-   After 162 seconds, load average=11.75.
-   After 164 seconds, load average=11.36.
-   After 166 seconds, load average=10.99.
-   After 168 seconds, load average=10.62.
-   After 170 seconds, load average=10.27.
-   After 172 seconds, load average=9.93.
-   After 174 seconds, load average=9.61.
-   After 176 seconds, load average=9.29.
-   After 178 seconds, load average=8.98.
-*/
+/* ============================================================
+ * mlfqs-load-avg.c — 시간차로 시작하는 60 개 부하 스레드의 load_avg
+ *
+ * --- mlfqs-load-60 과의 차이 ---
+ *
+ *   load-60: 모든 스레드가 같은 시각 (10 초) 에 시작 → 정렬된 부하 변화.
+ *   load-avg: 스레드 #i 가 (10+i) 초에 시작 → 점진적 부하 증가.
+ *
+ *   부하가 천천히 쌓이고 천천히 사라지는 패턴 → load_avg 의 부드러운
+ *   곡선 검증.
+ *
+ * --- 시나리오 ---
+ *
+ *   60 개 스레드를 한 번에 생성. 각각:
+ *     1. (10+i) 초간 sleep → i 가 클수록 늦게 시작.
+ *     2. 60 초간 busy.
+ *     3. 총 120 초가 경과할 때까지 sleep.
+ *
+ *   메인은 매 2 초마다 load_avg 출력 (10 초 후 부터).
+ *
+ * --- 디버깅 팁 (PintOS 가이드 인용) ---
+ *
+ *   이 테스트만 실패하면 timer_interrupt 핸들러가 너무 무거운 것일
+ *   가능성. 인터럽트 안에서 무거운 계산을 하면:
+ *     - 메인이 print 후 sleep 으로 돌아갈 시간 부족
+ *     - 다음 tick 에 메인이 ready 상태로 잡혀 load_avg 가 인위적으로 상승
+ *
+ *   해결: 인터럽트 안 작업 최소화. 무거운 계산은 별도 worker 또는
+ *         지연 평가 (lazy) 패턴으로.
+ *
+ * --- 핵심 검증 포인트 ---
+ *
+ *   1. 점진적 ready 증가에 따른 load_avg 의 부드러운 상승.
+ *   2. 점진적 sleep 종료에 따른 부드러운 하강.
+ *   3. 인터럽트 핸들러 효율성 (cf. mlfqs-load-60 보다 민감).
+ * ============================================================ */
 
 #include <stdio.h>
 #include "tests/threads/tests.h"
@@ -131,6 +58,8 @@ test_mlfqs_load_avg (void)
 
   start_time = timer_ticks ();
   msg ("Starting %d load threads...", THREAD_CNT);
+  /* 60 개 부하 스레드 생성. seq_no = 0..59 를 인자로 전달.
+     각 스레드의 시작 시점이 다름. */
   for (i = 0; i < THREAD_CNT; i++) 
     {
       char name[16];
@@ -139,8 +68,10 @@ test_mlfqs_load_avg (void)
     }
   msg ("Starting threads took %d seconds.",
        timer_elapsed (start_time) / TIMER_FREQ);
+  /* 메인을 nice -20 으로 설정 → 가장 높은 우선순위 → 측정 정확도 보장. */
   thread_set_nice (-20);
 
+  /* 매 2 초마다 90 회 load_avg 출력. */
   for (i = 0; i < 90; i++) 
     {
       int64_t sleep_until = start_time + TIMER_FREQ * (2 * i + 10);
@@ -152,6 +83,11 @@ test_mlfqs_load_avg (void)
     }
 }
 
+/* 각 부하 스레드.
+ *
+ * seq_no 가 0 이면 10 초 후 시작, 1 이면 11 초 후 시작, ..., 59 이면 69 초.
+ * busy 시간은 60 초 (THREAD_CNT 초 = 60 초).
+ * exit_time = 120 초 (THREAD_CNT*2 초). */
 static void
 load_thread (void *seq_no_) 
 {
