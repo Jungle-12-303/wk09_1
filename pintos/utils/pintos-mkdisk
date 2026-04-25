@@ -8,7 +8,7 @@ use Fcntl 'SEEK_SET';
 
 GetOptions ("h|help" => sub { usage (0); })
   or exit 1;
-usage (1) if @ARGV != 2;
+usage (1) if @ARGV != 2;s
 
 my ($disk, $mb) = @ARGV;
 die "$disk: already exists\n" if -e $disk;

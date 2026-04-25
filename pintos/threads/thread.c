@@ -63,6 +63,10 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
+/* ready_list 중간 삽입을 위한 helper 함수 선언부 */
+static void list_push_ordered (struct list *list, struct list_elem *elem);
+static bool cmp_priority (struct list_elem *curr, struct list_elem *next);
+
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -200,12 +204,18 @@ thread_create (const char *name, int priority,
 	t->tf.R.rsi = (uint64_t) aux;
 	t->tf.ds = SEL_KDSEG;
 	t->tf.es = SEL_KDSEG;
-	t->tf.ss = SEL_KDSEG;
+	t->tf.ss = SEL_KDSEG; 
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
 	/* Add to run queue. */
+	/* ready_list에 스레드를 넣기*/
 	thread_unblock (t);
+
+	/* 생성 즉시 양보 로직 구현*/
+	if(priority > thread_current()->priority){
+		thread_yield();
+	}
 
 	return tid;
 }
@@ -240,7 +250,8 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	// list_push_back (&ready_list, &t->elem);
+	list_push_ordered(&ready_list, &t->elem);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -303,7 +314,8 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		//list_push_back (&ready_list, &curr->elem);
+		list_push_ordered(&ready_list, &curr->elem);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -311,7 +323,18 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+	/* 현재의 스레드를 구한다 */
+	struct thread *tcur = thread_current();
+	tcur->priority = new_priority;
+
+	if(!list_empty(&ready_list)){
+		struct list_elem *e = list_front(&ready_list);
+		struct thread *front = list_entry(e, struct thread, elem);
+
+		if(front->priority > tcur->priority){
+			thread_yield();
+		}
+	}
 }
 
 /* Returns the current thread's priority. */
@@ -587,4 +610,33 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+/* ready_list 중간 삽입을 위한 helper 함수 선언부 */
+/* 순회하면서 어디에 순차적으로 삽입할 지 결정 */
+static void 
+list_push_ordered (struct list *list, struct list_elem *elem){
+	/* head 부터 구하기 */
+	struct list_elem *e;
+
+	/* 순회를 진행한다 */
+	for(e = list_begin(list); e != list_end(list); e = list_next(e)){
+		if(cmp_priority(e, elem)){
+			list_insert(e, elem);
+			return;
+		}
+	}
+
+	/* 만약 삽입할 곳을 못 찾았다면 => 마지막에 넣기 */
+	list_push_back(list, elem);
+}
+
+/* 현재와 이후의 thread의 priority 비교 */
+static bool 
+cmp_priority(struct list_elem *cur, struct list_elem *new){
+	/* list_elem을 가지고 상위 객체인 thread를 찾기 */
+	struct thread *tcur = list_entry(cur, struct thread, elem);
+	struct thread *tnew = list_entry(new, struct thread, elem);
+
+	return tcur->priority < tnew->priority;
 }
