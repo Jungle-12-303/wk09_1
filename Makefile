@@ -6,8 +6,12 @@
 #   make run T=alarm-multiple   테스트 실행
 #   make check        전체 테스트
 #   make result T=alarm-multiple  개별 테스트 채점
+#   make gdb T=alarm-single     GDB 디버깅 (터미널1)
+#   make gdb-attach             GDB 연결 (터미널2)
 #   make clean        빌드 삭제
 # ============================================================
+
+SHELL := /bin/bash
 
 THREADS_DIR = pintos/threads
 BUILD_DIR   = $(THREADS_DIR)/build
@@ -45,7 +49,7 @@ ifndef T
 	@echo "  mlfqs-recent-1  mlfqs-fair-2  mlfqs-fair-20"
 	@echo "  mlfqs-nice-2  mlfqs-nice-10  mlfqs-block"
 else
-	cd $(BUILD_DIR) && pintos -- -q run $(T)
+	$(ACTIVATE) cd $(BUILD_DIR) && pintos -- -q run $(T)
 endif
 
 # 개별 테스트 채점 (예: make result T=alarm-multiple)
@@ -54,7 +58,7 @@ ifndef T
 	@echo "사용법: make result T=<테스트이름>"
 	@echo "예시:   make result T=alarm-multiple"
 else
-	cd $(THREADS_DIR) && make tests/threads/$(T).result
+	$(ACTIVATE) cd $(BUILD_DIR) && make tests/threads/$(T).result
 endif
 
 # MLFQS 테스트 실행 (예: make mlfqs T=mlfqs-load-1)
@@ -63,12 +67,12 @@ ifndef T
 	@echo "사용법: make mlfqs T=<테스트이름>"
 	@echo "예시:   make mlfqs T=mlfqs-load-1"
 else
-	cd $(BUILD_DIR) && pintos -- -q -mlfqs run $(T)
+	$(ACTIVATE) cd $(BUILD_DIR) && pintos -- -q -mlfqs run $(T)
 endif
 
 # 전체 테스트
 check:
-	cd $(THREADS_DIR) && make check
+	$(ACTIVATE) cd $(THREADS_DIR) && make check
 
 # 빌드 후 바로 실행 (예: make br T=alarm-multiple)
 br:
@@ -76,11 +80,33 @@ ifndef T
 	@echo "사용법: make br T=<테스트이름>"
 else
 	cd $(THREADS_DIR) && make
-	cd $(BUILD_DIR) && pintos -- -q run $(T)
+	$(ACTIVATE) cd $(BUILD_DIR) && pintos -- -q run $(T)
 endif
+
+# GDB 디버깅 (예: make gdb T=alarm-single)
+# 터미널1에서 실행하면 QEMU가 GDB 연결을 기다린다.
+# 터미널2에서 make gdb-attach 로 연결한다.
+gdb:
+ifndef T
+	@echo "사용법: make gdb T=<테스트이름>"
+	@echo "예시:   make gdb T=alarm-single"
+	@echo ""
+	@echo "1) 터미널1: make gdb T=alarm-single"
+	@echo "2) 터미널2: make gdb-attach"
+	@echo "3) GDB에서: break main → continue → next"
+else
+	$(ACTIVATE) cd $(BUILD_DIR) && pintos --gdb -- -q run $(T)
+endif
+
+# GDB 연결 (다른 터미널에서 실행)
+gdb-attach:
+	cd $(BUILD_DIR) && gdb -q kernel.o \
+		-x .gdbinit \
+		-ex "target remote localhost:1234" \
+		-ex "continue"
 
 # 클린
 clean:
 	cd $(THREADS_DIR) && make clean
 
-.PHONY: all build run result mlfqs check br clean
+.PHONY: all build run result mlfqs check br gdb gdb-attach clean
