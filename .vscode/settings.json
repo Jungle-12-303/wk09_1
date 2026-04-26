@@ -1,0 +1,13 @@
+{
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/pintos",
+        "${workspaceFolder}/pintos/include",
+        "${workspaceFolder}/pintos/include/lib",
+        "${workspaceFolder}/pintos/include/lib/kernel",
+        "${workspaceFolder}/pintos/lib/kernel"
+    ],
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+    "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+    "C_Cpp.errorSquiggles": "enabled",
+    "terminal.integrated.defaultProfile.linux": "bash"
+}

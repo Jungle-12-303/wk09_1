@@ -46,6 +46,8 @@ timer_init (void) {
 	outb (0x40, count & 0xff);
 	outb (0x40, count >> 8);
 
+	list_init(&sleep_list);
+
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
 
@@ -95,6 +97,9 @@ timer_elapsed (int64_t then) {
 void
 timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	
+	enum intr_level old_level;
+	old_level = intr_disable ();
+	
 	if(ticks < 0)
 	{
 		printf("tick이 음수입니다");
@@ -106,30 +111,23 @@ timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	 	return;
 	}
 	
-	int64_t start = timer_ticks (); /* 현재 tick을 시작점으로 기록한다. */
+	// int64_t start = timer_ticks (); /* 현재 tick을 시작점으로 기록한다. */
 
-	ASSERT (intr_get_level () == INTR_ON); // 인터럽트 켜져 있는지 확인
+	// ASSERT (intr_get_level () == INTR_ON); // 인터럽트 켜져 있는지 확인
 
-	while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
-	 	thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
+	// while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
+	//  	thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
 
 	// 시작시간 
 	int64_t startTime = timer_ticks();
 
-	if(ticks < 0)
-	{
-		printf("tick이 음수입니다");
-		return;
-	}
-	else if(ticks == 0)
-	{
-		printf("tick이 0입니다.");
-		return;
-	}
 
 	// tick이 양수인 경우
 
-	// 현재 스레드 
+	// 현재 스레드
+
+	
+
 	struct thread *curr = thread_current ();
 
 
@@ -146,7 +144,7 @@ timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	thread_block();
 	
 	
-	
+	intr_set_level (old_level);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -179,30 +177,35 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;       /* 운영체제 시간을 1 tick 증가시킨다. */
 
 	// sleeping list 돌면서 시간 다 되었으면 unblock() 처리한다
-	struct list_elem* sleep_list_head = &(sleep_list.head);
+	// struct list_elem* sleep_list_head = &(sleep_list.head);
 
 
 	thread_tick (); /* 현재 실행 중인 스레드가 CPU를 얼마나 썼는지 체크한다. */
 
-	
+
 	//slee_list_head 가 null이 아닐때
-	while(sleep_list_head != NULL)
+
+	// list begin : head->next부터
+	for(struct list_elem* e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e))
 	{	
 		// 연결리스트의 노드의 스레드를 가져온다
-		struct thread* t = list_entry(sleep_list_head, struct thread, elem);
+		struct thread* t = list_entry(e, struct thread, elem);
 		
 		// ticks가 그 스레드의 깨어나는 시간보다 크거나 같다면
 		if(t->wakeupTime <= ticks)
 		{
+
+			list_remove(t); 
+
 			// 그 스레드를 ready_list에 넣는다
 			thread_unblock(t);
 
 			// 연결리스트에서 그 스레드를 제거한다.
-			list_remove(sleep_list_head); 
+			
 		}
 		
 
-		sleep_list_head = list_next(sleep_list_head);
+		// sleep_list_head = list_next(sleep_list_head);
 	}
 
 
