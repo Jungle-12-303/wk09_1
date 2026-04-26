@@ -126,8 +126,8 @@ sema_down (struct semaphore *sema) {
 	/* value가 0이면 대기한다.
 	 * 깨어난 후에도 다시 확인해야 하므로 while 사용. */
 	while (sema->value == 0) {
-		/* [Phase 2] list_push_back -> list_insert_ordered로 변경 필요 */
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered (&sema->waiters, &thread_current ()->elem,
+		                     thread_priority_greater, NULL);
 		thread_block ();  /* 현재 스레드를 BLOCKED로 만들고 다른 스레드로 전환 */
 	}
 
@@ -193,10 +193,8 @@ sema_up (struct semaphore *sema) {
 	old_level = intr_disable ();
 
 	if (!list_empty (&sema->waiters)) {
-		struct list_elem *max_elem = list_max (&sema->waiters,
-		                                       thread_priority_less, NULL);
-		list_remove (max_elem);
-		unblocked = list_entry (max_elem, struct thread, elem);
+		unblocked = list_entry (list_pop_front (&sema->waiters),
+		                        struct thread, elem);
 		thread_unblock (unblocked);
 	}
 
