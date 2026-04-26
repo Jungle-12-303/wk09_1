@@ -97,17 +97,20 @@ timer_elapsed (int64_t then) {
 void
 timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	
+	// printf("timer_sleep 진입\n");
+	
 	enum intr_level old_level;
 	old_level = intr_disable ();
 	
+
 	if(ticks < 0)
 	{
-		printf("tick이 음수입니다");
+		// printf("tick이 음수입니다");
 		return;
 	}
 	 else if(ticks == 0)
 	 {
-	 	printf("tick이 0입니다.");
+	 	// printf("tick이 0입니다.");
 	 	return;
 	}
 	
@@ -120,13 +123,12 @@ timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 
 	// 시작시간 
 	int64_t startTime = timer_ticks();
-
+	// printf("startTime에 시작 시간 저장\n");
 
 	// tick이 양수인 경우
 
 	// 현재 스레드
 
-	
 
 	struct thread *curr = thread_current ();
 
@@ -137,7 +139,7 @@ timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	
 	// sleep_list 뒤에 저장
 	list_push_back(&sleep_list, &(curr->elem));
-	printf("sleep_list에 현재 스레드 push_back");
+	// printf("sleep_list에 현재 스레드 push_back\n");
 
 
 	// thread 상태 block으로 처리
@@ -174,41 +176,51 @@ timer_print_stats (void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
+	// printf("timer_interrupt 진입\n");
 	ticks++;       /* 운영체제 시간을 1 tick 증가시킨다. */
 
 	// sleeping list 돌면서 시간 다 되었으면 unblock() 처리한다
 	// struct list_elem* sleep_list_head = &(sleep_list.head);
+	thread_tick ();
+	// printf("tick 돈다\n");
 
-
-	thread_tick (); /* 현재 실행 중인 스레드가 CPU를 얼마나 썼는지 체크한다. */
+	// thread_tick (); /* 현재 실행 중인 스레드가 CPU를 얼마나 썼는지 체크한다. */
 
 
 	//slee_list_head 가 null이 아닐때
 
 	// list begin : head->next부터
-	for(struct list_elem* e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e))
+	for(struct list_elem* e = list_begin(&sleep_list); e != list_end(&sleep_list);)
 	{	
+		if(e == list_end(&sleep_list))
+		{
+			return;
+		}
 		// 연결리스트의 노드의 스레드를 가져온다
 		struct thread* t = list_entry(e, struct thread, elem);
-		
+		struct list_elem* next = list_next(e);
+		if(t == NULL)
+		{
+			return;
+		}
 		// ticks가 그 스레드의 깨어나는 시간보다 크거나 같다면
 		if(t->wakeupTime <= ticks)
 		{
 
-			list_remove(t); 
-
+			list_remove(e); 
+			// printf("sleep_list에서 스레드 제거\n");
 			// 그 스레드를 ready_list에 넣는다
 			thread_unblock(t);
 
 			// 연결리스트에서 그 스레드를 제거한다.
 			
 		}
-		
 
+		e = next;
 		// sleep_list_head = list_next(sleep_list_head);
 	}
 
-
+	
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
