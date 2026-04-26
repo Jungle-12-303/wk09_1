@@ -569,22 +569,13 @@ thread_awake (int64_t current_tick) {
 		                               struct thread, elem)->wakeup_tick;
 }
 
-static bool
+bool
 thread_priority_greater (const struct list_elem *lhs,
-                         const struct list_elem *rhs,
-                         void *aux UNUSED) {
+                        const struct list_elem *rhs,
+                        void *aux UNUSED) {
 	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
 	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
 	return lhs_thread->priority > rhs_thread->priority;
-}
-
-bool
-thread_priority_less (const struct list_elem *lhs,
-                      const struct list_elem *rhs,
-                      void *aux UNUSED) {
-	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
-	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
-	return lhs_thread->priority < rhs_thread->priority;
 }
 
 /* ============================================================
