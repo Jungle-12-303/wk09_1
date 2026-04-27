@@ -102,7 +102,7 @@ cp docs/convention/pr-convention.md ~/.codex/skills/pr-convention/SKILL.md
 예시:
 
 ```bash
-cp docs/convention/commit-convention.md ~/.codex/skills/commit-convention/SKILL.md
+cp docs/convention/pr-convention.md ~/.codex/skills/pr-convention/SKILL.md
 ```
 
 새 세션에서 반영하는 것이 가장 안전합니다.
