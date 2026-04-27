@@ -28,6 +28,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* busy waiting 해결 위한: sleep_list를 선언 */
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -109,9 +112,10 @@ thread_init (void) {
 	};
 	lgdt (&gdt_ds);
 
-	/* Init the globla thread context */
+	/* 전역 스레드용 객체 초기화(sleep_list 추가) */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+	list_init (&sleep_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -612,7 +616,58 @@ allocate_tid (void) {
 	return tid;
 }
 
-/* ready_list 중간 삽입을 위한 helper 함수 선언부 */
+/* phase 1: alarm clock 해결 함수 구현부 */
+/* 스레드를 sleep_list에 넣기 */
+void 
+thread_sleep(int64_t wake_ticks){
+	/* 현재 cpu에 running하는 스레드 가져오기 */
+	struct thread *cur = thread_current();
+	/* interrupt를 꺼놓고, 상태를 변수에 저장하기*/
+	enum intr_level old_level = intr_disable();
+	/* 스레드의 wake_tick 설정 */
+	cur->wake_tick = wake_ticks;
+	/* sleep_list에 특정 속성을 기준으로 순차적으로 넣기 */
+	list_insert_ordered(&sleep_list, &cur->elem, cmp_thread_ticks, NULL);
+	/* 스케줄링 후보에서 빠짐: ready_list에 들어가지 않음 */
+	thread_block();
+	/* 인터럽트 키기? */
+	intr_set_level(old_level);
+}
+
+/* wake_tick이 작은 순으로 list에 삽입하는 조건 구현 */
+bool
+cmp_thread_ticks(const struct list_elem *a, 
+				 const struct list_elem *b,
+				 void *aux){
+	struct thread *st_a = list_entry(a, struct thread, elem);
+	struct thread *st_b = list_entry(b, struct thread, elem);
+	return st_a->wake_tick < st_b->wake_tick;
+}
+
+/* sleep_list를 매 틱마다 front를 확인 => 조건 만족 시 unblock하기 */
+void
+thread_awake(int64_t global_ticks){
+	/* interrupt 꺼놓기 */
+	enum intr_level old_level = intr_disable();
+	/* while로 순회하면 front elem 가져오기 */
+	while(!list_empty(&sleep_list)){
+		struct list_elem *e = list_front(&sleep_list);
+		struct thread *t = list_entry(e, struct thread, elem);
+
+		/* 해당 스레드의 wake_tick이 만족하지 않는다면?*/
+		if(t->wake_tick > global_ticks){
+			break;
+		}
+
+		/* sleep_list에서 빼고, unblock한다 */
+		list_pop_front(&sleep_list);
+		thread_unblock(t);
+	}
+
+	intr_set_level(old_level);
+}
+
+/* phase 2: priority scheduling 함수 구현부 */
 /* 순회하면서 어디에 순차적으로 삽입할 지 결정 */
 static void 
 list_push_ordered (struct list *list, struct list_elem *elem){
@@ -633,10 +688,11 @@ list_push_ordered (struct list *list, struct list_elem *elem){
 
 /* 현재와 이후의 thread의 priority 비교 */
 static bool 
-cmp_priority(struct list_elem *cur, struct list_elem *new){
+cmp_priority (struct list_elem *cur, struct list_elem *new){
 	/* list_elem을 가지고 상위 객체인 thread를 찾기 */
 	struct thread *tcur = list_entry(cur, struct thread, elem);
 	struct thread *tnew = list_entry(new, struct thread, elem);
 
 	return tcur->priority < tnew->priority;
 }
+
