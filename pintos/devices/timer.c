@@ -95,34 +95,21 @@ timer_elapsed (int64_t then) {
 
 /* Suspends execution for approximately TICKS timer ticks. */
 void
-timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
-	
-	// printf("timer_sleep 진입\n");
+timer_sleep (int64_t ticks) {
+	if (ticks <= 0) return;
+
+	int64_t start = timer_ticks ();
 
 	enum intr_level old_level;
 	old_level = intr_disable ();
-	
-
-	if(ticks < 0)
-	{
-		// printf("tick이 음수입니다");
-		return;
-	}
-	 else if(ticks == 0)
-	 {
-	 	// printf("tick이 0입니다.");
-	 	return;
-	}
 	
 	// int64_t start = timer_ticks (); /* 현재 tick을 시작점으로 기록한다. */
 
 	// ASSERT (intr_get_level () == INTR_ON); // 인터럽트 켜져 있는지 확인
 
 	// while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
-	 	thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
+	 	// thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
 
-	// 시작시간 
-	int64_t startTime = timer_ticks();
 	// printf("startTime에 시작 시간 저장\n");
 
 	// tick이 양수인 경우
@@ -135,7 +122,7 @@ timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 
 
 	// 현재 스레드 구조체에 나중에 sleep 깰 시간 저장
-	curr->wakeupTime = startTime + ticks;
+	curr->wakeupTime = start + ticks;
 	
 	// sleep_list 뒤에 저장
 	list_push_back(&sleep_list, &(curr->elem));
