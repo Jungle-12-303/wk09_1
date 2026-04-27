@@ -28,11 +28,21 @@ core
 
 # macOS
 .DS_Store
+
+# IDE 설정 (개인 환경)
 .idea/
-.idea/
--e 
+.vscode/
+
 # CLion 전용 (IDE 코드 분석용)
 CMakeLists.txt
+
+# clangd 설정 및 캐시
+.cache/
+.clangd
+**/compile_commands.json
+
+# Claude 설정
+.claude/
 
 # 로컬 편의용 Makefile
 /Makefile
