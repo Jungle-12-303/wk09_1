@@ -27,4 +27,4 @@ void tss_init (void);
 struct task_state *tss_get (void);
 void tss_update (struct thread *next);
 
-#endif /* userprog/tss.h */
+#endif /* @lock userprog/tss.h */

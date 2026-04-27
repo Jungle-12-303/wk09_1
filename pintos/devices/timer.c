@@ -31,8 +31,8 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
-// static struct list sleep_list;
- 
+
+
 /* @lock 8254 프로그래머블 인터벌 타이머(PIT)가 초당 PIT_FREQ번
    인터럽트를 발생시키도록 설정하고, 해당 인터럽트를 등록한다. */
 void
@@ -127,7 +127,7 @@ timer_print_stats (void) {
 /* @lock 타이머 인터럽트 핸들러. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-	ticks++;    
+	ticks++;
 	thread_tick ();
 
 	thread_awake (ticks);

@@ -1,7 +1,7 @@
 /* @lock 이 파일은 MIT 6.828 강의에서 사용한 소스 코드에서 파생되었다.
    원 저작권 고지는 아래에 전문으로 재현되어 있다. */
 
-/*
+/* @lock
  * Copyright (C) 1997 Massachusetts Institute of Technology
  *
  * This software is being provided by the copyright holders under the

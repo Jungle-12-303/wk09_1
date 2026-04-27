@@ -81,15 +81,15 @@ typedef int tid_t;
  * 리스트에 있다. */
 struct thread {
 
-	/* thread.c 소유. */
-	tid_t tid;                          /* 스레드 식별자. */
-	enum thread_status status;          /* 스레드 상태. */
-	char name[16];                      /* 이름 (디버깅용). */
-	int64_t wakeup_tick;                /* sleep 깨어날 절대 tick. 0 = 자고 있지 않음. */
-	int priority;                       /* 우선순위 (0~63). */
+	/* @lock thread.c 소유. */
+	tid_t tid;                          /* @lock 스레드 식별자. */
+	enum thread_status status;          /* @lock 스레드 상태. */
+	char name[16];                      /* @lock 이름(디버깅 목적). */
+	int64_t wakeup_tick;
+	int priority;                       /* @lock 우선순위. */
 
 	/* @lock thread.c와 synch.c가 공유한다. */
-	struct list_elem elem;      //이전 노드와 다음 노드를 가리킨다        /* @lock 리스트 원소. */
+	struct list_elem elem;              /* @lock 리스트 원소. */
 
 #ifdef USERPROG
 	/* @lock userprog/process.c 소유. */

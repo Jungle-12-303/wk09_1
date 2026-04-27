@@ -5,4 +5,4 @@
 
 void gdt_init (void);
 
-#endif /* userprog/gdt.h */
+#endif /* @lock userprog/gdt.h */
