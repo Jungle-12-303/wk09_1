@@ -98,7 +98,7 @@ void
 timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	
 	// printf("timer_sleep 진입\n");
-	
+
 	enum intr_level old_level;
 	old_level = intr_disable ();
 	
@@ -119,7 +119,7 @@ timer_sleep (int64_t ticks) { /* ex) timer_sleep(10): 10 ticks 동안 쉰다. */
 	// ASSERT (intr_get_level () == INTR_ON); // 인터럽트 켜져 있는지 확인
 
 	// while (timer_elapsed (start) < ticks) /* 현재 tick - start가 ticks보다 작으면 */
-	//  	thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
+	 	thread_yield (); /* 다른 스레드에게 CPU를 양보한다. */
 
 	// 시작시간 
 	int64_t startTime = timer_ticks();
@@ -192,10 +192,10 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	// list begin : head->next부터
 	for(struct list_elem* e = list_begin(&sleep_list); e != list_end(&sleep_list);)
 	{	
-		if(e == list_end(&sleep_list))
-		{
-			return;
-		}
+		// if(e == list_end(&sleep_list))
+		// {
+		// 	return;
+		// }
 		// 연결리스트의 노드의 스레드를 가져온다
 		struct thread* t = list_entry(e, struct thread, elem);
 		struct list_elem* next = list_next(e);
