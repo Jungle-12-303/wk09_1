@@ -9,4 +9,4 @@
 #define FLAG_AC    (1<<18)
 #define FLAG_NT    (1<<14)
 
-#endif /* threads/flags.h */
+#endif /* @lock threads/flags.h */
