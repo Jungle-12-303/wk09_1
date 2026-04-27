@@ -1,0 +1,154 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Pintos: threads",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/pintos/threads/build/kernel.o",
+            "cwd": "${workspaceFolder}/pintos/threads/build",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "miDebuggerServerAddress": "localhost:1234",
+            "debugServerPath": "${workspaceFolder}/scripts/pintos-gdb-server.sh",
+            "debugServerArgs": "threads ${input:pintosTestName}",
+            "serverStarted": "GDBSERVER_READY",
+            "serverLaunchTimeout": 10000,
+            "filterStdout": true,
+            "filterStderr": true,
+            "launchCompleteCommand": "exec-continue",
+            "externalConsole": false,
+            "stopAtEntry": false,
+            "preLaunchTask": "pintos: build threads",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Use Intel disassembly syntax",
+                    "text": "set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Keep stepping at source-line granularity",
+                    "text": "set step-mode on",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Add Pintos source root",
+                    "text": "directory ${workspaceFolder}/pintos",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Break at Pintos main",
+                    "text": "break main",
+                    "ignoreFailures": false
+                }
+            ]
+        },
+        {
+            "name": "Pintos: userprog",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/pintos/userprog/build/kernel.o",
+            "cwd": "${workspaceFolder}/pintos/userprog/build",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "miDebuggerServerAddress": "localhost:1234",
+            "debugServerPath": "${workspaceFolder}/scripts/pintos-gdb-server.sh",
+            "debugServerArgs": "userprog ${input:pintosTestName}",
+            "serverStarted": "GDBSERVER_READY",
+            "serverLaunchTimeout": 10000,
+            "filterStdout": true,
+            "filterStderr": true,
+            "launchCompleteCommand": "exec-continue",
+            "externalConsole": false,
+            "stopAtEntry": false,
+            "preLaunchTask": "pintos: build userprog",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Use Intel disassembly syntax",
+                    "text": "set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Keep stepping at source-line granularity",
+                    "text": "set step-mode on",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Add Pintos source root",
+                    "text": "directory ${workspaceFolder}/pintos",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Break at Pintos main",
+                    "text": "break main",
+                    "ignoreFailures": false
+                }
+            ]
+        },
+        {
+            "name": "Pintos: vm",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/pintos/vm/build/kernel.o",
+            "cwd": "${workspaceFolder}/pintos/vm/build",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "miDebuggerServerAddress": "localhost:1234",
+            "debugServerPath": "${workspaceFolder}/scripts/pintos-gdb-server.sh",
+            "debugServerArgs": "vm ${input:pintosTestName}",
+            "serverStarted": "GDBSERVER_READY",
+            "serverLaunchTimeout": 10000,
+            "filterStdout": true,
+            "filterStderr": true,
+            "launchCompleteCommand": "exec-continue",
+            "externalConsole": false,
+            "stopAtEntry": false,
+            "preLaunchTask": "pintos: build vm",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Use Intel disassembly syntax",
+                    "text": "set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Keep stepping at source-line granularity",
+                    "text": "set step-mode on",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Add Pintos source root",
+                    "text": "directory ${workspaceFolder}/pintos",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Break at Pintos main",
+                    "text": "break main",
+                    "ignoreFailures": false
+                }
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "pintosTestName",
+            "type": "promptString",
+            "description": "Pintos test name, without .c",
+            "default": "alarm-zero"
+        }
+    ]
+}

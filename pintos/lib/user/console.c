@@ -3,14 +3,14 @@
 #include <syscall.h>
 #include <syscall-nr.h>
 
-/* The standard vprintf() function,
-   which is like printf() but uses a va_list. */
+/* @lock 표준 vprintf() 함수.
+   printf()와 같지만 va_list를 사용한다. */
 int
 vprintf (const char *format, va_list args) {
 	return vhprintf (STDOUT_FILENO, format, args);
 }
 
-/* Like printf(), but writes output to the given HANDLE. */
+/* @lock printf()와 같지만 주어진 HANDLE에 출력을 쓴다. */
 int
 hprintf (int handle, const char *format, ...) {
 	va_list args;
@@ -23,8 +23,7 @@ hprintf (int handle, const char *format, ...) {
 	return retval;
 }
 
-/* Writes string S to the console, followed by a new-line
-   character. */
+/* @lock 문자열 S를 콘솔에 쓰고, 이어서 줄바꿈 문자를 쓴다. */
 int
 puts (const char *s) {
 	write (STDOUT_FILENO, s, strlen (s));
@@ -33,7 +32,7 @@ puts (const char *s) {
 	return 0;
 }
 
-/* Writes C to the console. */
+/* @lock C를 콘솔에 쓴다. */
 int
 putchar (int c) {
 	char c2 = c;
@@ -41,20 +40,19 @@ putchar (int c) {
 	return c;
 }
 
-/* Auxiliary data for vhprintf_helper(). */
+/* @lock vhprintf_helper()용 보조 데이터. */
 struct vhprintf_aux {
-	char buf[64];       /* Character buffer. */
-	char *p;            /* Current position in buffer. */
-	int char_cnt;       /* Total characters written so far. */
-	int handle;         /* Output file handle. */
+	char buf[64];       /* @lock 문자 버퍼. */
+	char *p;            /* @lock 버퍼 안의 현재 위치. */
+	int char_cnt;       /* @lock 지금까지 쓴 총 문자 수. */
+	int handle;         /* @lock 출력 파일 핸들. */
 };
 
 static void add_char (char, void *);
 static void flush (struct vhprintf_aux *);
 
-/* Formats the printf() format specification FORMAT with
-   arguments given in ARGS and writes the output to the given
-   HANDLE. */
+/* @lock ARGS로 주어진 인자로 printf() 형식 지정 FORMAT을 포맷하고
+   출력을 주어진 HANDLE에 쓴다. */
 int
 vhprintf (int handle, const char *format, va_list args) {
 	struct vhprintf_aux aux;
@@ -66,8 +64,7 @@ vhprintf (int handle, const char *format, va_list args) {
 	return aux.char_cnt;
 }
 
-/* Adds C to the buffer in AUX, flushing it if the buffer fills
-   up. */
+/* @lock C를 AUX 안의 버퍼에 추가하고, 버퍼가 차면 비운다. */
 static void
 add_char (char c, void *aux_) {
 	struct vhprintf_aux *aux = aux_;
@@ -77,7 +74,7 @@ add_char (char c, void *aux_) {
 	aux->char_cnt++;
 }
 
-/* Flushes the buffer in AUX. */
+/* @lock AUX 안의 버퍼를 비운다. */
 static void
 flush (struct vhprintf_aux *aux) {
 	if (aux->p > aux->buf)

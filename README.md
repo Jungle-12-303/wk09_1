@@ -11,8 +11,8 @@
    * 이번 도커 환경은 ubuntu 22.04를 지원하여 vscode의 최신 버전에서 원격 연결이 안되는 문제를 해결하였습니다.
 * pintos 도커 환경은 kaist-pintos에서 추천하는 qemu 에뮬레이터를 설치하고 사용합니다. 
 * pintos 도커 환경은 9주차부터 13주차까지 같은 환경을 사용합니다. 이 기간동안 별도의 개발 환경을 제공하지 않습니다.
-* 기존 도커 환경과 달리 `vscode`와 통합된 디버깅 환경(F5로 시작하는)을 제공하지 않습니다. 디버깅이 필요한 경우 `gdb`를 사용하세요. 
-* vscode에서 터미널을 오픈하면 자동으로 `source /workspaces/pintos_22.04_lab_docker/pintos/activate`를 실행합니다.
+* 이 저장소는 `vscode`와 통합된 F5 디버깅 환경을 제공합니다. 자세한 내용은 [docs/pintos-vscode-debug.md](docs/pintos-vscode-debug.md)를 참고하세요.
+* Dev Container 안에서는 현재 워크스페이스의 `pintos/utils`가 `PATH`에 들어가므로 `pintos` 명령을 바로 사용할 수 있습니다.
 
 ---
 
@@ -100,7 +100,19 @@ pintos_22.04_lab_docker/
 ---
 
 ## 7. C 파일에 브레이크포인트 설정 후 디버깅 (F5)
-pintos 랩에서는 vscode기반의 디버깅을 지원하지 않습니다. 
+
+이 저장소는 VS Code F5 기반 Pintos GDB 디버깅 설정을 포함합니다.
+
+1. Dev Container 안에서 저장소를 엽니다.
+2. Run and Debug 탭에서 구성을 선택합니다.
+   - `Pintos: threads`
+   - `Pintos: userprog`
+   - `Pintos: vm`
+3. F5를 누르고 테스트 이름을 입력합니다.
+   - 예: `alarm-zero`
+   - `alarm-zero.c`처럼 파일명을 넣으면 안 됩니다.
+
+자세한 사용법과 브레이크포인트가 안 먹을 때 확인할 내용은 [docs/pintos-vscode-debug.md](docs/pintos-vscode-debug.md)를 참고하세요.
 
 ---
 ## 8. 새로운 Git 리포지토리에 Commit & Push 하기

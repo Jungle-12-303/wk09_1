@@ -1,8 +1,7 @@
-/* This file is derived from source code used in MIT's 6.828
-   course. The original copyright notice is reproduced in full
-   below. */
+/* @lock 이 파일은 MIT 6.828 강의에서 사용한 소스 코드에서 파생되었다.
+   원 저작권 고지는 아래에 전문으로 재현되어 있다. */
 
-/*
+/* @lock
  * Copyright (C) 1997 Massachusetts Institute of Technology
  *
  * This software is being provided by the copyright holders under the
@@ -44,118 +43,118 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Reads and returns a byte from PORT. */
+/* @lock PORT에서 바이트 하나를 읽어 반환한다. */
 static inline uint8_t
 inb (uint16_t port) {
-	/* See [IA32-v2a] "IN". */
+	/* @lock [IA32-v2a] "IN"을 참고한다. */
 	uint8_t data;
 	asm volatile ("inb %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT bytes from PORT, one after another, and stores them
-   into the buffer starting at ADDR. */
+/* @lock PORT에서 CNT개의 바이트를 차례로 읽고,
+   ADDR에서 시작하는 버퍼에 저장한다. */
 static inline void
 insb (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
+	/* @lock [IA32-v2a] "INS"를 참고한다. */
 	asm volatile ("cld; repne; insb"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Reads and returns 16 bits from PORT. */
+/* @lock PORT에서 16비트를 읽어 반환한다. */
 static inline uint16_t
 inw (uint16_t port) {
 	uint16_t data;
-	/* See [IA32-v2a] "IN". */
+	/* @lock [IA32-v2a] "IN"을 참고한다. */
 	asm volatile ("inw %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT 16-bit (halfword) units from PORT, one after
-   another, and stores them into the buffer starting at ADDR. */
+/* @lock PORT에서 CNT개의 16비트(하프워드) 단위를 차례로 읽고,
+   ADDR에서 시작하는 버퍼에 저장한다. */
 static inline void
 insw (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
+	/* @lock [IA32-v2a] "INS"를 참고한다. */
 	asm volatile ("cld; repne; insw"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Reads and returns 32 bits from PORT. */
+/* @lock PORT에서 32비트를 읽어 반환한다. */
 static inline uint32_t
 inl (uint16_t port) {
-	/* See [IA32-v2a] "IN". */
+	/* @lock [IA32-v2a] "IN"을 참고한다. */
 	uint32_t data;
 	asm volatile ("inl %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT 32-bit (word) units from PORT, one after another,
-   and stores them into the buffer starting at ADDR. */
+/* @lock PORT에서 CNT개의 32비트(워드) 단위를 차례로 읽고,
+   ADDR에서 시작하는 버퍼에 저장한다. */
 static inline void
 insl (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
+	/* @lock [IA32-v2a] "INS"를 참고한다. */
 	asm volatile ("cld; repne; insl"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Writes byte DATA to PORT. */
+/* @lock 바이트 DATA를 PORT에 쓴다. */
 static inline void
 outb (uint16_t port, uint8_t data) {
-	/* See [IA32-v2b] "OUT". */
+	/* @lock [IA32-v2b] "OUT"을 참고한다. */
 	asm volatile ("outb %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each byte of data in the CNT-byte buffer
-   starting at ADDR. */
+/* @lock ADDR에서 시작하는 CNT바이트 버퍼 안의 각 데이터 바이트를
+   PORT에 쓴다. */
 static inline void
 outsb (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
+	/* @lock [IA32-v2b] "OUTS"를 참고한다. */
 	asm volatile ("cld; repne; outsb"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-/* Writes the 16-bit DATA to PORT. */
+/* @lock 16비트 DATA를 PORT에 쓴다. */
 static inline void
 outw (uint16_t port, uint16_t data) {
-	/* See [IA32-v2b] "OUT". */
+	/* @lock [IA32-v2b] "OUT"을 참고한다. */
 	asm volatile ("outw %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each 16-bit unit (halfword) of data in the
-   CNT-halfword buffer starting at ADDR. */
+/* @lock ADDR에서 시작하는 CNT하프워드 버퍼 안의 각 16비트 단위(하프워드)
+   데이터를 PORT에 쓴다. */
 static inline void
 outsw (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
+	/* @lock [IA32-v2b] "OUTS"를 참고한다. */
 	asm volatile ("cld; repne; outsw"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-/* Writes the 32-bit DATA to PORT. */
+/* @lock 32비트 DATA를 PORT에 쓴다. */
 static inline void
 outl (uint16_t port, uint32_t data) {
-	/* See [IA32-v2b] "OUT". */
+	/* @lock [IA32-v2b] "OUT"을 참고한다. */
 	asm volatile ("outl %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each 32-bit unit (word) of data in the CNT-word
-   buffer starting at ADDR. */
+/* @lock ADDR에서 시작하는 CNT워드 버퍼 안의 각 32비트 단위(워드)
+   데이터를 PORT에 쓴다. */
 static inline void
 outsl (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
+	/* @lock [IA32-v2b] "OUTS"를 참고한다. */
 	asm volatile ("cld; repne; outsl"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-#endif /* threads/io.h */
+#endif /* @lock threads/io.h */

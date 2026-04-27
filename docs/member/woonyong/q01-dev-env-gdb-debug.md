@@ -47,9 +47,9 @@ pintos -- -q run alarm-multiple
 PATH=$DIR/utils:$PATH
 ```
 
-`.bashrc`에 등록된 activate 경로가 VSCode 기준(`/workspaces/pintos_22.04_lab_docker/...`)으로 
-설정되어 있어서 CLion에서는 경로가 달라 실패한다.
-CLion에서는 `/IdeaProjects/SW_AI-W09-pintos/pintos/activate`가 올바른 경로다.
+`.bashrc`에 등록된 activate 경로가 특정 워크스페이스 절대 경로로 고정되어 있으면
+다른 IDE나 다른 로컬 경로에서는 실패한다.
+현재 저장소 기준으로는 Dev Container의 `remoteEnv`와 `postCreateCommand`가 워크스페이스 경로를 사용해 `pintos/utils`를 PATH에 추가한다.
 
 > Pintos는 왜 일반 프로그램처럼 Run 버튼으로 실행할 수 없는가
 

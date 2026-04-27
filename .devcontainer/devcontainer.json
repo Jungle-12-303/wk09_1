@@ -2,6 +2,10 @@
     "name": "pintos-dev",
     "dockerFile": "Dockerfile",
     "remoteUser": "jungle",
+    "remoteEnv": {
+        "PATH": "${containerWorkspaceFolder}/pintos/utils:${containerEnv:PATH}"
+    },
+    "postCreateCommand": "grep -qxF 'source ${containerWorkspaceFolder}/pintos/activate' ~/.bashrc || echo 'source ${containerWorkspaceFolder}/pintos/activate' >> ~/.bashrc",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -11,7 +15,16 @@
                 "ms-vscode.makefile-tools"
             ],
             "settings": {
-                "terminal.integrated.defaultProfile.linux": "bash"
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "C_Cpp.default.includePath": [
+                    "${workspaceFolder}/pintos",
+                    "${workspaceFolder}/pintos/include",
+                    "${workspaceFolder}/pintos/include/lib",
+                    "${workspaceFolder}/pintos/include/lib/kernel",
+                    "${workspaceFolder}/pintos/lib/kernel"
+                ],
+                "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+                "C_Cpp.default.intelliSenseMode": "linux-gcc-x64"
             }
         }
     }

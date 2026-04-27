@@ -5,20 +5,20 @@
 .type syscall_entry, @function
 syscall_entry:
 	movq %rbx, temp1(%rip)
-	movq %r12, temp2(%rip)     /* callee saved registers */
-	movq %rsp, %rbx            /* Store userland rsp    */
+	movq %r12, temp2(%rip)     /* @lock callee가 저장해야 하는 레지스터. */
+	movq %rsp, %rbx            /* @lock 사용자 영역 rsp를 저장한다. */
 	movabs $tss, %r12
 	movq (%r12), %r12
-	movq 4(%r12), %rsp         /* Read ring0 rsp from the tss */
-	/* Now we are in the kernel stack */
-	push $(SEL_UDSEG)      /* if->ss */
-	push %rbx              /* if->rsp */
-	push %r11              /* if->eflags */
-	push $(SEL_UCSEG)      /* if->cs */
-	push %rcx              /* if->rip */
-	subq $16, %rsp         /* skip error_code, vec_no */
-	push $(SEL_UDSEG)      /* if->ds */
-	push $(SEL_UDSEG)      /* if->es */
+	movq 4(%r12), %rsp         /* @lock tss에서 ring0 rsp를 읽는다. */
+	/* @lock 이제 커널 스택 안에 있다. */
+	push $(SEL_UDSEG)      /* @lock if->ss. */
+	push %rbx              /* @lock if->rsp. */
+	push %r11              /* @lock if->eflags. */
+	push $(SEL_UCSEG)      /* @lock if->cs. */
+	push %rcx              /* @lock if->rip. */
+	subq $16, %rsp         /* @lock error_code와 vec_no를 건너뛴다. */
+	push $(SEL_UDSEG)      /* @lock if->ds. */
+	push $(SEL_UDSEG)      /* @lock if->es. */
 	push %rax
 	movq temp1(%rip), %rbx
 	push %rbx
@@ -30,7 +30,7 @@ syscall_entry:
 	push %r8
 	push %r9
 	push %r10
-	pushq $0 /* skip r11 */
+	pushq $0 /* @lock r11을 건너뛴다. */
 	movq temp2(%rip), %r12
 	push %r12
 	push %r13
@@ -39,9 +39,9 @@ syscall_entry:
 	movq %rsp, %rdi
 
 check_intr:
-	btsq $9, %r11          /* Check whether we recover the interrupt */
+	btsq $9, %r11          /* @lock 인터럽트를 복구할지 확인한다. */
 	jnb no_sti
-	sti                    /* restore interrupt */
+	sti                    /* @lock 인터럽트를 복구한다. */
 no_sti:
 	movabs $syscall_handler, %r12
 	call *%r12
@@ -61,10 +61,10 @@ no_sti:
 	popq %rbx
 	popq %rax
 	addq $32, %rsp
-	popq %rcx              /* if->rip */
+	popq %rcx              /* @lock if->rip. */
 	addq $8, %rsp
-	popq %r11              /* if->eflags */
-	popq %rsp              /* if->rsp */
+	popq %r11              /* @lock if->eflags. */
+	popq %rsp              /* @lock if->rsp. */
 	sysretq
 
 .section .data
