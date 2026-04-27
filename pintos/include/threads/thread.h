@@ -149,4 +149,8 @@ void thread_sleep(int64_t wake_ticks);
 bool cmp_thread_ticks(const struct list_elem *a, const struct list_elem *b, void *aux);
 void thread_awake(int64_t global_ticks);
 
+/* phase 2: Priority Scheduling 용 추가 함수 선언 */
+void yeid_without_interrupt(void);
+bool thread_priority(struct list_elem *a, struct list_elem *b, void *aux);
+
 #endif /* threads/thread.h */

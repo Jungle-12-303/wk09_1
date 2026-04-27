@@ -696,3 +696,22 @@ cmp_priority (struct list_elem *cur, struct list_elem *new){
 	return tcur->priority < tnew->priority;
 }
 
+/* unblock이후 ready_list의 앞 스레드에 즉시 yeild */
+void
+yeid_without_interrupt(void){
+	/* 방어 코드 */
+	if (list_empty(&ready_list)) return;
+	/* ready_list의 front 스레드 가져오기 */
+	struct thread *t_fst = list_entry(list_front(&ready_list), struct thread, elem);
+	/* 만약 cpu 점유 스레드보다 우선순위가 높다면 => 선점 */
+	if(thread_current()->priority < t_fst->priority){
+		thread_yield();
+	}
+}
+
+/* 원래 이러면 안되는데... 코드가 꼬일 것 같아서 비교함수 추가 */
+bool
+thread_priority(struct list_elem *a, struct list_elem *b, void *aux){
+	return list_entry(a, struct thread, elem)->priority > 
+		   list_entry(b, struct thread, elem)->priority;
+}
