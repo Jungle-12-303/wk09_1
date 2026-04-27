@@ -200,6 +200,7 @@ thread_init (void) {
 	list_init (&ready_list);     /* 실행 대기 큐 */
 	list_init (&destruction_req); /* 종료 스레드 해제 대기열 */
 
+
 	/* 현재 실행 흐름을 "main" 스레드로 등록한다.
 	 * running_thread() 매크로로 현재 스택 포인터에서 thread 구조체를 찾고,
 	 * init_thread()로 이름, 우선순위, magic 등을 설정한다. */
@@ -258,9 +259,10 @@ thread_start (void) {
  * ============================================================ */
 void
 thread_tick (void) {
-	struct thread *t = thread_current ();
+	struct thread *t = thread_current (); /* 현재 실행 중인 스레드를 가져온다. */
 
 	/* 통계 업데이트: 어떤 종류의 스레드가 CPU를 사용했는지 기록 */
+	/* idle_thread: 할 일이 없을 때 CPU가 실행하는 대기용 스레드 */
 	if (t == idle_thread)
 		idle_ticks++;              /* idle 스레드가 돌았다 = CPU가 놀고 있었다 */
 #ifdef USERPROG
@@ -388,7 +390,13 @@ void
 thread_block (void) {
 	ASSERT (!intr_context ());           /* 인터럽트 핸들러에서 호출 금지 */
 	ASSERT (intr_get_level () == INTR_OFF);  /* 인터럽트가 꺼져있어야 함 */
-	thread_current ()->status = THREAD_BLOCKED;
+
+
+	//스레드 상태를 BLOCKED 상태로 변경
+	thread_current()->status = THREAD_BLOCKED;
+	// printf("현재 스레드 상태 THREAD_BLOCKED로 변경");
+
+
 	schedule ();  /* 다른 스레드로 전환. 이 스레드는 unblock될 때까지 여기서 멈춤 */
 }
 
@@ -407,13 +415,15 @@ thread_block (void) {
  *           list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL)
  * ============================================================ */
 void
-thread_unblock (struct thread *t) {
+thread_unblock (struct thread *t) 
+{
 	enum intr_level old_level;
 
 	ASSERT (is_thread (t));
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
+	
 
 	/* ready_list 뒤에 넣는다 (FIFO).
 	 * [Phase 2] 우선순위 순 삽입으로 변경 필요. */
@@ -496,21 +506,21 @@ thread_exit (void) {
  * ============================================================ */
 void
 thread_yield (void) {
-	struct thread *curr = thread_current ();
-	enum intr_level old_level;
+	struct thread *curr = thread_current (); /* 현재 스레드를 얻어온다. */
+	enum intr_level old_level; // 인터럽트 상태 저장할 변수 선언
 
 	ASSERT (!intr_context ());  /* 인터럽트 핸들러에서 호출 금지 */
 
-	old_level = intr_disable ();
+	old_level = intr_disable (); /* 인터럽트를 비활성화한다. -> 아래 코드가 중간에 끊기면 안되니까*/
 
-	/* idle 스레드는 ready_list에 넣지 않는다.
-	 * idle은 ready_list가 빌 때만 next_thread_to_run()에서 직접 반환된다. */
+	//현재 스레드를 ready_list 맨뒤에 넣는다 -> idle 스레드는 제외.
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_push_back (&ready_list, &curr->elem); /* ready_list 뒤에 넣는다. */
 
-	/* 현재 스레드를 READY로 바꾸고 다른 스레드로 전환한다. */
+	/* 현재 스레드를 READY로 바꾸고 다른 스레드로 컨텍스트 스위칭. */
 	do_schedule (THREAD_READY);
 
+	//인터럽트 상태를 원래대로 복구
 	intr_set_level (old_level);
 }
 
@@ -840,11 +850,15 @@ thread_launch (struct thread *th) {
  * ============================================================ */
 static void
 do_schedule(int status) {
+	// 인터럽트 꺼져있는지 확인
 	ASSERT (intr_get_level () == INTR_OFF);
+	
+	// 지금 실행중인 스레드만 여기 들어올 수 있다
 	ASSERT (thread_current()->status == THREAD_RUNNING);
 
 	/* 이전에 종료된 스레드의 메모리를 해제한다. */
 	while (!list_empty (&destruction_req)) {
+		//
 		struct thread *victim =
 			list_entry (list_pop_front (&destruction_req), struct thread, elem);
 		palloc_free_page(victim);  /* 4KB 페이지 반환 */

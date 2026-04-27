@@ -91,9 +91,11 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	// 이 스레드가 깰 시간
+	unsigned int wakeupTime;
 
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
+	struct list_elem elem;      //이전 노드와 다음 노드를 가리킨다        /* List element. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

@@ -129,7 +129,7 @@ main (void) {
 	 * 이 시점부터 thread_current()가 동작하고, 락을 사용할 수 있다.
 	 * ready_list, all_list 등 스케줄러 자료구조도 여기서 초기화된다. */
 	thread_init ();
-
+	
 	/* 콘솔(printf) 출력에 락을 건다.
 	 * thread_init() 이후여야 락을 쓸 수 있으므로 이 순서다. */
 	console_init ();
