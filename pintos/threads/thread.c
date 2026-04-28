@@ -74,7 +74,9 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
-
+static bool priority_more (const struct list_elem *lhs,
+                  const struct list_elem *rhs,
+                  void *aux UNUSED);
 
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -217,9 +219,13 @@ thread_unblock (struct thread *t)
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 
+	struct thread* curr = thread_current();
+
+	// ready_list 정렬됨
+	list_insert_ordered (&ready_list, &t->elem, priority_more, NULL);
 
 
-	list_push_back (&ready_list, &t->elem);
+	// list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
 
 	intr_set_level (old_level);
@@ -291,6 +297,15 @@ wakeup_tick_less (const struct list_elem *lhs,
 	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
 	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
 	return lhs_thread->wakeup_tick < rhs_thread->wakeup_tick;
+}
+
+static bool
+priority_more (const struct list_elem *lhs,
+                  const struct list_elem *rhs,
+                  void *aux UNUSED) {
+	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
+	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
+	return lhs_thread->priority > rhs_thread->priority;
 }
 
 void
