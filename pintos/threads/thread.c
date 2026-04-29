@@ -206,6 +206,14 @@ thread_block (void) {
 	schedule ();
 }
 
+static bool
+ready_high_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux)
+{
+	const struct thread *a = list_entry(a_, struct thread, elem);
+	const struct thread *b = list_entry(b_, struct thread, elem);
+
+	return a->priority > b->priority;
+}
 
 void
 thread_unblock (struct thread *t)
@@ -218,8 +226,7 @@ thread_unblock (struct thread *t)
 	ASSERT (t->status == THREAD_BLOCKED);
 
 
-
-	list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &(t->elem), ready_high_priority, &(t->priority));
 	t->status = THREAD_READY;
 
 	intr_set_level (old_level);
