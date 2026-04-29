@@ -31,6 +31,10 @@ core
 .idea/
 .idea/
 -e 
+# VS Code local test history
+/pintos/.vscode/pintos-test-history.json
+/pintos/.vscode/.pintos-gdb/
+
 # CLion 전용 (IDE 코드 분석용)
 CMakeLists.txt
 
