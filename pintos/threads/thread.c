@@ -390,9 +390,12 @@ thread_awake (int64_t current_tick) {
 }
 
 
-void
-thread_set_priority (int new_priority) {
-  thread_current()->priority = new_priority;
+void thread_set_priority(int new_priority) {
+  struct thread *curr = thread_current();
+	curr->origin_priority = new_priority;
+	if (new_priority > curr->priority)
+          curr->priority = new_priority;
+        
   check_preemption();
 }
 
@@ -471,11 +474,13 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 
-
-	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
+  t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
+  t->priority = priority;
   t->origin_priority = priority;
-	t->priority = priority;
-	t->magic = THREAD_MAGIC;
+  t->wakeup_tick = 0;
+  t->waiting_lock = NULL;
+  t->magic = THREAD_MAGIC;
+  list_init(&t->donations);
 }
 
 
