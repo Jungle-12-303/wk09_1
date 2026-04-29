@@ -32,6 +32,10 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+/* helper 함수 선언부 */
+bool thread_priority_sema(struct list_elem *a, struct list_elem *b, void *aux);
+bool thread_priority_d_elem(struct list_elem *a, struct list_elem *b, void *aux);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -115,10 +119,11 @@ sema_up (struct semaphore *sema) {
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 	sema->value++;
-	/* 즉시 선점 반영하기 */
-	yeid_without_interrupt();
 
 	intr_set_level (old_level);
+
+	/* 즉시 선점 반영하기 */
+	yeid_without_interrupt();
 }
 
 static void sema_test_helper (void *sema_);
@@ -192,7 +197,25 @@ lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
+	/* 여기서 priority donation 해야 할 듯? */
+	struct thread *curr = thread_current();
 
+	/* 나(curr)를 lock하는 holder 스레드가 존재한다면? */
+	if(lock->holder != NULL){
+		struct thread *holder = lock->holder;
+		
+		/* holder의 donation_list에 추가하기: 내림차순 */
+		list_insert_ordered(&holder->donation_list, &curr->d_elem, thread_priority_d_elem, NULL);
+		/* 내가 누구에 의해 lock 되었는지 명시하기 */
+		curr->locked_by = lock;
+		
+		/* 만약 lock 소유 스레드의 priority가 낮다면? => 기부 */
+		if(holder->priority < curr->priority){
+			holder->priority = curr->priority;
+		}
+	}
+
+	/* 단순히 sema_val을 낮출 뿐만 아니라, lock 획득을 위한 대기함(wait에 넣기) */
 	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
 }
@@ -227,8 +250,37 @@ lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 
+	/* priority를 경우에 따른 하향을 하는 로직 구현 */
+	/* t = lock 잃는 스레드 */
+	struct thread *t = thread_current();
+
+	/* holder 스레드의 donation_list을 뺀다 => 정확히는 .. 이 lock에 의해 대기탄 스레드들만 모두 뺸다 */
+	struct list *d_list = &t->donation_list;
+	struct list_elem *d_e = list_begin(d_list);
+	
+	while(d_e != list_end(d_list)){
+		struct thread *d_t = list_entry(d_e, struct thread, d_elem);
+		/* 순회 꼬이지 않도록 미리미리 다음 것 확보하기 */
+		struct list_elem *next = list_next(d_e);
+
+		/* 이 스레드가 어떤 lock에 의해 대기타는지 확인 => 같은 lock이면 제거 */
+		if(d_t->locked_by == lock){
+			list_remove(d_e);
+		}
+
+		d_e = next;
+	}
+
+	/* 이제 priority를 재설정을 해야 함 */
+	if(!list_empty(d_list)){
+		t->priority = list_entry(list_front(d_list), struct thread, d_elem)->priority;
+	}else{
+		t->priority = t->base_priority;
+	}
+
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
+
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -245,6 +297,8 @@ lock_held_by_current_thread (const struct lock *lock) {
 struct semaphore_elem {
 	struct list_elem elem;              /* List element. */
 	struct semaphore semaphore;         /* This semaphore. */
+	/* 미리 써 놓는 우선순위: 스파게티 코드? */
+	int priority;
 };
 
 /* Initializes condition variable COND.  A condition variable
@@ -287,10 +341,14 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	sema_init (&waiter.semaphore, 0);
-	list_push_back (&cond->waiters, &waiter.elem);
-	/* 테스트 케이스 보니까... 그냥 정렬 문제인가? */
-	// list_insert_ordered(&cond->waiters, &waiter.elem, thread_priority, NULL);
+	// list_push_back (&cond->waiters, &waiter.elem);
+	/* 정렬 문제 */
+	/* 미리 임시로 priority 써주기 */
+	waiter.priority = thread_current()->priority;
+	/* 정렬하여 list에 넣기*/
+	list_insert_ordered(&cond->waiters, &waiter.elem, thread_priority_sema, NULL);
 	lock_release (lock);
+	/* 스레드가 세마포어 리스트에 들어가는 시점(중요!) */
 	sema_down (&waiter.semaphore);
 	lock_acquire (lock);
 }
@@ -326,4 +384,23 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
+}
+
+/* Helper 함수 구현부 */ 
+/* sema_elem 기준 priority 구하기 */
+bool 
+thread_priority_sema(struct list_elem *a, struct list_elem *b, void *aux){
+	/* list_elem => semaphore_elem 변환 */
+	struct semaphore_elem *a_sema = list_entry(a, struct semaphore_elem, elem);
+	struct semaphore_elem *b_sema = list_entry(b, struct semaphore_elem, elem);
+	/* 비교함수 */
+	return a_sema->priority > b_sema->priority;
+}
+
+/* d_elem 기준 priority 구하기 */
+bool 
+thread_priority_d_elem(struct list_elem *a, struct list_elem *b, void *aux){
+	/* 이번에는 좀 더 간결하게 표현 */
+	return list_entry(a, struct thread, elem)->priority > 
+		   list_entry(b, struct thread, elem)->priority;
 }

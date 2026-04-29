@@ -434,8 +434,13 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
-	t->priority = priority;
+	t->base_priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	/* phase 3: priority donation 추가 구현 변수 초기화 */
+	list_init(&t->donation_list);
+	t->priority = priority;
+	t->locked_by = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
