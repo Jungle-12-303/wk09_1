@@ -76,6 +76,7 @@ static tid_t allocate_tid (void);
 
 static void ready_list_push (struct thread *);
 static struct thread *ready_list_pop (void);
+static struct thread *ready_list_front (void);
 static void sleepers_push (struct thread *);
 static void sleepers_refresh_tick (void);
 
@@ -315,15 +316,20 @@ ready_list_pop (void) {
 	return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
+static struct thread *
+ready_list_front (void) {
+	if (list_empty (&ready_list))
+		return idle_thread;
+	return list_entry (list_front (&ready_list), struct thread, elem);
+}
+
 void
 check_preemption (void) {
 	if (list_empty (&ready_list))
 		return;
-
-	struct thread *cur = thread_current ();
 	struct thread *front = list_entry (list_front (&ready_list),
 	                                   struct thread, elem);
-	if (front->priority > cur->priority) {
+	if (front->priority > thread_current ()->priority) {
 		if (intr_context ())
 			intr_yield_on_return ();
 		else
@@ -467,7 +473,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
-
+  t->origin_priority = priority;
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 }
