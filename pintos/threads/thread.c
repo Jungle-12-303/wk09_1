@@ -81,9 +81,13 @@ static tid_t allocate_tid (void);
 
 #define running_thread() ((struct thread *) (pg_round_down (rrsp ())))
 
-
-
 static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
+
+bool
+ready_high_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux);
+
+void
+yield_for_priority();
 
 
 void
@@ -186,7 +190,7 @@ thread_create (const char *name, int priority,
 
 	thread_unblock (t);
 
-
+	yield_for_priority();
 
 	return tid;
 }
@@ -206,7 +210,7 @@ thread_block (void) {
 	schedule ();
 }
 
-static bool
+bool
 ready_high_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux)
 {
 	const struct thread *a = list_entry(a_, struct thread, elem);
@@ -272,7 +276,7 @@ thread_exit (void) {
 
 
 void
-thread_yield (void) {
+thread_yield (void) { 
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
@@ -282,7 +286,7 @@ thread_yield (void) {
 
 
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &(curr->elem), ready_high_priority, &(curr->priority));
 
 
 	do_schedule (THREAD_READY);
@@ -298,6 +302,20 @@ wakeup_tick_less (const struct list_elem *lhs,
 	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
 	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
 	return lhs_thread->wakeup_tick < rhs_thread->wakeup_tick;
+}
+
+void
+yield_for_priority(){
+	if(list_empty(&ready_list)){
+		return;
+	}
+	const struct thread *current_t = thread_current();
+	const struct thread *front_ready = list_entry (list_front(&ready_list), struct thread, elem);
+
+	if (current_t->priority < front_ready->priority)
+	{
+		thread_yield();
+	}
 }
 
 void
@@ -346,6 +364,8 @@ thread_awake (int64_t current_tick) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+
+	yield_for_priority();
 }
 
 
