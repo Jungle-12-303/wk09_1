@@ -77,12 +77,6 @@ main (void) {
 	uint64_t mem_end;
 	char **argv;
 
-	printf("\n");
-	printf("시작했다\n");
-
-
-
-
 	bss_init ();
 
 

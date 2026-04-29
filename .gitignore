@@ -35,6 +35,7 @@ core
 
 # CLion 전용 (IDE 코드 분석용)
 CMakeLists.txt
+cmake-build-debug/
 
 # clangd 설정 및 캐시
 .cache/
