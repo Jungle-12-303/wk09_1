@@ -28,8 +28,7 @@
 
 static struct list ready_list;
 
-static struct list sleep_list;
-static int64_t next_wakeup_tick;
+static struct sleep_queue sleep_q;
 
 
 static struct thread *idle_thread;
@@ -75,6 +74,10 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
+static void ready_list_push (struct thread *);
+static struct thread *ready_list_pop (void);
+static void sleepers_push (struct thread *);
+static void sleepers_refresh_tick (void);
 
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -100,8 +103,8 @@ thread_init (void) {
 
 	lock_init (&tid_lock);
 	list_init (&ready_list);
-	list_init (&sleep_list);
-	next_wakeup_tick = INT64_MAX;
+	list_init (&sleep_q.sleepers);
+	sleep_q.next_tick = INT64_MAX;
 	list_init (&destruction_req);
 
 
@@ -185,8 +188,7 @@ thread_create (const char *name, int priority,
 
 
 	thread_unblock (t);
-
-
+	check_preemption ();
 
 	return tid;
 }
@@ -219,7 +221,7 @@ thread_unblock (struct thread *t)
 
 
 
-	list_push_back (&ready_list, &t->elem);
+	ready_list_push (t);
 	t->status = THREAD_READY;
 
 	intr_set_level (old_level);
@@ -275,7 +277,7 @@ thread_yield (void) {
 
 
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		ready_list_push (curr);
 
 
 	do_schedule (THREAD_READY);
@@ -293,6 +295,58 @@ wakeup_tick_less (const struct list_elem *lhs,
 	return lhs_thread->wakeup_tick < rhs_thread->wakeup_tick;
 }
 
+static bool
+priority_greater (const struct list_elem *a,
+                  const struct list_elem *b,
+                  void *aux UNUSED) {
+	return list_entry (a, struct thread, elem)->priority
+	     > list_entry (b, struct thread, elem)->priority;
+}
+
+static void
+ready_list_push (struct thread *t) {
+	list_insert_ordered (&ready_list, &t->elem, priority_greater, NULL);
+}
+
+static struct thread *
+ready_list_pop (void) {
+	if (list_empty (&ready_list))
+		return idle_thread;
+	return list_entry (list_pop_front (&ready_list), struct thread, elem);
+}
+
+void
+check_preemption (void) {
+	if (list_empty (&ready_list))
+		return;
+
+	struct thread *cur = thread_current ();
+	struct thread *front = list_entry (list_front (&ready_list),
+	                                   struct thread, elem);
+	if (front->priority > cur->priority) {
+		if (intr_context ())
+			intr_yield_on_return ();
+		else
+			thread_yield ();
+	}
+}
+
+static void
+sleepers_push (struct thread *t) {
+	list_insert_ordered (&sleep_q.sleepers, &t->elem, wakeup_tick_less, NULL);
+	if (t->wakeup_tick < sleep_q.next_tick)
+		sleep_q.next_tick = t->wakeup_tick;
+}
+
+static void
+sleepers_refresh_tick (void) {
+	if (list_empty (&sleep_q.sleepers))
+		sleep_q.next_tick = INT64_MAX;
+	else
+		sleep_q.next_tick = list_entry (list_front (&sleep_q.sleepers),
+		                                struct thread, elem)->wakeup_tick;
+}
+
 void
 thread_sleep (int64_t wakeup_tick) {
 	struct thread *curr = thread_current ();
@@ -304,9 +358,7 @@ thread_sleep (int64_t wakeup_tick) {
 	old_level = intr_disable ();
 
 	curr->wakeup_tick = wakeup_tick;
-	list_insert_ordered (&sleep_list, &curr->elem, wakeup_tick_less, NULL);
-	if (wakeup_tick < next_wakeup_tick)
-		next_wakeup_tick = wakeup_tick;
+	sleepers_push (curr);
 	thread_block ();
 
 	intr_set_level (old_level);
@@ -314,31 +366,28 @@ thread_sleep (int64_t wakeup_tick) {
 
 void
 thread_awake (int64_t current_tick) {
-	if (current_tick < next_wakeup_tick)
+	if (current_tick < sleep_q.next_tick)
 		return;
 
-	while (!list_empty (&sleep_list)) {
-		struct list_elem *front = list_front (&sleep_list);
+	while (!list_empty (&sleep_q.sleepers)) {
+		struct list_elem *front = list_front (&sleep_q.sleepers);
 		struct thread *sleeper = list_entry (front, struct thread, elem);
 
 		if (sleeper->wakeup_tick > current_tick)
 			break;
 
-		list_pop_front (&sleep_list);
+		list_pop_front (&sleep_q.sleepers);
 		thread_unblock (sleeper);
 	}
 
-	if (list_empty (&sleep_list))
-		next_wakeup_tick = INT64_MAX;
-	else
-		next_wakeup_tick = list_entry (list_front (&sleep_list),
-		                               struct thread, elem)->wakeup_tick;
+	sleepers_refresh_tick ();
 }
 
 
 void
 thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+  thread_current()->priority = new_priority;
+  check_preemption();
 }
 
 
@@ -426,10 +475,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 static struct thread *
 next_thread_to_run (void) {
-	if (list_empty (&ready_list))
-		return idle_thread;
-	else
-		return list_entry (list_pop_front (&ready_list), struct thread, elem);
+	return ready_list_pop ();
 }
 
 

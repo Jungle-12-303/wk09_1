@@ -108,6 +108,11 @@ struct thread {
 /* @lock false이면 기본값으로 라운드 로빈 스케줄러를 사용한다.
    true이면 다단계 피드백 큐 스케줄러를 사용한다.
    커널 명령줄 옵션 "-o mlfqs"로 제어된다. */
+struct sleep_queue {
+	struct list sleepers;
+	int64_t next_tick;
+};
+
 extern bool thread_mlfqs;
 
 void thread_init (void);
@@ -131,6 +136,7 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void check_preemption (void);
 
 int thread_get_priority (void);
 void thread_set_priority (int);

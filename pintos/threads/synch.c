@@ -8,7 +8,24 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+static bool
+priority_greater (const struct list_elem *a,
+                  const struct list_elem *b,
+                  void *aux UNUSED) {
+	return list_entry (a, struct thread, elem)->priority
+	     > list_entry (b, struct thread, elem)->priority;
+}
 
+static void
+sema_waiters_push (struct semaphore *sema, struct thread *t) {
+	list_insert_ordered (&sema->waiters, &t->elem, priority_greater, NULL);
+}
+
+static struct thread *
+sema_waiters_pop (struct semaphore *sema) {
+	return list_entry (list_pop_front (&sema->waiters),
+	                   struct thread, elem);
+}
 
 
 void
@@ -32,7 +49,7 @@ sema_down (struct semaphore *sema) {
 
 	while (sema->value == 0) {
 
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		sema_waiters_push (sema, thread_current ());
 		thread_block ();
 	}
 
@@ -71,14 +88,12 @@ sema_up (struct semaphore *sema) {
 	old_level = intr_disable ();
 
 	if (!list_empty (&sema->waiters))
-
-		thread_unblock (list_entry (list_pop_front (&sema->waiters),
-					struct thread, elem));
+		thread_unblock (sema_waiters_pop (sema));
 
 	sema->value++;
-
-
 	intr_set_level (old_level);
+
+	check_preemption ();
 }
 
 
@@ -180,6 +195,17 @@ struct semaphore_elem {
 	struct semaphore semaphore;
 };
 
+static bool
+cond_priority_less (const struct list_elem *a,
+                    const struct list_elem *b,
+                    void *aux UNUSED) {
+	struct semaphore *sa = &list_entry (a, struct semaphore_elem, elem)->semaphore;
+	struct semaphore *sb = &list_entry (b, struct semaphore_elem, elem)->semaphore;
+	struct thread *ta = list_entry (list_front (&sa->waiters), struct thread, elem);
+	struct thread *tb = list_entry (list_front (&sb->waiters), struct thread, elem);
+	return ta->priority < tb->priority;
+}
+
 
 void
 cond_init (struct condition *cond) {
@@ -213,10 +239,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
 
-	if (!list_empty (&cond->waiters))
-
-		sema_up (&list_entry (list_pop_front (&cond->waiters),
-					struct semaphore_elem, elem)->semaphore);
+	if (!list_empty (&cond->waiters)) {
+		struct list_elem *max = list_max (&cond->waiters,
+		                                  cond_priority_less, NULL);
+		list_remove (max);
+		sema_up (&list_entry (max, struct semaphore_elem, elem)->semaphore);
+	}
 }
 
 
