@@ -5,6 +5,8 @@
 #include "threads/synch.h"
 #include <stdio.h>
 #include <string.h>
+#include "list.h"
+#include "stddef.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
@@ -147,8 +149,8 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
-
-
+  // 바꾼다
+  
 	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
 }
@@ -239,12 +241,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
 
-	if (!list_empty (&cond->waiters)) {
-		struct list_elem *max = list_max (&cond->waiters,
-		                                  cond_priority_less, NULL);
-		list_remove (max);
-		sema_up (&list_entry (max, struct semaphore_elem, elem)->semaphore);
-	}
+  if (!list_empty(&cond->waiters)) {
+    struct list_elem *max = list_max(&cond->waiters, cond_priority_less, NULL);
+    list_remove(max);
+    sema_up (&list_entry (max, struct semaphore_elem, elem)->semaphore);
+  }
 }
 
 
