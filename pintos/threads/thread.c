@@ -145,7 +145,6 @@ thread_tick (void) {
 	else
 		kernel_ticks++;
 
-
 	if (++thread_ticks >= TIME_SLICE)
 		intr_yield_on_return ();
 }
@@ -161,6 +160,9 @@ thread_print_stats (void) {
 tid_t
 thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
+
+	
+
 	struct thread *t;
 	tid_t tid;
 
@@ -186,12 +188,27 @@ thread_create (const char *name, int priority,
 	t->tf.eflags = FLAG_IF;
 
 
+	//unblock이 현재 스레드 ready 상태로 바꾸고 ready_list(우선순위 높은거 제일 앞에)에 넣는 것
+	//여기서 t는 새로 생성되는 스레드
 	thread_unblock (t);
 
-
+	//새로 생성된 스레드 t와 현재 실행되고 있는 스레드 -> 컨텍스트 스위칭
+	thread_yield_priority(t);
+	
 
 	return tid;
 }
+
+//스레드 t와 현재 실행되고 있는 스레드 -> 컨텍스트 스위칭
+void
+thread_yield_priority(struct thread* t){
+	struct thread* current = thread_current();
+		if(t->priority > current->priority)
+		{
+			thread_yield();
+		}
+}
+
 
 
 void
@@ -219,14 +236,15 @@ thread_unblock (struct thread *t)
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 
-	struct thread* curr = thread_current();
-
 	// ready_list 정렬됨
 	list_insert_ordered (&ready_list, &t->elem, priority_more, NULL);
 
 
 	// list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
+
+
+
 
 	intr_set_level (old_level);
 }
@@ -280,9 +298,11 @@ thread_yield (void) {
 	old_level = intr_disable ();
 
 
-	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+	// if (curr != idle_thread)
+	// 	list_push_back (&ready_list, &curr->elem);
 
+	if (curr != idle_thread)
+		list_insert_ordered (&ready_list, &curr->elem, priority_more, NULL);
 
 	do_schedule (THREAD_READY);
 
@@ -341,6 +361,12 @@ thread_awake (int64_t current_tick) {
 
 		list_pop_front (&sleep_list);
 		thread_unblock (sleeper);
+
+		// struct thread* current = thread_current();
+		// if(sleeper->priority > current->priority)
+		// {
+		// 	thread_yield();
+		// }
 	}
 
 	if (list_empty (&sleep_list))
@@ -351,9 +377,23 @@ thread_awake (int64_t current_tick) {
 }
 
 
+// 현재 스레드에 새로운 우선순위를 부여한다. 
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+
+	// 더 높은 ready thread가 있으면 yield
+
+
+	if(list_empty(&ready_list))
+	{
+		return;
+	}
+
+	// ready_list에 front 노드에 있는 스레드(제일 우선순위 큰거)
+	struct thread* t = list_entry(list_front(&ready_list), struct thread, elem);
+	thread_yield_priority(t);
+	
 }
 
 

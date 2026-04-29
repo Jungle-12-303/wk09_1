@@ -23,7 +23,6 @@ static int64_t ticks;
 /* @lock 타이머 틱 하나당 루프 횟수.
    timer_calibrate()에서 초기화된다. */
 static unsigned loops_per_tick;
-static struct list sleep_list;
 
 
 static intr_handler_func timer_interrupt;
@@ -44,7 +43,6 @@ timer_init (void) {
 	outb (0x40, count & 0xff);
 	outb (0x40, count >> 8);
 
-	list_init(&sleep_list);
 
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }

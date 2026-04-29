@@ -30,9 +30,12 @@ sema_down (struct semaphore *sema) {
 	old_level = intr_disable ();
 
 
+	// 이 세마 포어를 통과할 수 있는 남은 자원/허가권 개수
 	while (sema->value == 0) {
 
+		// waiters 리스트에 현재 스레드를 넣는다
 		list_push_back (&sema->waiters, &thread_current ()->elem);
+		// 스레드를 blocked 상태로 변경
 		thread_block ();
 	}
 
@@ -70,14 +73,17 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 
+	// waiter 리스트가 비지 않았다면
 	if (!list_empty (&sema->waiters))
 
+		// waiters의 제일 앞에있는 노드의 스레드를 unblock 처리한다
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 
 	sema->value++;
 
 
+	thread_yield();
 	intr_set_level (old_level);
 }
 

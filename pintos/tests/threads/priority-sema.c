@@ -27,6 +27,7 @@ test_priority_sema (void)
       int priority = PRI_DEFAULT - (i + 3) % 10 - 1;
       char name[16];
       snprintf (name, sizeof name, "priority %d", priority);
+      //스레드 생성시 함수 호출
       thread_create (name, priority, priority_sema_thread, NULL);
     }
 
