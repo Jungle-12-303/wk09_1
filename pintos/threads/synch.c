@@ -8,7 +8,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-
+static bool priority_more (const struct list_elem *lhs,
+                  const struct list_elem *rhs,
+                  void *aux UNUSED);
 
 
 void
@@ -34,7 +36,8 @@ sema_down (struct semaphore *sema) {
 	while (sema->value == 0) {
 
 		// waiters 리스트에 현재 스레드를 넣는다
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		// list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered (&sema->waiters, &thread_current ()->elem, priority_more, NULL);
 		// 스레드를 blocked 상태로 변경
 		thread_block ();
 	}
@@ -43,6 +46,14 @@ sema_down (struct semaphore *sema) {
 	intr_set_level (old_level);
 }
 
+static bool
+priority_more (const struct list_elem *lhs,
+                  const struct list_elem *rhs,
+                  void *aux UNUSED) {
+	const struct thread *lhs_thread = list_entry (lhs, struct thread, elem);
+	const struct thread *rhs_thread = list_entry (rhs, struct thread, elem);
+	return lhs_thread->priority > rhs_thread->priority;
+}
 
 bool
 sema_try_down (struct semaphore *sema) {
@@ -75,11 +86,12 @@ sema_up (struct semaphore *sema) {
 
 	// waiter 리스트가 비지 않았다면
 	if (!list_empty (&sema->waiters))
-
+	{
 		// waiters의 제일 앞에있는 노드의 스레드를 unblock 처리한다
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
-
+			
+	}
 	sema->value++;
 
 

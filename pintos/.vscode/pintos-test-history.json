@@ -36,8 +36,8 @@
       "last_action": "run"
     },
     "tests/threads/priority-donate-one": {
-      "count": 1,
-      "last_used": 1777302101.15,
+      "count": 2,
+      "last_used": 1777466582.504,
       "last_action": "run"
     },
     "tests/threads/priority-donate-multiple": {
@@ -76,9 +76,9 @@
       "last_action": "run"
     },
     "tests/threads/priority-sema": {
-      "count": 4,
-      "last_used": 1777452726.923,
-      "last_action": "run"
+      "count": 24,
+      "last_used": 1777467392.536,
+      "last_action": "debug"
     },
     "tests/threads/priority-condvar": {
       "count": 1,

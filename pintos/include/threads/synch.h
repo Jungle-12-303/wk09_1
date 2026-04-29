@@ -16,6 +16,7 @@ bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
+
 /* @lock 락. */
 struct lock {
 	struct thread *holder;      /* @lock 락을 보유한 스레드(디버깅용). */
