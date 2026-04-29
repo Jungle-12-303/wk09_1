@@ -85,11 +85,15 @@ struct thread {
 	tid_t tid;                          /* @lock 스레드 식별자. */
 	enum thread_status status;          /* @lock 스레드 상태. */
 	char name[16];                      /* @lock 이름(디버깅 목적). */
-	int64_t wakeup_tick;
 	int priority;                       /* @lock 우선순위. */
+	int origin_priority;                /* @lock 기부 전 원래 우선순위. */
+	int64_t wakeup_tick;                /* @lock 깨어날 틱. */
+	struct lock *waiting_lock;          /* @lock 대기 중인 락. */
+	struct list donations;              /* @lock 기부 목록. */
 
 	/* @lock thread.c와 synch.c가 공유한다. */
 	struct list_elem elem;              /* @lock 리스트 원소. */
+	struct list_elem donation_elem;     /* @lock 기부 리스트 연결용. */
 
 #ifdef USERPROG
 	/* @lock userprog/process.c 소유. */
