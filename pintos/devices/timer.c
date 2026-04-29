@@ -23,8 +23,6 @@ static int64_t ticks;
 /* @lock 타이머 틱 하나당 루프 횟수.
    timer_calibrate()에서 초기화된다. */
 static unsigned loops_per_tick;
-static struct list sleep_list;
-
 
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
@@ -43,8 +41,6 @@ timer_init (void) {
 	outb (0x43, 0x34);    /* @lock 제어 워드: 카운터 0, LSB 다음 MSB, 모드 2, 바이너리. */
 	outb (0x40, count & 0xff);
 	outb (0x40, count >> 8);
-
-	list_init(&sleep_list);
 
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -128,7 +124,7 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
+  thread_tick();
 
 	thread_awake (ticks);
 }
