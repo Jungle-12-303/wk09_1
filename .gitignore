@@ -31,7 +31,6 @@ core
 
 # IDE 설정 (개인 환경)
 .idea/
-.vscode/
 
 # CLion 전용 (IDE 코드 분석용)
 CMakeLists.txt

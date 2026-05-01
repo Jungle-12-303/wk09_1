@@ -6,8 +6,8 @@
             "type": "cppdbg",
             "request": "launch",
             // 이 부분을 아래처럼 정확한 경로로 수정!
-            "program": "/workspaces/wk09_1/pintos/threads/build/kernel.o",
-            "cwd": "/workspaces/wk09_1/pintos/threads/build",
+            "program": "/workspaces/SW_AI-W09-pintos/pintos/threads/build/kernel.o",
+            "cwd": "/workspaces/SW_AI-W09-pintos/pintos/threads/build",
             "miDebuggerServerAddress": "localhost:1234",
             "miDebuggerPath": "/usr/bin/gdb",
             "MIMode": "gdb",
