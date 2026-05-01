@@ -1,41 +1,36 @@
-/* This file is derived from source code used in MIT's 6.828
-   course. The original copyright notice is reproduced in full
-   below. */
+/* @lock
+ * 이 파일은 MIT의 6.828 강의에서 사용된 소스 코드에서 파생되었다.
+ * 원래의 저작권 고지는 아래에 전문이 재수록되어 있다.
+ */
 
-/*
+/* @lock
  * Copyright (C) 1997 Massachusetts Institute of Technology
  *
- * This software is being provided by the copyright holders under the
- * following license. By obtaining, using and/or copying this software,
- * you agree that you have read, understood, and will comply with the
- * following terms and conditions:
+ * 이 소프트웨어는 저작권 보유자가 다음 라이선스에 따라 제공한다.
+ * 이 소프트웨어를 취득, 사용 또는 복사함으로써, 사용자는 아래의 조건을
+ * 읽고 이해했으며 이를 준수하는 데 동의한 것으로 간주된다.
  *
- * Permission to use, copy, modify, distribute, and sell this software
- * and its documentation for any purpose and without fee or royalty is
- * hereby granted, provided that the full text of this NOTICE appears on
- * ALL copies of the software and documentation or portions thereof,
- * including modifications, that you make.
+ * 본 고지의 전문이 사용자가 만드는 소프트웨어와 문서의 모든 사본 또는 그 일부,
+ * 그리고 수정본을 포함해 모두에 표시되는 한, 어떤 목적이든 수수료나 로열티 없이
+ * 이 소프트웨어와 그 문서를 사용, 복사, 수정, 배포, 판매할 수 있는 권한을
+ * 부여한다.
  *
- * THIS SOFTWARE IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS MAKE NO
- * REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF EXAMPLE,
- * BUT NOT LIMITATION, COPYRIGHT HOLDERS MAKE NO REPRESENTATIONS OR
- * WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR
- * THAT THE USE OF THE SOFTWARE OR DOCUMENTATION WILL NOT INFRINGE ANY
- * THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS. COPYRIGHT
- * HOLDERS WILL BEAR NO LIABILITY FOR ANY USE OF THIS SOFTWARE OR
- * DOCUMENTATION.
+ * 이 소프트웨어는 "있는 그대로" 제공되며, 저작권 보유자는 명시적이든
+ * 묵시적이든 어떠한 진술이나 보증도 하지 않는다. 예시로서만 들자면,
+ * 이에 국한되지 않으며, 저작권 보유자는 상품성이나 특정 목적 적합성에 대한
+ * 어떠한 보증도 하지 않고, 이 소프트웨어나 문서의 사용이 제3자의 특허권,
+ * 저작권, 상표권 또는 기타 권리를 침해하지 않는다는 보증도 하지 않는다.
+ * 저작권 보유자는 이 소프트웨어나 문서의 사용에 대해 어떠한 책임도 지지 않는다.
  *
- * The name and trademarks of copyright holders may NOT be used in
- * advertising or publicity pertaining to the software without specific,
- * written prior permission. Title to copyright in this software and any
- * associated documentation will at all times remain with copyright
- * holders. See the file AUTHORS which should have accompanied this software
- * for a list of all copyright holders.
+ * 저작권 보유자의 이름과 상표는 사전에 구체적인 서면 허가 없이
+ * 이 소프트웨어와 관련된 광고나 홍보에 사용되어서는 안 된다.
+ * 이 소프트웨어와 관련 문서의 저작권은 항상 저작권 보유자에게 남는다.
+ * 모든 저작권 보유자 목록은 이 소프트웨어와 함께 제공되었어야 하는 AUTHORS
+ * 파일을 참고하라.
  *
- * This file may be derived from previously copyrighted software. This
- * copyright applies only to those changes made by the copyright
- * holders listed in the AUTHORS file. The rest of this file is covered by
- * the copyright notices, if any, listed below.
+ * 이 파일은 기존에 저작권이 있는 소프트웨어에서 파생되었을 수 있다.
+ * 이 저작권은 AUTHORS 파일에 나열된 저작권 보유자가 변경한 부분에만 적용된다.
+ * 나머지 부분은 아래에 있을 수 있는 저작권 고지의 적용을 받는다.
  */
 
 #ifndef THREADS_IO_H
@@ -44,114 +39,159 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Reads and returns a byte from PORT. */
+/* @lock
+ * PORT에서 1바이트를 읽어 반환한다.
+ */
 static inline uint8_t
 inb (uint16_t port) {
-	/* See [IA32-v2a] "IN". */
+	/* @lock
+	 * [IA32-v2a]의 "IN"을 참고하라.
+	 */
 	uint8_t data;
 	asm volatile ("inb %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT bytes from PORT, one after another, and stores them
-   into the buffer starting at ADDR. */
+/* @lock
+ * PORT에서 CNT 바이트를 차례대로 읽어
+ * ADDR에서 시작하는 버퍼에 저장한다.
+ */
 static inline void
 insb (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
+	/* @lock
+	 * [IA32-v2a]의 "INS"를 참고하라.
+	 */
 	asm volatile ("cld; repne; insb"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Reads and returns 16 bits from PORT. */
+/* @lock
+ * PORT에서 16비트를 읽어 반환한다.
+ */
 static inline uint16_t
 inw (uint16_t port) {
 	uint16_t data;
-	/* See [IA32-v2a] "IN". */
+	/* @lock
+	 * [IA32-v2a]의 "IN"을 참고하라.
+	 */
 	asm volatile ("inw %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT 16-bit (halfword) units from PORT, one after
-   another, and stores them into the buffer starting at ADDR. */
+/* @lock
+ * PORT에서 CNT개의 16비트(halfword) 단위를 차례대로 읽어
+ * ADDR에서 시작하는 버퍼에 저장한다.
+ */
 static inline void
 insw (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
+	/* @lock
+	 * [IA32-v2a]의 "INS"를 참고하라.
+	 */
 	asm volatile ("cld; repne; insw"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Reads and returns 32 bits from PORT. */
+/* @lock
+ * PORT에서 32비트를 읽어 반환한다.
+ */
 static inline uint32_t
 inl (uint16_t port) {
-	/* See [IA32-v2a] "IN". */
+	/* @lock
+	 * [IA32-v2a]의 "IN"을 참고하라.
+	 */
 	uint32_t data;
 	asm volatile ("inl %w1,%0" : "=a" (data) : "d" (port));
 	return data;
 }
 
-/* Reads CNT 32-bit (word) units from PORT, one after another,
-   and stores them into the buffer starting at ADDR. */
+/* @lock
+ * PORT에서 CNT개의 32비트(word) 단위를 차례대로 읽어
+ * ADDR에서 시작하는 버퍼에 저장한다.
+ */
 static inline void
 insl (uint16_t port, void *addr, size_t cnt) {
-	/* See [IA32-v2a] "INS". */
+	/* @lock
+	 * [IA32-v2a]의 "INS"를 참고하라.
+	 */
 	asm volatile ("cld; repne; insl"
 			: "=D" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "memory", "cc");
 }
 
-/* Writes byte DATA to PORT. */
+/* @lock
+ * DATA 1바이트를 PORT에 기록한다.
+ */
 static inline void
 outb (uint16_t port, uint8_t data) {
-	/* See [IA32-v2b] "OUT". */
+	/* @lock
+	 * [IA32-v2b]의 "OUT"을 참고하라.
+	 */
 	asm volatile ("outb %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each byte of data in the CNT-byte buffer
-   starting at ADDR. */
+/* @lock
+ * ADDR에서 시작하는 CNT 바이트 버퍼의 각 바이트를 PORT에 기록한다.
+ */
 static inline void
 outsb (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
+	/* @lock
+	 * [IA32-v2b]의 "OUTS"를 참고하라.
+	 */
 	asm volatile ("cld; repne; outsb"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-/* Writes the 16-bit DATA to PORT. */
+/* @lock
+ * 16비트 DATA를 PORT에 기록한다.
+ */
 static inline void
 outw (uint16_t port, uint16_t data) {
-	/* See [IA32-v2b] "OUT". */
+	/* @lock
+	 * [IA32-v2b]의 "OUT"을 참고하라.
+	 */
 	asm volatile ("outw %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each 16-bit unit (halfword) of data in the
-   CNT-halfword buffer starting at ADDR. */
+/* @lock
+ * ADDR에서 시작하는 CNT halfword 버퍼의 각 16비트 단위를 PORT에 기록한다.
+ */
 static inline void
 outsw (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
+	/* @lock
+	 * [IA32-v2b]의 "OUTS"를 참고하라.
+	 */
 	asm volatile ("cld; repne; outsw"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
 			: "cc");
 }
 
-/* Writes the 32-bit DATA to PORT. */
+/* @lock
+ * 32비트 DATA를 PORT에 기록한다.
+ */
 static inline void
 outl (uint16_t port, uint32_t data) {
-	/* See [IA32-v2b] "OUT". */
+	/* @lock
+	 * [IA32-v2b]의 "OUT"을 참고하라.
+	 */
 	asm volatile ("outl %0,%w1" : : "a" (data), "d" (port));
 }
 
-/* Writes to PORT each 32-bit unit (word) of data in the CNT-word
-   buffer starting at ADDR. */
+/* @lock
+ * ADDR에서 시작하는 CNT word 버퍼의 각 32비트 단위를 PORT에 기록한다.
+ */
 static inline void
 outsl (uint16_t port, const void *addr, size_t cnt) {
-	/* See [IA32-v2b] "OUTS". */
+	/* @lock
+	 * [IA32-v2b]의 "OUTS"를 참고하라.
+	 */
 	asm volatile ("cld; repne; outsl"
 			: "=S" (addr), "=c" (cnt)
 			: "d" (port), "0" (addr), "1" (cnt)
