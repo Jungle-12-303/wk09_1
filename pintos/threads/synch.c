@@ -115,9 +115,12 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters))
+	if (!list_empty (&sema->waiters)){
+		list_sort(&sema->waiters, thread_priority, NULL);
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
+	}
+
 	sema->value++;
 
 	intr_set_level (old_level);
@@ -203,6 +206,7 @@ lock_acquire (struct lock *lock) {
 	/* 나(curr)를 lock하는 holder 스레드가 존재한다면? */
 	if(lock->holder != NULL){
 		struct thread *holder = lock->holder;
+		int idx = 0;
 		
 		/* holder의 donation_list에 추가하기: 내림차순 */
 		list_insert_ordered(&holder->donation_list, &curr->d_elem, thread_priority_d_elem, NULL);
@@ -213,10 +217,27 @@ lock_acquire (struct lock *lock) {
 		if(holder->priority < curr->priority){
 			holder->priority = curr->priority;
 		}
+
+		/* 일단 임시로 여기에 중첩 기부를 넣기로... */
+		while(idx < 7){
+			struct lock *next_lock = holder->locked_by;
+			if(next_lock == NULL) break;
+			holder = next_lock->holder;
+			
+			if(holder == NULL) break;
+			/* 여기서 holder는 상위의 thread */
+			if( holder->priority < curr->priority){
+				holder->priority = curr->priority;
+			}
+
+			idx++;
+		}
 	}
 
 	/* 단순히 sema_val을 낮출 뿐만 아니라, lock 획득을 위한 대기함(wait에 넣기) */
 	sema_down (&lock->semaphore);
+	/* 여기선 락을 획득했으니까, locked_by를 null 처리 */
+	curr->locked_by = NULL;
 	lock->holder = thread_current ();
 }
 
@@ -401,6 +422,6 @@ thread_priority_sema(struct list_elem *a, struct list_elem *b, void *aux){
 bool 
 thread_priority_d_elem(struct list_elem *a, struct list_elem *b, void *aux){
 	/* 이번에는 좀 더 간결하게 표현 */
-	return list_entry(a, struct thread, elem)->priority > 
-		   list_entry(b, struct thread, elem)->priority;
+	return list_entry(a, struct thread, d_elem)->priority > 
+		   list_entry(b, struct thread, d_elem)->priority;
 }

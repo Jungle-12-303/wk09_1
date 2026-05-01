@@ -6,8 +6,8 @@
       "last_action": "run"
     },
     "tests/threads/priority-condvar": {
-      "count": 10,
-      "last_used": 1777456885.451,
+      "count": 15,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/mlfqs/mlfqs-load-avg": {
@@ -16,13 +16,13 @@
       "last_action": "run"
     },
     "tests/threads/priority-fifo": {
-      "count": 5,
-      "last_used": 1777456873.555,
+      "count": 20,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-sema": {
-      "count": 5,
-      "last_used": 1777382526.045,
+      "count": 7,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/alarm-multiple": {
@@ -51,48 +51,48 @@
       "last_action": "run"
     },
     "tests/threads/priority-change": {
-      "count": 3,
-      "last_used": 1777382526.045,
+      "count": 5,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-one": {
-      "count": 14,
-      "last_used": 1777382526.045,
+      "count": 16,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-multiple": {
-      "count": 10,
-      "last_used": 1777456329.711,
+      "count": 12,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-multiple2": {
-      "count": 6,
-      "last_used": 1777457121.562,
+      "count": 8,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-nest": {
-      "count": 6,
-      "last_used": 1777457520.846,
+      "count": 9,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-lower": {
-      "count": 4,
-      "last_used": 1777382526.045,
+      "count": 6,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-preempt": {
-      "count": 3,
-      "last_used": 1777382526.045,
+      "count": 5,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-sema": {
-      "count": 4,
-      "last_used": 1777456880.692,
+      "count": 17,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/priority-donate-chain": {
-      "count": 3,
-      "last_used": 1777382526.045,
+      "count": 6,
+      "last_used": 1777596372.219,
       "last_action": "run"
     },
     "tests/threads/mlfqs/mlfqs-load-1": {

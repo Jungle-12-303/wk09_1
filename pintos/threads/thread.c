@@ -255,7 +255,7 @@ thread_unblock (struct thread *t) {
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 	// list_push_back (&ready_list, &t->elem);
-	list_push_ordered(&ready_list, &t->elem);
+	list_insert_ordered (&ready_list, &t->elem, thread_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -329,10 +329,20 @@ void
 thread_set_priority (int new_priority) {
 	/* 현재의 스레드를 구한다 */
 	struct thread *tcur = thread_current();
-	tcur->priority = new_priority;
+	tcur->base_priority = new_priority;
+
+	/* 추후에 이해하기로... */
+	/* priority donation 시행 이후 이 로직을 추가해야.. 다시 pass가 됨 */
+	if (list_empty(&tcur->donation_list)) {
+        tcur->priority = new_priority;
+    } else {
+        if (new_priority > tcur->priority) {
+            tcur->priority = new_priority;
+        }
+    }
 
 	if(!list_empty(&ready_list)){
-		struct list_elem *e = list_front(&ready_list);
+		struct list_elem *e = list_begin(&ready_list);
 		struct thread *front = list_entry(e, struct thread, elem);
 
 		if(front->priority > tcur->priority){
@@ -705,11 +715,12 @@ cmp_priority (struct list_elem *cur, struct list_elem *new){
 void
 yeid_without_interrupt(void){
 	/* 방어 코드 */
+	if (intr_context()) return;
 	if (list_empty(&ready_list)) return;
 	/* ready_list의 front 스레드 가져오기 */
-	struct thread *t_fst = list_entry(list_front(&ready_list), struct thread, elem);
+	struct thread *t = list_entry(list_begin(&ready_list), struct thread, elem);
 	/* 만약 cpu 점유 스레드보다 우선순위가 높다면 => 선점 */
-	if(thread_current()->priority < t_fst->priority){
+	if(thread_current()->priority < t->priority){
 		thread_yield();
 	}
 }
