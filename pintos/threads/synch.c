@@ -33,8 +33,8 @@
 #include "threads/thread.h"
 
 /* helper 함수 선언부 */
-bool thread_priority_sema(struct list_elem *a, struct list_elem *b, void *aux);
-bool thread_priority_d_elem(struct list_elem *a, struct list_elem *b, void *aux);
+static bool cmp_sema_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool thread_priority_d_elem(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -126,7 +126,7 @@ sema_up (struct semaphore *sema) {
 	intr_set_level (old_level);
 
 	/* 즉시 선점 반영하기 */
-	yeid_without_interrupt();
+	check_preemption();
 }
 
 static void sema_test_helper (void *sema_);
@@ -292,12 +292,8 @@ lock_release (struct lock *lock) {
 		d_e = next;
 	}
 
-	/* 이제 priority를 재설정을 해야 함 */
-	if(!list_empty(d_list)){
-		t->priority = list_entry(list_front(d_list), struct thread, d_elem)->priority;
-	}else{
-		t->priority = t->base_priority;
-	}
+	/* donation_list를 재정렬하고 effective priority를 갱신한다. */
+	refresh_priority(t);
 
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
@@ -318,8 +314,6 @@ lock_held_by_current_thread (const struct lock *lock) {
 struct semaphore_elem {
 	struct list_elem elem;              /* List element. */
 	struct semaphore semaphore;         /* This semaphore. */
-	/* 미리 써 놓는 우선순위: 스파게티 코드? */
-	int priority;
 };
 
 /* Initializes condition variable COND.  A condition variable
@@ -362,12 +356,8 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	sema_init (&waiter.semaphore, 0);
-	// list_push_back (&cond->waiters, &waiter.elem);
-	/* 정렬 문제 */
-	/* 미리 임시로 priority 써주기 */
-	waiter.priority = thread_current()->priority;
-	/* 정렬하여 list에 넣기*/
-	list_insert_ordered(&cond->waiters, &waiter.elem, thread_priority_sema, NULL);
+	/* signal 시점에 동적 우선순위로 정렬하므로 삽입 순서는 무관 */
+	list_push_back (&cond->waiters, &waiter.elem);
 	lock_release (lock);
 	/* 스레드가 세마포어 리스트에 들어가는 시점(중요!) */
 	sema_down (&waiter.semaphore);
@@ -387,9 +377,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
-	if (!list_empty (&cond->waiters))
+	if (!list_empty (&cond->waiters)){
+		/* 동적 우선순위 기준으로 재정렬 후 가장 높은 것을 깨운다 */
+		list_sort(&cond->waiters, cmp_sema_priority, NULL);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
+	}
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -407,20 +400,27 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 		cond_signal (cond, lock);
 }
 
-/* Helper 함수 구현부 */ 
-/* sema_elem 기준 priority 구하기 */
-bool 
-thread_priority_sema(struct list_elem *a, struct list_elem *b, void *aux){
-	/* list_elem => semaphore_elem 변환 */
-	struct semaphore_elem *a_sema = list_entry(a, struct semaphore_elem, elem);
-	struct semaphore_elem *b_sema = list_entry(b, struct semaphore_elem, elem);
-	/* 비교함수 */
-	return a_sema->priority > b_sema->priority;
+/* Helper 함수 구현부 */
+/* 세마포어 waiter list에서 가장 높은 우선순위의 스레드를 기준으로 비교 */
+static bool
+cmp_sema_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
+	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+
+	/* 각 세마포어의 waiter 중 가장 높은 우선순위 스레드를 찾는다 */
+	list_sort(&sa->semaphore.waiters, thread_priority, NULL);
+	list_sort(&sb->semaphore.waiters, thread_priority, NULL);
+
+	struct thread *ta = list_entry(list_front(&sa->semaphore.waiters),
+								   struct thread, elem);
+	struct thread *tb = list_entry(list_front(&sb->semaphore.waiters),
+								   struct thread, elem);
+	return ta->priority > tb->priority;
 }
 
 /* d_elem 기준 priority 구하기 */
-bool 
-thread_priority_d_elem(struct list_elem *a, struct list_elem *b, void *aux){
+bool
+thread_priority_d_elem(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
 	/* 이번에는 좀 더 간결하게 표현 */
 	return list_entry(a, struct thread, d_elem)->priority > 
 		   list_entry(b, struct thread, d_elem)->priority;

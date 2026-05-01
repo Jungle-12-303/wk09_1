@@ -66,9 +66,7 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
-/* ready_list 중간 삽입을 위한 helper 함수 선언부 */
-static void list_push_ordered (struct list *list, struct list_elem *elem);
-static bool cmp_priority (struct list_elem *curr, struct list_elem *next);
+/* 삭제: list_push_ordered, cmp_priority → list_insert_ordered + thread_priority로 통일 */
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -318,8 +316,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		//list_push_back (&ready_list, &curr->elem);
-		list_push_ordered(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, thread_priority, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -327,28 +324,10 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	/* 현재의 스레드를 구한다 */
 	struct thread *tcur = thread_current();
 	tcur->base_priority = new_priority;
-
-	/* 추후에 이해하기로... */
-	/* priority donation 시행 이후 이 로직을 추가해야.. 다시 pass가 됨 */
-	if (list_empty(&tcur->donation_list)) {
-        tcur->priority = new_priority;
-    } else {
-        if (new_priority > tcur->priority) {
-            tcur->priority = new_priority;
-        }
-    }
-
-	if(!list_empty(&ready_list)){
-		struct list_elem *e = list_begin(&ready_list);
-		struct thread *front = list_entry(e, struct thread, elem);
-
-		if(front->priority > tcur->priority){
-			thread_yield();
-		}
-	}
+	refresh_priority(tcur);
+	check_preemption();
 }
 
 /* Returns the current thread's priority. */
@@ -659,75 +638,53 @@ cmp_thread_ticks(const struct list_elem *a,
 	return st_a->wake_tick < st_b->wake_tick;
 }
 
-/* sleep_list를 매 틱마다 front를 확인 => 조건 만족 시 unblock하기 */
+/* sleep_list를 매 틱마다 front를 확인 => 조건 만족 시 unblock하기.
+   timer_interrupt에서 호출되므로 이미 인터럽트가 꺼져있다. */
 void
 thread_awake(int64_t global_ticks){
-	/* interrupt 꺼놓기 */
-	enum intr_level old_level = intr_disable();
-	/* while로 순회하면 front elem 가져오기 */
 	while(!list_empty(&sleep_list)){
 		struct list_elem *e = list_front(&sleep_list);
 		struct thread *t = list_entry(e, struct thread, elem);
 
-		/* 해당 스레드의 wake_tick이 만족하지 않는다면?*/
-		if(t->wake_tick > global_ticks){
+		if(t->wake_tick > global_ticks)
 			break;
-		}
 
-		/* sleep_list에서 빼고, unblock한다 */
 		list_pop_front(&sleep_list);
 		thread_unblock(t);
 	}
-
-	intr_set_level(old_level);
 }
 
 /* phase 2: priority scheduling 함수 구현부 */
-/* 순회하면서 어디에 순차적으로 삽입할 지 결정 */
-static void 
-list_push_ordered (struct list *list, struct list_elem *elem){
-	/* head 부터 구하기 */
-	struct list_elem *e;
 
-	/* 순회를 진행한다 */
-	for(e = list_begin(list); e != list_end(list); e = list_next(e)){
-		if(cmp_priority(e, elem)){
-			list_insert(e, elem);
-			return;
-		}
-	}
-
-	/* 만약 삽입할 곳을 못 찾았다면 => 마지막에 넣기 */
-	list_push_back(list, elem);
-}
-
-/* 현재와 이후의 thread의 priority 비교 */
-static bool 
-cmp_priority (struct list_elem *cur, struct list_elem *new){
-	/* list_elem을 가지고 상위 객체인 thread를 찾기 */
-	struct thread *tcur = list_entry(cur, struct thread, elem);
-	struct thread *tnew = list_entry(new, struct thread, elem);
-
-	return tcur->priority < tnew->priority;
-}
-
-/* unblock이후 ready_list의 앞 스레드에 즉시 yeild */
+/* ready_list의 최상위 스레드보다 현재 스레드가 낮으면 양보한다. */
 void
-yeid_without_interrupt(void){
-	/* 방어 코드 */
+check_preemption(void){
 	if (intr_context()) return;
 	if (list_empty(&ready_list)) return;
-	/* ready_list의 front 스레드 가져오기 */
-	struct thread *t = list_entry(list_begin(&ready_list), struct thread, elem);
-	/* 만약 cpu 점유 스레드보다 우선순위가 높다면 => 선점 */
-	if(thread_current()->priority < t->priority){
+
+	struct thread *front = list_entry(list_begin(&ready_list),
+									  struct thread, elem);
+	if (thread_current()->priority < front->priority)
 		thread_yield();
+}
+
+/* donation_list에서 최대 우선순위를 구해 effective priority를 갱신한다. */
+void
+refresh_priority(struct thread *t){
+	t->priority = t->base_priority;
+
+	if (!list_empty(&t->donation_list)){
+		list_sort(&t->donation_list, thread_priority_d_elem, NULL);
+		struct thread *top = list_entry(list_front(&t->donation_list),
+										struct thread, d_elem);
+		if (top->priority > t->priority)
+			t->priority = top->priority;
 	}
 }
 
-/* 원래 이러면 안되는데... 코드가 꼬일 것 같아서 비교함수 추가 */
+/* list_insert_ordered용 비교 함수: priority 내림차순 */
 bool
-thread_priority(struct list_elem *a, struct list_elem *b, void *aux){
-	return list_entry(a, struct thread, elem)->priority > 
+thread_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+	return list_entry(a, struct thread, elem)->priority >
 		   list_entry(b, struct thread, elem)->priority;
 }
