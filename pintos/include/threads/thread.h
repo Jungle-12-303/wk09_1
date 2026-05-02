@@ -5,6 +5,8 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+/* 임시 해결용 */
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -138,6 +140,10 @@ struct thread {
 	int base_priority;
 	/* 스레드를 언제 깨울지 나타내는 tick 값이다. */
 	int64_t wake_tick;
+
+	/* 임시 해결용 구조체 */
+	// struct semaphore wait_sema;
+	// int exit_status;
 
 	/* donation-multiple 구현을 위한 필드들이다. */
 	struct list donation_list;

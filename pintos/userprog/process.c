@@ -27,6 +27,7 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+
 /* @lock
  * initd와 다른 프로세스를 위한 일반적인 프로세스 초기화 함수.
  */
@@ -256,6 +257,10 @@ process_wait (tid_t child_tid UNUSED) {
 	 * XXX: 따라서 process_wait를 구현하기 전에 여기에 무한 루프를 추가하는 것을
 	 * XXX: 권장한다.
 	 */
+	// struct thread *child = thread_current ();
+	timer_sleep (300);
+	// sema_down(&child->wait_sema);
+	// int status = child->exit_status;
 	return -1;
 }
 
@@ -273,6 +278,7 @@ process_exit (void) {
 	 */
 
 	process_cleanup ();
+	// sema_up(&curr->wait_sema);
 }
 
 /* @lock
@@ -438,6 +444,15 @@ load (const char *file_name, struct intr_frame *if_) {
 	bool success = false;
 	int i;
 
+	/* 적재용 변수 선언 */
+	char *argv[64];
+	char *temp, *save_point;
+	char *fn_copy = NULL;
+	int argc = 0;
+
+	char *store_p[64];
+	int j;
+
 	/* @lock
 	 * 페이지 디렉터리를 할당하고 활성화한다.
 	 */
@@ -446,10 +461,33 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
+	/* 초기 설정:
+	 * 데이터 오염이 없도록, fn_copy에 안전하게 복사 */
+	fn_copy = palloc_get_page(0);
+	if(fn_copy == NULL) return false;
+
+	size_t fn_len = strlen(file_name) + 1;
+	memcpy(fn_copy, file_name, fn_len);
+
+	/* 이제 argv 배열 채우기 */
+	temp = strtok_r(fn_copy, " ", &save_point);
+	argv[argc] = temp;
+	argc++;
+
+	while(temp != NULL){
+		temp = strtok_r(NULL, " ", &save_point);
+		if(temp != NULL){
+			argv[argc] = temp;
+			argc++;
+		}
+	}
+
+	j = argc - 1;
+
 	/* @lock
 	 * 실행 파일을 연다.
 	 */
-	file = filesys_open (file_name);
+	file = filesys_open (argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -536,86 +574,60 @@ load (const char *file_name, struct intr_frame *if_) {
 	 */
 	if (!setup_stack (if_))
 		goto done;
-
+	
+	char *stack_p = (char *)if_->rsp;
 	/* @lock
 	 * 시작 주소.
 	 */
 	if_->rip = ehdr.e_entry;
+	
+	/* 스택의 현 포인터를 찾는다 
+	 * 쓸 대는 -8 하고, 읽을 때는 +8 함
+	 * 따라서, 배열도 거꾸로 적어야 한다 */
+	while(j >= 0){
+		int size = strlen(argv[j]) + 1;		
+		/* 포인터를 이동한 후 cpy 한다 */
+		stack_p -= size;
+		memcpy(stack_p, argv[j], size);		
+		/* 이후 주솟값을 사용해야 하므로 임시 저장 */
+		store_p[j] = stack_p;
+		j--;
+	}
 
-	/* @lock
-	 * TODO: 여기에 코드를 작성하라.
-	 * TODO: 인자 전달을 구현하라.
-	 * TODO: project2/argument_passing.html을 참고하라.
-	 */
+	/* 잘은 모르겠는데.. 이렇게 셋팅해야 한다고 */
+	stack_p = (char *)((uintptr_t)stack_p & -8);
 
+	/* padding 하기 */
+	stack_p -= 8;
+	memset(stack_p, 0, 8);
+
+	/* 포인터 주소 채우기 */
+	for(int n = argc - 1; n >= 0; n--){
+		stack_p -= 8;
+		*(uintptr_t *)stack_p = (uintptr_t)store_p[n]; 
+	}
+
+	/* 헤더 및 추가 주소값 설정 */
+	if_->R.rsi = stack_p;
+	if_->R.rdi = argc;
+
+	stack_p -= 8;
+	memset(stack_p, 0, 8);
+	if_->rsp = stack_p;
+	// hex_dump(if_->rsp, if_->rsp, USER_STACK - (uint64_t)if_->rsp, true);
 	success = true;
 
 done:
 	/* @lock
 	 * load의 성공 여부와 관계없이 여기로 도착한다.
 	 */
+
+	/* 메모리 해제 진행 */
+	if (fn_copy != NULL)
+        palloc_free_page(fn_copy);
+
 	file_close (file);
 	return success;
-}
-
-
-/* @lock
- * PHDR가 FILE 안의 유효하고 로드 가능한 세그먼트를 설명하는지 검사한다.
- * 그렇다면 true를, 아니면 false를 반환한다.
- */
-static bool
-validate_segment (const struct Phdr *phdr, struct file *file) {
-	/* @lock
-	 * p_offset과 p_vaddr는 같은 페이지 오프셋을 가져야 한다.
-	 */
-	if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK))
-		return false;
-
-	/* @lock
-	 * p_offset은 FILE 안을 가리켜야 한다.
-	 */
-	if (phdr->p_offset > (uint64_t) file_length (file))
-		return false;
-
-	/* @lock
-	 * p_memsz는 최소한 p_filesz만큼 커야 한다.
-	 */
-	if (phdr->p_memsz < phdr->p_filesz)
-		return false;
-
-	/* @lock
-	 * 세그먼트는 비어 있으면 안 된다.
-	 */
-	if (phdr->p_memsz == 0)
-		return false;
-
-	/* @lock
-	 * 가상 메모리 영역의 시작과 끝은 모두 유저 주소 공간 범위 안에 있어야 한다.
-	 */
-	if (!is_user_vaddr ((void *) phdr->p_vaddr))
-		return false;
-	if (!is_user_vaddr ((void *) (phdr->p_vaddr + phdr->p_memsz)))
-		return false;
-
-	/* @lock
-	 * 이 영역은 커널 가상 주소 공간을 가로질러 "wrap around"되면 안 된다.
-	 */
-	if (phdr->p_vaddr + phdr->p_memsz < phdr->p_vaddr)
-		return false;
-
-	/* @lock
-	 * 페이지 0 매핑은 허용하지 않는다.
-	 * 페이지 0을 매핑하는 것이 좋지 않은 아이디어일 뿐 아니라,
-	 * 이를 허용하면 시스템 콜에 null 포인터를 넘긴 유저 코드가 memcpy() 등의
-	 * null 포인터 assertion을 통해 커널을 패닉시킬 가능성이 높다.
-	 */
-	if (phdr->p_vaddr < PGSIZE)
-		return false;
-
-	/* @lock
-	 * 조건을 모두 만족한다.
-	 */
-	return true;
 }
 
 #ifndef VM
@@ -735,6 +747,42 @@ install_page (void *upage, void *kpage, bool writable) {
 	return (pml4_get_page (t->pml4, upage) == NULL
 			&& pml4_set_page (t->pml4, upage, kpage, writable));
 }
+
+/* 구현이 안된 이 함수를 넣으라고 함 */
+/* PHDR이 유효한 로드 가능한 세그먼트인지 확인하고 true를 반환합니다. */
+static bool
+validate_segment (const struct Phdr *phdr, struct file *file) {
+	/* p_offset과 p_vaddr은 동일한 페이지 오프셋을 가져야 합니다. */
+	if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK))
+		return false;
+
+	/* p_offset은 파일 내부에 있어야 합니다. */
+	if (phdr->p_offset > (uint64_t) file_length (file))
+		return false;
+
+	/* p_memsz는 p_filesz보다 크거나 같아야 합니다. */
+	if (phdr->p_memsz < phdr->p_filesz)
+		return false;
+
+	/* 세그먼트는 가상 메모리의 유저 영역 내에 위치해야 합니다. */
+	if (!is_user_vaddr ((void *) phdr->p_vaddr))
+		return false;
+	if (!is_user_vaddr ((void *) (phdr->p_vaddr + phdr->p_memsz)))
+		return false;
+
+	/* 주소 영역이 감싸지는(wrap around) 형태가 아니어야 합니다. */
+	if (phdr->p_vaddr + phdr->p_memsz < phdr->p_vaddr)
+		return false;
+
+	/* 0번 페이지는 매핑하지 않습니다. 
+	   (NULL 포인터 역참조를 잡기 위해 유효하지 않은 주소로 둡니다.) */
+	if (phdr->p_vaddr < PGSIZE)
+		return false;
+
+	/* 괜찮은 것 같습니다. */
+	return true;
+}
+
 #else
 /* @lock
  * 여기부터의 코드는 project 3 이후에 사용된다.
