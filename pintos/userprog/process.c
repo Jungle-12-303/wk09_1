@@ -48,6 +48,11 @@ process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
 
+	/* 추가 변수 선언부 */
+	char *cpy_name;
+	char *parsed_name;
+	char *save_ptr;
+
 	/* @lock
 	 * FILE_NAME의 복사본을 만든다.
 	 * 그렇지 않으면 호출자와 load() 사이에 race가 생긴다.
@@ -60,9 +65,20 @@ process_create_initd (const char *file_name) {
 	/* @lock
 	 * FILE_NAME을 실행할 새 스레드를 생성한다.
 	 */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	/* file_name이 정확히 들어가지 못하고 있음: 파싱 필요 .. 굳이 한 페이지 분량을? */
+	cpy_name = palloc_get_page(0);
+
+	size_t cpy_len = strlen(file_name) + 1;
+	memcpy(cpy_name, file_name, cpy_len);
+	parsed_name = strtok_r(cpy_name, " ", &save_ptr);
+
+	tid = thread_create (parsed_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
+	
+	/* 복사본도 결국 해제해야 함 */
+	if (cpy_name != NULL)
+        palloc_free_page(cpy_name);
 	return tid;
 }
 
