@@ -256,6 +256,9 @@ thread_create (const char *name, int priority, thread_func *function,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
+	/* @breakpoint
+	* (void *) t->tf.R.rip, (void *) t->tf.R.rdi, (char *) t->tf.R.rsi
+	*/
 
 	/* @note
 	 * 새 스레드를 스케줄러 ready_list 추가
@@ -476,7 +479,9 @@ idle (void *idle_started_ UNUSED) {
 		 * [IA32-v2a]의 "HLT", [IA32-v2b]의 "STI",
 		 * [IA32-v3a] 7.11.1절 "HLT Instruction"을 참고하라.
 		 */
+		// clang-format off
 		asm volatile ("sti; hlt" : : : "memory");
+		// clang-format on
 	}
 }
 
@@ -495,9 +500,6 @@ kernel_thread (thread_func *function, void *aux) {
 	thread_exit ();
 }
 
-/* @lock
- * T를 NAME이라는 이름의 blocked 스레드로 기본 초기화한다.
- */
 static void
 init_thread (struct thread *t, const char *name, int priority) {
 	ASSERT (t != NULL);

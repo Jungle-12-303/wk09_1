@@ -36,6 +36,9 @@ process_init (void) {
 	struct thread *current = thread_current ();
 }
 
+/* @bookmark
+ * [1] 프로세스 시작 - 스레드 생성
+ */
 tid_t
 process_create_initd (const char *file_name) {
 	char *file_name_copy;
@@ -43,6 +46,9 @@ process_create_initd (const char *file_name) {
 	char *arg_start;
 	tid_t tid;
 
+	/* @note
+	 * 커널 풀에서 페이지 메모리 할당, 0 = 커널 영역(유저 옵션 없음)
+	 */
 	file_name_copy = palloc_get_page (0);
 	if (file_name_copy == NULL)
 		return TID_ERROR;
@@ -53,6 +59,10 @@ process_create_initd (const char *file_name) {
 	if (arg_start != NULL)
 		*arg_start = '\0';
 
+	/* @note
+	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
+	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
+	 */
 	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (file_name_copy);
@@ -192,6 +202,9 @@ error:
 	thread_exit ();
 }
 
+/* @bookmark [4] process_exec: 바이너리 로드 후 유저 모드 전환 (argument
+ * passing 미구현) 변경 없음: load(file_name) 그대로, 인자 분리·스택 적재
+ * 미구현 출처: 08db0db (args-none 테스트 통과) */
 /* @lock
  * 현재 실행 문맥을 f_name으로 전환한다.
  * 실패하면 -1을 반환한다.
@@ -243,6 +256,9 @@ process_exec (void *f_name) {
  *
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
+/* @bookmark [12] process_wait: timer_sleep 임시 대기 (세마포어 미구현)
+ * 추가: timer_sleep(300)으로 자식 종료를 임시 대기, return -1
+ * 출처: 08db0db (args-none 테스트 통과) */
 int
 process_wait (tid_t child_tid UNUSED) {
 	/* @lock
@@ -258,6 +274,9 @@ process_wait (tid_t child_tid UNUSED) {
 	return -1;
 }
 
+/* @bookmark [13] process_exit: TODO 상태 (종료 메시지·자원 해제 미구현)
+ * 변경 없음: process_cleanup()만 호출, printf·sema 동기화 미구현
+ * 출처: 08db0db (args-none 테스트 통과) */
 /* @lock
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
