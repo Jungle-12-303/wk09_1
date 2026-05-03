@@ -24,7 +24,6 @@ void exit(int status);
 int write(int fd, const void *buffer, unsigned size);
 void check_address(void *addr);
 
-/* 추가 변수들 */
 struct lock filesys_lock;
 
 /* @lock
@@ -65,7 +64,6 @@ syscall_init (void) {
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
-	/* 추가 초기화 */
 	lock_init(&filesys_lock);
 }
 
@@ -93,21 +91,17 @@ syscall_handler (struct intr_frame *f UNUSED) {
 }
 
 
-/* 구현 명령어들 */
-/* 시스템 전체 셧다운 */
 void 
 halt(void){
 	power_off();
 }
 
-/* 종료: 출력 로그 찍기 */
 void 
 exit(int status){
 	printf ("%s: exit(%d)\n", thread_current()->name, status);
 	thread_exit();
 }
 
-/* 쓰기: 화면이든 파일이든 저장하고 뿌림 */
 int 
 write(int fd, const void *buffer, unsigned size){
 	int write_result;
@@ -135,7 +129,6 @@ write(int fd, const void *buffer, unsigned size){
 	return write_result;
 }
 
-/* 유효성 검사 */
 void check_address(void *addr){
 	/* 애초에 없다면? */
 	if(addr == NULL){

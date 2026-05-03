@@ -39,6 +39,8 @@ enum thread_status {
  * 원하는 타입으로 다시 정의할 수 있다.
  */
 typedef int tid_t;
+
+#define THREAD_NAME_MAX 16
 /* @lock
  * tid_t의 오류 값.
  */
@@ -131,7 +133,7 @@ struct thread {
 	/* @lock
 	 * 이름(디버깅 목적).
 	 */
-	char name[16];
+	char name[THREAD_NAME_MAX];
 	/* @lock
 	 * 우선순위.
 	 */
@@ -141,7 +143,6 @@ struct thread {
 	/* 스레드를 언제 깨울지 나타내는 tick 값이다. */
 	int64_t wake_tick;
 
-	/* 임시 해결용 구조체 */
 	// struct semaphore wait_sema;
 	// int exit_status;
 

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "lib/cstr.h"
 #include "userprog/gdt.h"
 #include "userprog/tss.h"
 #include "filesys/directory.h"
@@ -27,7 +28,6 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
-
 /* @lock
  * initd와 다른 프로세스를 위한 일반적인 프로세스 초기화 함수.
  */
@@ -36,49 +36,26 @@ process_init (void) {
 	struct thread *current = thread_current ();
 }
 
-/* @lock
- * FILE_NAME에서 로드한 "initd"라는 이름의 첫 번째 유저랜드 프로그램을 시작한다.
- * process_create_initd()가 반환되기 전에 새 스레드가 스케줄될 수 있으며
- * (심지어 종료될 수도 있다). initd의 스레드 id를 반환하고, 스레드를 생성할 수
- * 없으면 TID_ERROR를 반환한다.
- * 이것은 반드시 한 번만 호출되어야 한다는 점에 주의하라.
- */
 tid_t
 process_create_initd (const char *file_name) {
-	char *fn_copy;
+	char *file_name_copy;
+	char program_name[THREAD_NAME_MAX];
+	char *arg_start;
 	tid_t tid;
 
-	/* 추가 변수 선언부 */
-	char *cpy_name;
-	char *parsed_name;
-	char *save_ptr;
-
-	/* @lock
-	 * FILE_NAME의 복사본을 만든다.
-	 * 그렇지 않으면 호출자와 load() 사이에 race가 생긴다.
-	 */
-	fn_copy = palloc_get_page (0);
-	if (fn_copy == NULL)
+	file_name_copy = palloc_get_page (0);
+	if (file_name_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE);
+	strlcpy (file_name_copy, file_name, PGSIZE);
 
-	/* @lock
-	 * FILE_NAME을 실행할 새 스레드를 생성한다.
-	 */
-	/* file_name이 정확히 들어가지 못하고 있음: 파싱 필요 .. 굳이 한 페이지 분량을? */
-	cpy_name = palloc_get_page(0);
+	strlcpy (program_name, file_name, sizeof program_name);
+	arg_start = strchr (program_name, ' ');
+	if (arg_start != NULL)
+		*arg_start = '\0';
 
-	size_t cpy_len = strlen(file_name) + 1;
-	memcpy(cpy_name, file_name, cpy_len);
-	parsed_name = strtok_r(cpy_name, " ", &save_ptr);
-
-	tid = thread_create (parsed_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
-		palloc_free_page (fn_copy);
-	
-	/* 복사본도 결국 해제해야 함 */
-	if (cpy_name != NULL)
-        palloc_free_page(cpy_name);
+		palloc_free_page (file_name_copy);
 	return tid;
 }
 
@@ -94,7 +71,7 @@ initd (void *f_name) {
 	process_init ();
 
 	if (process_exec (f_name) < 0)
-		PANIC("Fail to launch initd\n");
+		PANIC ("Fail to launch initd\n");
 	NOT_REACHED ();
 }
 
@@ -108,8 +85,7 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* @lock
 	 * 현재 스레드를 새 스레드로 복제한다.
 	 */
-	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+	return thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
 }
 
 #ifndef VM
@@ -146,7 +122,8 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	 */
 
 	/* @lock
-	 * 5. WRITABLE 권한으로 VA 주소에 자식의 페이지 테이블에 새 페이지를 추가한다.
+	 * 5. WRITABLE 권한으로 VA 주소에 자식의 페이지 테이블에 새 페이지를
+	 * 추가한다.
 	 */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* @lock
@@ -182,7 +159,7 @@ __do_fork (void *aux) {
 	/* @lock
 	 * 2. 페이지 테이블을 복제한다.
 	 */
-	current->pml4 = pml4_create();
+	current->pml4 = pml4_create ();
 	if (current->pml4 == NULL)
 		goto error;
 
@@ -200,7 +177,8 @@ __do_fork (void *aux) {
 	 * TODO: 여기에 코드를 작성하라.
 	 * TODO: 힌트) 파일 객체를 복제하려면 include/filesys/file.h의
 	 * TODO: `file_duplicate`를 사용하라. 이 함수가 부모의 자원을 성공적으로
-	 * TODO: 복제하기 전까지 부모는 fork()에서 반환되면 안 된다는 점에 주의하라.
+	 * TODO: 복제하기 전까지 부모는 fork()에서 반환되면 안 된다는 점에
+	 * 주의하라.
 	 */
 
 	process_init ();
@@ -256,7 +234,6 @@ process_exec (void *f_name) {
 	NOT_REACHED ();
 }
 
-
 /* @lock
  * 스레드 TID가 죽을 때까지 기다린 뒤 그 종료 상태를 반환한다.
  * 커널에 의해 종료되었다면(즉 예외 때문에 죽었다면) -1을 반환한다.
@@ -270,7 +247,8 @@ int
 process_wait (tid_t child_tid UNUSED) {
 	/* @lock
 	 * XXX: 힌트) process_wait(initd)를 호출하면 pintos가 종료된다.
-	 * XXX: 따라서 process_wait를 구현하기 전에 여기에 무한 루프를 추가하는 것을
+	 * XXX: 따라서 process_wait를 구현하기 전에 여기에 무한 루프를 추가하는
+	 * 것을
 	 * XXX: 권장한다.
 	 */
 	// struct thread *child = thread_current ();
@@ -310,15 +288,16 @@ process_cleanup (void) {
 
 	uint64_t *pml4;
 	/* @lock
-	 * 현재 프로세스의 페이지 디렉터리를 파괴하고 커널 전용 페이지 디렉터리로 되돌린다.
+	 * 현재 프로세스의 페이지 디렉터리를 파괴하고 커널 전용 페이지 디렉터리로
+	 * 되돌린다.
 	 */
 	pml4 = curr->pml4;
 	if (pml4 != NULL) {
 		/* @lock
 		 * 여기서 순서는 매우 중요하다. 페이지 디렉터리를 전환하기 전에
 		 * cur->pagedir를 NULL로 설정해야 타이머 인터럽트가 다시 프로세스의
-		 * 페이지 디렉터리로 되돌아가지 않는다. 또한 프로세스의 페이지 디렉터리를
-		 * 파괴하기 전에 기본 페이지 디렉터리를 활성화해야 한다.
+		 * 페이지 디렉터리로 되돌아가지 않는다. 또한 프로세스의 페이지
+		 * 디렉터리를 파괴하기 전에 기본 페이지 디렉터리를 활성화해야 한다.
 		 * 그렇지 않으면 현재 활성 페이지 디렉터리가 이미 해제되어
 		 * 비워진 것이 되어 버린다.
 		 */
@@ -358,11 +337,11 @@ process_activate (struct thread *next) {
 /* @lock
  * 무시한다.
  */
-#define PT_NULL    0
+#define PT_NULL 0
 /* @lock
  * 로드 가능한 세그먼트.
  */
-#define PT_LOAD    1
+#define PT_LOAD 1
 /* @lock
  * 동적 링크 정보.
  */
@@ -370,23 +349,23 @@ process_activate (struct thread *next) {
 /* @lock
  * 동적 로더의 이름.
  */
-#define PT_INTERP  3
+#define PT_INTERP 3
 /* @lock
  * 보조 정보.
  */
-#define PT_NOTE    4
+#define PT_NOTE 4
 /* @lock
  * 예약됨.
  */
-#define PT_SHLIB   5
+#define PT_SHLIB 5
 /* @lock
  * 프로그램 헤더 테이블.
  */
-#define PT_PHDR    6
+#define PT_PHDR 6
 /* @lock
  * 스택 세그먼트.
  */
-#define PT_STACK   0x6474e551
+#define PT_STACK 0x6474e551
 
 /* @lock
  * 실행 가능.
@@ -436,14 +415,14 @@ struct ELF64_PHDR {
 /* @lock
  * 약어.
  */
-#define ELF ELF64_hdr
+#define ELF  ELF64_hdr
 #define Phdr ELF64_PHDR
 
 static bool setup_stack (struct intr_frame *if_);
 static bool validate_segment (const struct Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes,
-		bool writable);
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
 
 /* @lock
  * FILE_NAME의 ELF 실행 파일을 현재 스레드에 로드한다.
@@ -479,20 +458,20 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* 초기 설정:
 	 * 데이터 오염이 없도록, fn_copy에 안전하게 복사 */
-	fn_copy = palloc_get_page(0);
-	if(fn_copy == NULL) return false;
+	fn_copy = palloc_get_page (0);
+	if (fn_copy == NULL)
+		return false;
 
-	size_t fn_len = strlen(file_name) + 1;
-	memcpy(fn_copy, file_name, fn_len);
+	memcpy (fn_copy, file_name, CSTR_SIZE (file_name));
 
 	/* 이제 argv 배열 채우기 */
-	temp = strtok_r(fn_copy, " ", &save_point);
+	temp = strtok_r (fn_copy, " ", &save_point);
 	argv[argc] = temp;
 	argc++;
 
-	while(temp != NULL){
-		temp = strtok_r(NULL, " ", &save_point);
-		if(temp != NULL){
+	while (temp != NULL) {
+		temp = strtok_r (NULL, " ", &save_point);
+		if (temp != NULL) {
 			argv[argc] = temp;
 			argc++;
 		}
@@ -513,13 +492,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	 * 실행 파일 헤더를 읽고 검증한다.
 	 */
 	/* amd64를 의미한다. */
-	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
-			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
-			|| ehdr.e_type != 2
-			|| ehdr.e_machine != 0x3E
-			|| ehdr.e_version != 1
-			|| ehdr.e_phentsize != sizeof (struct Phdr)
-			|| ehdr.e_phnum > 1024) {
+	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr ||
+	    memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 ||
+	    ehdr.e_machine != 0x3E || ehdr.e_version != 1 ||
+	    ehdr.e_phentsize != sizeof (struct Phdr) || ehdr.e_phnum > 1024) {
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
@@ -539,49 +515,49 @@ load (const char *file_name, struct intr_frame *if_) {
 			goto done;
 		file_ofs += sizeof phdr;
 		switch (phdr.p_type) {
-			case PT_NULL:
-			case PT_NOTE:
-			case PT_PHDR:
-			case PT_STACK:
-			default:
-				/* @lock
-				 * 이 세그먼트는 무시한다.
-				 */
-				break;
-			case PT_DYNAMIC:
-			case PT_INTERP:
-			case PT_SHLIB:
-				goto done;
-			case PT_LOAD:
-				if (validate_segment (&phdr, file)) {
-					bool writable = (phdr.p_flags & PF_W) != 0;
-					uint64_t file_page = phdr.p_offset & ~PGMASK;
-					uint64_t mem_page = phdr.p_vaddr & ~PGMASK;
-					uint64_t page_offset = phdr.p_vaddr & PGMASK;
-					uint32_t read_bytes, zero_bytes;
-					if (phdr.p_filesz > 0) {
-						/* @lock
-						 * 일반 세그먼트.
-						 * 처음 부분은 디스크에서 읽고 나머지는 0으로 채운다.
-						 */
-						read_bytes = page_offset + phdr.p_filesz;
-						zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE)
-								- read_bytes);
-					} else {
-						/* @lock
-						 * 전부 0인 세그먼트.
-						 * 디스크에서 아무것도 읽지 않는다.
-						 */
-						read_bytes = 0;
-						zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
-					}
-					if (!load_segment (file, file_page, (void *) mem_page,
-								read_bytes, zero_bytes, writable))
-						goto done;
+		case PT_NULL:
+		case PT_NOTE:
+		case PT_PHDR:
+		case PT_STACK:
+		default:
+			/* @lock
+			 * 이 세그먼트는 무시한다.
+			 */
+			break;
+		case PT_DYNAMIC:
+		case PT_INTERP:
+		case PT_SHLIB:
+			goto done;
+		case PT_LOAD:
+			if (validate_segment (&phdr, file)) {
+				bool writable = (phdr.p_flags & PF_W) != 0;
+				uint64_t file_page = phdr.p_offset & ~PGMASK;
+				uint64_t mem_page = phdr.p_vaddr & ~PGMASK;
+				uint64_t page_offset = phdr.p_vaddr & PGMASK;
+				uint32_t read_bytes, zero_bytes;
+				if (phdr.p_filesz > 0) {
+					/* @lock
+					 * 일반 세그먼트.
+					 * 처음 부분은 디스크에서 읽고 나머지는 0으로 채운다.
+					 */
+					read_bytes = page_offset + phdr.p_filesz;
+					zero_bytes =
+					        (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE) -
+					         read_bytes);
+				} else {
+					/* @lock
+					 * 전부 0인 세그먼트.
+					 * 디스크에서 아무것도 읽지 않는다.
+					 */
+					read_bytes = 0;
+					zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 				}
-				else
+				if (!load_segment (file, file_page, (void *) mem_page,
+				                   read_bytes, zero_bytes, writable))
 					goto done;
-				break;
+			} else
+				goto done;
+			break;
 		}
 	}
 
@@ -590,37 +566,37 @@ load (const char *file_name, struct intr_frame *if_) {
 	 */
 	if (!setup_stack (if_))
 		goto done;
-	
-	char *stack_p = (char *)if_->rsp;
+
+	char *stack_p = (char *) if_->rsp;
 	/* @lock
 	 * 시작 주소.
 	 */
 	if_->rip = ehdr.e_entry;
-	
-	/* 스택의 현 포인터를 찾는다 
+
+	/* 스택의 현 포인터를 찾는다
 	 * 쓸 대는 -8 하고, 읽을 때는 +8 함
 	 * 따라서, 배열도 거꾸로 적어야 한다 */
-	while(j >= 0){
-		int size = strlen(argv[j]) + 1;		
+	while (j >= 0) {
+		int size = CSTR_SIZE (argv[j]);
 		/* 포인터를 이동한 후 cpy 한다 */
 		stack_p -= size;
-		memcpy(stack_p, argv[j], size);		
+		memcpy (stack_p, argv[j], size);
 		/* 이후 주솟값을 사용해야 하므로 임시 저장 */
 		store_p[j] = stack_p;
 		j--;
 	}
 
 	/* 잘은 모르겠는데.. 이렇게 셋팅해야 한다고 */
-	stack_p = (char *)((uintptr_t)stack_p & -8);
+	stack_p = (char *) ((uintptr_t) stack_p & -8);
 
 	/* padding 하기 */
 	stack_p -= 8;
-	memset(stack_p, 0, 8);
+	memset (stack_p, 0, 8);
 
 	/* 포인터 주소 채우기 */
-	for(int n = argc - 1; n >= 0; n--){
+	for (int n = argc - 1; n >= 0; n--) {
 		stack_p -= 8;
-		*(uintptr_t *)stack_p = (uintptr_t)store_p[n]; 
+		*(uintptr_t *) stack_p = (uintptr_t) store_p[n];
 	}
 
 	/* 헤더 및 추가 주소값 설정 */
@@ -628,7 +604,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	if_->R.rdi = argc;
 
 	stack_p -= 8;
-	memset(stack_p, 0, 8);
+	memset (stack_p, 0, 8);
 	if_->rsp = stack_p;
 	// hex_dump(if_->rsp, if_->rsp, USER_STACK - (uint64_t)if_->rsp, true);
 	success = true;
@@ -640,7 +616,7 @@ done:
 
 	/* 메모리 해제 진행 */
 	if (fn_copy != NULL)
-        palloc_free_page(fn_copy);
+		palloc_free_page (fn_copy);
 
 	file_close (file);
 	return success;
@@ -674,7 +650,7 @@ static bool install_page (void *upage, void *kpage, bool writable);
  */
 static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
+              uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
 	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
@@ -699,7 +675,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		/* @lock
 		 * 이 페이지를 로드한다.
 		 */
-		if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes) {
+		if (file_read (file, kpage, page_read_bytes) !=
+		    (int) page_read_bytes) {
 			palloc_free_page (kpage);
 			return false;
 		}
@@ -709,7 +686,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		 * 이 페이지를 프로세스의 주소 공간에 추가한다.
 		 */
 		if (!install_page (upage, kpage, writable)) {
-			printf("fail\n");
+			printf ("fail\n");
 			palloc_free_page (kpage);
 			return false;
 		}
@@ -734,7 +711,8 @@ setup_stack (struct intr_frame *if_) {
 
 	kpage = palloc_get_page (PAL_USER | PAL_ZERO);
 	if (kpage != NULL) {
-		success = install_page (((uint8_t *) USER_STACK) - PGSIZE, kpage, true);
+		success =
+		        install_page (((uint8_t *) USER_STACK) - PGSIZE, kpage, true);
 		if (success)
 			if_->rsp = USER_STACK;
 		else
@@ -758,10 +736,11 @@ install_page (void *upage, void *kpage, bool writable) {
 	struct thread *t = thread_current ();
 
 	/* @lock
-	 * 그 가상 주소에 이미 페이지가 없는지 확인한 뒤, 그 위치에 페이지를 매핑한다.
+	 * 그 가상 주소에 이미 페이지가 없는지 확인한 뒤, 그 위치에 페이지를
+	 * 매핑한다.
 	 */
-	return (pml4_get_page (t->pml4, upage) == NULL
-			&& pml4_set_page (t->pml4, upage, kpage, writable));
+	return (pml4_get_page (t->pml4, upage) == NULL &&
+	        pml4_set_page (t->pml4, upage, kpage, writable));
 }
 
 /* 구현이 안된 이 함수를 넣으라고 함 */
@@ -790,7 +769,7 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 	if (phdr->p_vaddr + phdr->p_memsz < phdr->p_vaddr)
 		return false;
 
-	/* 0번 페이지는 매핑하지 않습니다. 
+	/* 0번 페이지는 매핑하지 않습니다.
 	   (NULL 포인터 역참조를 잡기 위해 유효하지 않은 주소로 둡니다.) */
 	if (phdr->p_vaddr < PGSIZE)
 		return false;
@@ -835,7 +814,7 @@ lazy_load_segment (struct page *page, void *aux) {
  */
 static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
-		uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
+              uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
 	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
@@ -853,8 +832,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		 * TODO: lazy_load_segment에 정보를 전달할 aux를 설정하라.
 		 */
 		void *aux = NULL;
-		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
-					writable, lazy_load_segment, aux))
+		if (!vm_alloc_page_with_initializer (VM_ANON, upage, writable,
+		                                     lazy_load_segment, aux))
 			return false;
 
 		/* @lock
