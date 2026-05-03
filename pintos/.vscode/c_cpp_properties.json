@@ -3,6 +3,7 @@
         {
             "name": "PintOS (DevContainer)",
             "includePath": [
+                "${workspaceFolder}",
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/lib/**"
             ],
