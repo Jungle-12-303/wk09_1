@@ -50,3 +50,7 @@ cmake-build-debug/
 
 # 로컬 편의용 Makefile
 /Makefile
+
+# Annotation (auto-generated)
+.jungle-kit/
+.gitattributes

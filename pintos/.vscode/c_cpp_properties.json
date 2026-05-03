@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "PintOS (DevContainer)",
+            "includePath": [
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/lib/**"
+            ],
+            "defines": [
+                "USERPROG",
+                "VM",
+                "FILESYS"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
