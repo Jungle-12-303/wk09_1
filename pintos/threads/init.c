@@ -67,7 +67,6 @@ static void usage (void);
 
 static void print_stats (void);
 
-
 int main (void) NO_RETURN;
 
 /* @lock
@@ -160,8 +159,8 @@ static void
 bss_init (void) {
 	/* @lock
 	 * "BSS"는 0으로 초기화되어야 하는 세그먼트다.
-	 * 하지만 실제로 디스크에 저장되어 있지도 않고, 커널 로더가 0으로 채워 주지도
-	 * 않으므로 우리가 직접 0으로 초기화해야 한다.
+	 * 하지만 실제로 디스크에 저장되어 있지도 않고, 커널 로더가 0으로 채워
+	 * 주지도 않으므로 우리가 직접 0으로 초기화해야 한다.
 	 *
 	 * BSS 세그먼트의 시작과 끝은 링커가 _start_bss와 _end_bss로 기록한다.
 	 * kernel.lds를 참고하라.
@@ -170,7 +169,7 @@ bss_init (void) {
 	memset (&_start_bss, 0, &_end_bss - &_start_bss);
 }
 
-/* @lock
+/* @note
  * 페이지 테이블에 커널 가상 매핑을 채워 넣고,
  * CPU가 새 페이지 디렉터리를 사용하도록 설정한다.
  * 생성한 pml4를 base_pml4가 가리키게 한다.
@@ -186,7 +185,7 @@ paging_init (uint64_t mem_end) {
 	 * [LOADER_KERN_BASE ~ LOADER_KERN_BASE + mem_end]에 매핑한다.
 	 */
 	for (uint64_t pa = 0; pa < mem_end; pa += PGSIZE) {
-		uint64_t va = (uint64_t) ptov(pa);
+		uint64_t va = (uint64_t) ptov (pa);
 
 		perm = PTE_P | PTE_W;
 		if ((uint64_t) &start <= va && va < (uint64_t) &_end_kernel_text)
@@ -197,7 +196,7 @@ paging_init (uint64_t mem_end) {
 	}
 
 	/* cr3를 다시 로드한다. */
-	pml4_activate(0);
+	pml4_activate (0);
 }
 
 /* @lock
@@ -281,7 +280,7 @@ run_task (char **argv) {
 
 	printf ("Executing '%s':\n", task);
 #ifdef USERPROG
-	if (thread_tests){
+	if (thread_tests) {
 		run_test (task);
 	} else {
 		process_wait (process_create_initd (task));
@@ -320,15 +319,13 @@ run_actions (char **argv) {
 	 * 지원하는 작업들의 테이블.
 	 */
 	static const struct action actions[] = {
-		{"run", 2, run_task},
+		{ "run", 2, run_task },
 #ifdef FILESYS
-		{"ls", 1, fsutil_ls},
-		{"cat", 2, fsutil_cat},
-		{"rm", 2, fsutil_rm},
-		{"put", 2, fsutil_put},
-		{"get", 2, fsutil_get},
+		{ "ls", 1, fsutil_ls },   { "cat", 2, fsutil_cat },
+		{ "rm", 2, fsutil_rm },   { "put", 2, fsutil_put },
+		{ "get", 2, fsutil_get },
 #endif
-		{NULL, 0, NULL},
+		{ NULL, 0, NULL },
 	};
 
 	while (*argv != NULL) {
@@ -338,7 +335,7 @@ run_actions (char **argv) {
 		/* @lock
 		 * 작업 이름을 찾는다.
 		 */
-		for (a = actions; ; a++)
+		for (a = actions;; a++)
 			if (a->name == NULL)
 				PANIC ("unknown action `%s' (use -h for help)", *argv);
 			else if (!strcmp (*argv, a->name))
@@ -349,7 +346,8 @@ run_actions (char **argv) {
 		 */
 		for (i = 1; i < a->argc; i++)
 			if (argv[i] == NULL)
-				PANIC ("action `%s' requires %d argument(s)", *argv, a->argc - 1);
+				PANIC ("action `%s' requires %d argument(s)", *argv,
+				       a->argc - 1);
 
 		/* @lock
 		 * 작업을 호출하고 다음으로 진행한다.
@@ -357,7 +355,6 @@ run_actions (char **argv) {
 		a->function (argv);
 		argv += a->argc;
 	}
-
 }
 
 /* @lock
@@ -366,35 +363,36 @@ run_actions (char **argv) {
 static void
 usage (void) {
 	printf ("\nCommand line syntax: [OPTION...] [ACTION...]\n"
-			"Options must precede actions.\n"
-			"Actions are executed in the order specified.\n"
-			"\nAvailable actions:\n"
+	        "Options must precede actions.\n"
+	        "Actions are executed in the order specified.\n"
+	        "\nAvailable actions:\n"
 #ifdef USERPROG
-			"  run 'PROG [ARG...]' Run PROG and wait for it to complete.\n"
+	        "  run 'PROG [ARG...]' Run PROG and wait for it to complete.\n"
 #else
-			"  run TEST           Run TEST.\n"
+	        "  run TEST           Run TEST.\n"
 #endif
 #ifdef FILESYS
-			"  ls                 List files in the root directory.\n"
-			"  cat FILE           Print FILE to the console.\n"
-			"  rm FILE            Delete FILE.\n"
-			"Use these actions indirectly via `pintos' -g and -p options:\n"
-			"  put FILE           Put FILE into file system from scratch disk.\n"
-			"  get FILE           Get FILE from file system into scratch disk.\n"
+	        "  ls                 List files in the root directory.\n"
+	        "  cat FILE           Print FILE to the console.\n"
+	        "  rm FILE            Delete FILE.\n"
+	        "Use these actions indirectly via `pintos' -g and -p options:\n"
+	        "  put FILE           Put FILE into file system from scratch "
+	        "disk.\n"
+	        "  get FILE           Get FILE from file system into scratch "
+	        "disk.\n"
 #endif
-			"\nOptions:\n"
-			"  -h                 Print this help message and power off.\n"
-			"  -q                 Power off VM after actions or on panic.\n"
-			"  -f                 Format file system disk during startup.\n"
-			"  -rs=SEED           Set random number seed to SEED.\n"
-			"  -mlfqs             Use multi-level feedback queue scheduler.\n"
+	        "\nOptions:\n"
+	        "  -h                 Print this help message and power off.\n"
+	        "  -q                 Power off VM after actions or on panic.\n"
+	        "  -f                 Format file system disk during startup.\n"
+	        "  -rs=SEED           Set random number seed to SEED.\n"
+	        "  -mlfqs             Use multi-level feedback queue scheduler.\n"
 #ifdef USERPROG
-			"  -ul=COUNT          Limit user memory to COUNT pages.\n"
+	        "  -ul=COUNT          Limit user memory to COUNT pages.\n"
 #endif
-			);
+	);
 	power_off ();
 }
-
 
 /* @lock
  * 현재 실행 중인 머신의 전원을 끈다.
@@ -411,7 +409,8 @@ power_off (void) {
 	printf ("Powering off...\n");
 	/* qemu용 전원 종료 명령이다. */
 	outw (0x604, 0x2000);
-	for (;;);
+	for (;;)
+		;
 }
 
 /* @lock
