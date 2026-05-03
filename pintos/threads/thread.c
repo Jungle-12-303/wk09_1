@@ -232,8 +232,21 @@ thread_create (const char *name, int priority, thread_func *function,
 	if (t == NULL)
 		return TID_ERROR;
 
+	/* @note
+	 * 할당한 페이지 t에 새 스레드 구조체 초기화
+	 */
 	init_thread (t, name, priority);
 
+	/* @note
+	 * rip : 새 스레드가 처음 실행할 함수 주소
+	 * R.rdi : kernel_thread에 넘길 첫 번째 인자(function)
+	 * R.rsi : kernel_thread에 넘길 두 번째 인자(aux)
+	 * ds : 읽고 쓸 데이터 권한 정보, 0이면 커널 3이면 유저
+	 * es : 읽고 쓸 데이터 권한 정보, 0이면 커널 3이면 유저
+	 * ss : 사용할 스택 권한 정보, 0이면 커널 3이면 유저
+	 * cs : 실행 권한 정보, 0이면 커널 3이면 유저
+	 * eflags : 인터럽트 허용 여부, CPU 실행 옵션 값
+	 */
 	tid = t->tid = allocate_tid ();
 	t->tf.rip = (uintptr_t) kernel_thread;
 	t->tf.R.rdi = (uint64_t) function;
@@ -244,8 +257,14 @@ thread_create (const char *name, int priority, thread_func *function,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	/* @note
+	 * 새 스레드를 스케줄러 ready_list 추가
+	 */
 	thread_unblock (t);
 
+	/* @note
+	 * 새 스레드의 우선순위가 더 높으면 CPU 양보
+	 */
 	if (priority > thread_current ()->priority) {
 		thread_yield ();
 	}
