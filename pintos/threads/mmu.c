@@ -58,9 +58,9 @@ pdpe_walk (uint64_t *pdpe, const uint64_t va, int create) {
 /* @lock
  * 페이지 맵 레벨 4인 pml4에서 가상 주소 VADDR에 해당하는
  * 페이지 테이블 엔트리의 주소를 반환한다.
- * PML4E가 VADDR용 페이지 테이블을 가지고 있지 않다면 동작은 CREATE에 따라 달라진다.
- * CREATE가 true면 새 페이지 테이블을 만들고 그 안의 포인터를 반환한다.
- * 그렇지 않으면 null 포인터를 반환한다.
+ * PML4E가 VADDR용 페이지 테이블을 가지고 있지 않다면 동작은 CREATE에 따라
+ * 달라진다. CREATE가 true면 새 페이지 테이블을 만들고 그 안의 포인터를
+ * 반환한다. 그렇지 않으면 null 포인터를 반환한다.
  */
 uint64_t *
 pml4e_walk (uint64_t *pml4e, const uint64_t va, int create) {
@@ -89,10 +89,9 @@ pml4e_walk (uint64_t *pml4e, const uint64_t va, int create) {
 	return pte;
 }
 
-/* @lock
- * 커널 가상 주소에 대한 매핑은 가지지만,
- * 유저 가상 주소에 대한 매핑은 가지지 않는 새 페이지 맵 레벨 4(pml4)를 만든다.
- * 새 페이지 디렉터리를 반환하고, 메모리 할당에 실패하면 null 포인터를 반환한다.
+/* @note
+ * 새 pml4 페이지 할당
+ * base_pml4의 커널 주소 매핑 복사
  */
 uint64_t *
 pml4_create (void) {
@@ -104,14 +103,14 @@ pml4_create (void) {
 
 static bool
 pt_for_each (uint64_t *pt, pte_for_each_func *func, void *aux,
-		unsigned pml4_index, unsigned pdp_index, unsigned pdx_index) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
+             unsigned pml4_index, unsigned pdp_index, unsigned pdx_index) {
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
 		uint64_t *pte = &pt[i];
 		if (((uint64_t) *pte) & PTE_P) {
 			void *va = (void *) (((uint64_t) pml4_index << PML4SHIFT) |
-								 ((uint64_t) pdp_index << PDPESHIFT) |
-								 ((uint64_t) pdx_index << PDXSHIFT) |
-								 ((uint64_t) i << PTXSHIFT));
+			                     ((uint64_t) pdp_index << PDPESHIFT) |
+			                     ((uint64_t) pdx_index << PDXSHIFT) |
+			                     ((uint64_t) i << PTXSHIFT));
 			if (!func (pte, va, aux))
 				return false;
 		}
@@ -121,25 +120,25 @@ pt_for_each (uint64_t *pt, pte_for_each_func *func, void *aux,
 
 static bool
 pgdir_for_each (uint64_t *pdp, pte_for_each_func *func, void *aux,
-		unsigned pml4_index, unsigned pdp_index) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
-		uint64_t *pte = ptov((uint64_t *) pdp[i]);
+                unsigned pml4_index, unsigned pdp_index) {
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
+		uint64_t *pte = ptov ((uint64_t *) pdp[i]);
 		if (((uint64_t) pte) & PTE_P)
 			if (!pt_for_each ((uint64_t *) PTE_ADDR (pte), func, aux,
-					pml4_index, pdp_index, i))
+			                  pml4_index, pdp_index, i))
 				return false;
 	}
 	return true;
 }
 
 static bool
-pdp_for_each (uint64_t *pdp,
-		pte_for_each_func *func, void *aux, unsigned pml4_index) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
-		uint64_t *pde = ptov((uint64_t *) pdp[i]);
+pdp_for_each (uint64_t *pdp, pte_for_each_func *func, void *aux,
+              unsigned pml4_index) {
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
+		uint64_t *pde = ptov ((uint64_t *) pdp[i]);
 		if (((uint64_t) pde) & PTE_P)
-			if (!pgdir_for_each ((uint64_t *) PTE_ADDR (pde), func,
-					 aux, pml4_index, i))
+			if (!pgdir_for_each ((uint64_t *) PTE_ADDR (pde), func, aux,
+			                     pml4_index, i))
 				return false;
 	}
 	return true;
@@ -150,8 +149,8 @@ pdp_for_each (uint64_t *pdp,
  */
 bool
 pml4_for_each (uint64_t *pml4, pte_for_each_func *func, void *aux) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
-		uint64_t *pdpe = ptov((uint64_t *) pml4[i]);
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
+		uint64_t *pdpe = ptov ((uint64_t *) pml4[i]);
 		if (((uint64_t) pdpe) & PTE_P)
 			if (!pdp_for_each ((uint64_t *) PTE_ADDR (pdpe), func, aux, i))
 				return false;
@@ -161,8 +160,8 @@ pml4_for_each (uint64_t *pml4, pte_for_each_func *func, void *aux) {
 
 static void
 pt_destroy (uint64_t *pt) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
-		uint64_t *pte = ptov((uint64_t *) pt[i]);
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
+		uint64_t *pte = ptov ((uint64_t *) pt[i]);
 		if (((uint64_t) pte) & PTE_P)
 			palloc_free_page ((void *) PTE_ADDR (pte));
 	}
@@ -171,8 +170,8 @@ pt_destroy (uint64_t *pt) {
 
 static void
 pgdir_destroy (uint64_t *pdp) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
-		uint64_t *pte = ptov((uint64_t *) pdp[i]);
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
+		uint64_t *pte = ptov ((uint64_t *) pdp[i]);
 		if (((uint64_t) pte) & PTE_P)
 			pt_destroy (PTE_ADDR (pte));
 	}
@@ -181,8 +180,8 @@ pgdir_destroy (uint64_t *pdp) {
 
 static void
 pdpe_destroy (uint64_t *pdpe) {
-	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
-		uint64_t *pde = ptov((uint64_t *) pdpe[i]);
+	for (unsigned i = 0; i < PGSIZE / sizeof (uint64_t *); i++) {
+		uint64_t *pde = ptov ((uint64_t *) pdpe[i]);
 		if (((uint64_t) pde) & PTE_P)
 			pgdir_destroy ((void *) PTE_ADDR (pde));
 	}
@@ -205,8 +204,10 @@ pml4_destroy (uint64_t *pml4) {
 	palloc_free_page ((void *) pml4);
 }
 
-/* @lock
- * 페이지 디렉터리 PD를 CPU의 페이지 디렉터리 베이스 레지스터에 로드한다.
+/* @note
+ * CPU의 CR3 교체
+ * CR3 : 현재 가상 주소를 해석할 페이지 테이블 시작 주소
+ * pml4가 없으면 커널 기본 페이지 테이블 사용
  */
 void
 pml4_activate (uint64_t *pml4) {
@@ -285,7 +286,8 @@ pml4_is_dirty (uint64_t *pml4, const void *vpage) {
 }
 
 /* @lock
- * PML4 안에서 가상 페이지 VPAGE의 PTE에 있는 dirty 비트를 DIRTY 값으로 설정한다.
+ * PML4 안에서 가상 페이지 VPAGE의 PTE에 있는 dirty 비트를 DIRTY 값으로
+ * 설정한다.
  */
 void
 pml4_set_dirty (uint64_t *pml4, const void *vpage, bool dirty) {
@@ -303,8 +305,8 @@ pml4_set_dirty (uint64_t *pml4, const void *vpage, bool dirty) {
 
 /* @lock
  * PML4 안에서 가상 페이지 VPAGE의 PTE가 최근에 접근되었다면 true를 반환한다.
- * 즉, PTE가 설치된 시점부터 마지막으로 clear된 시점 사이에 접근되었는지를 본다.
- * PML4에 VPAGE에 대한 PTE가 없으면 false를 반환한다.
+ * 즉, PTE가 설치된 시점부터 마지막으로 clear된 시점 사이에 접근되었는지를
+ * 본다. PML4에 VPAGE에 대한 PTE가 없으면 false를 반환한다.
  */
 bool
 pml4_is_accessed (uint64_t *pml4, const void *vpage) {
