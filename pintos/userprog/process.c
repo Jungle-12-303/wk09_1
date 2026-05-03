@@ -60,8 +60,8 @@ process_create_initd (const char *file_name) {
 		*arg_start = '\0';
 
 	/* @note
-	 * 첫 공백 전 문자열 -> 스레드 이름
-	 * 전체 문자열이 담긴 커널 페이지 주소 -> 새 스레드 시작 함수 인자
+	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
+	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
 	 */
 	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
@@ -211,8 +211,8 @@ process_exec (void *f_name) {
 	bool success;
 
 	/* @note
-	 * 유저 모드용 intr_frame 준비
-	 * cs, ds, es, ss는 유저 세그먼트, eflags는 인터럽트 허용
+	 * cs, ss, ds, es는 유저 모드
+	 * eflags는 인터럽트 허용
 	 */
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
@@ -225,7 +225,7 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* @note
-	 * 실행 파일 로드 및 유저 스택 구성
+	 * 바이너리 세팅
 	 */
 	success = load (file_name, &_if);
 	palloc_free_page (file_name);
@@ -233,7 +233,7 @@ process_exec (void *f_name) {
 		return -1;
 
 	/* @note
-	 * _if 문맥으로 유저 모드 진입
+	 * 프로세스를 시작
 	 */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -248,9 +248,9 @@ process_exec (void *f_name) {
  *
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
-/* @bookmark [12] process_wait: timer_sleep 임시 대기 (세마포어 미구현)
- * 추가: timer_sleep(300)으로 자식 종료를 임시 대기, return -1
- * 출처: 08db0db (args-none 테스트 통과) */
+/* @bookmark
+ * process_wait: timer_sleep 임시 대기
+ */
 int
 process_wait (tid_t child_tid UNUSED) {
 	/* @lock
@@ -275,15 +275,8 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-	/* @lock
-	 * TODO: 여기에 코드를 작성하라.
-	 * TODO: 프로세스 종료 메시지를 구현하라.
-	 * TODO: project2/process_termination.html을 참고하라.
-	 * TODO: 프로세스 자원 정리도 여기서 구현하는 것을 권장한다.
-	 */
-
 	process_cleanup ();
-	// sema_up(&curr->wait_sema);
+	sema_up (&curr->wait_sema);
 }
 
 /* @note
@@ -464,7 +457,7 @@ static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
 	/* @note
-	 * 실행 파일 맨 앞 64바이트의 ELF 헤더 저장 변수
+	 * ELF : 현재 실행 파일의 ELF64 헤더 저장 변수
 	 */
 	struct ELF ehdr;
 	struct file *file = NULL;
@@ -478,24 +471,23 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* @note
 	 * 커널 주소 공간 매핑이 포함된 현재 프로세스용 페이지 테이블 생성
-	 * 생성한 페이지 테이블을 현재 스레드의 주소 공간으로 활성화
+	 * 생성한 페이지 테이블을 현재 CPU에 반영
 	 */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate (t);
 
-	/* 초기 설정:
-	 * 데이터 오염이 없도록, fn_copy에 안전하게 복사 */
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return false;
-
+	/* @breakpoint
+	 * (cahr *) file_name
+	 */
 	memcpy (fn_copy, file_name, CSTR_SIZE (file_name));
 
 	/* @note
-	 * strtok_r는 원본 문자열을 직접 잘라가며 토큰을 만든다.
-	 * 예를 들어 "echo x y"는 "echo\0x\0y\0" 형태로 바뀐다.
+	 * 원본 문자열을 잘라가며 토큰 생성
 	 */
 	token = strtok_r (fn_copy, " ", &save_point);
 	while (token != NULL) {
@@ -508,21 +500,25 @@ load (const char *file_name, struct intr_frame *if_) {
 	if (argc == 0)
 		goto done;
 
-	/* @lock
-	 * 실행 파일을 연다.
-	 */
 	file = filesys_open (argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
-	/* @lock
-	 * 실행 파일 헤더를 읽고 검증한다.
-	 */
+	/* @region ELF 헤더 검사 - 실행 가능한 ELF 파일 형식 확인 */
 	/* @note
-	 * e_ident는 ELF 매직 값과 64비트 형식을 확인한다.
-	 * e_machine 0x3E는 x86-64를 의미한다.
+	 * e_ident    : ELF 파일 여부, 64비트 여부, 엔디안 정보
+	 *              \177ELF = ELF 매직 값
+	 *              \2      = 64비트 ELF
+	 *              \1      = little-endian
+	 *              \1      = ELF 버전 1
+	 * e_type     : 파일 종류, 2 = 실행 파일
+	 *              1 = relocatable, 2 = executable, 3 = shared object
+	 * e_machine  : 대상 CPU 종류, 0x3E = x86-64
+	 * e_version  : ELF 버전, 1 = 현재 버전
+	 * e_phentsize: 프로그램 헤더 1개의 크기
+	 * e_phnum    : 프로그램 헤더 개수, 너무 크면 비정상 파일로 간주
 	 */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr ||
 	    memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 ||
@@ -531,122 +527,223 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
+	/* @endregion */
 
-	/* @lock
-	 * 프로그램 헤더들을 읽는다.
+	/* @region 프로그램 헤더 표 순회 - 메모리에 올릴 파일 구역 설명서 읽기 */
+	/* @note
+	 * e_phoff : 파일 시작 기준 프로그램 헤더 표 시작 위치
+	 * e_phnum : 프로그램 헤더 개수
+	 *
+	 * 프로그램 헤더 1개는
+	 * "파일의 어느 구역을 메모리 어디에 어떤 권한으로 올릴지"를 설명한다.
 	 */
 	file_ofs = ehdr.e_phoff;
 	for (i = 0; i < ehdr.e_phnum; i++) {
 		struct Phdr phdr;
 
+		/* @region 헤더 읽기 위치 이동 - 현재 설명서가 있는 파일 위치로 이동 */
+		/* @note
+		 * file_ofs 범위 검사
+		 * file_seek 이후의 file_read는 file_ofs 위치부터 읽는다.
+		 */
 		if (file_ofs < 0 || file_ofs > file_length (file))
 			goto done;
 		file_seek (file, file_ofs);
+		/* @endregion */
 
+		/* @region 프로그램 헤더 읽기 - 설명서 1개를 읽고 다음 위치로 이동 */
 		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
 		file_ofs += sizeof phdr;
+		/* @endregion */
+
+		/* @region 적재 종류 분기 - 메모리에 올릴 구역인지 확인 */
+		/* @note
+		 * PT_LOAD   : 실제 메모리에 올릴 파일 구역
+		 * PT_NULL   : 비어 있는 항목
+		 * PT_NOTE   : 부가 정보
+		 * PT_PHDR   : 프로그램 헤더 표 자체 설명
+		 * PT_STACK  : 스택 관련 정보
+		 * PT_DYNAMIC, PT_INTERP, PT_SHLIB : 현재 로더에서 지원하지 않음
+		 */
 		switch (phdr.p_type) {
 		case PT_NULL:
 		case PT_NOTE:
 		case PT_PHDR:
 		case PT_STACK:
 		default:
-			/* @lock
-			 * 이 세그먼트는 무시한다.
-			 */
 			break;
 		case PT_DYNAMIC:
 		case PT_INTERP:
 		case PT_SHLIB:
 			goto done;
 		case PT_LOAD:
+			/* @region PT_LOAD 처리 - 파일 구역을 메모리에 올릴 준비 */
+			/* @note
+			 * validate_segment : 이 구역을 실제로 적재 가능한지 검사
+			 * p_flags          : 쓰기 가능 여부 확인
+			 * p_offset         : 파일 안에서 이 구역이 시작하는 위치
+			 * p_vaddr          : 메모리에서 이 구역이 올라갈 가상 주소
+			 *
+			 * file_page   : 파일 쪽 페이지 시작 주소
+			 * mem_page    : 메모리 쪽 페이지 시작 주소
+			 * page_offset : 첫 페이지 안에서 실제 데이터가 시작하는 위치
+			 */
 			if (validate_segment (&phdr, file)) {
 				bool writable = (phdr.p_flags & PF_W) != 0;
 				uint64_t file_page = phdr.p_offset & ~PGMASK;
 				uint64_t mem_page = phdr.p_vaddr & ~PGMASK;
 				uint64_t page_offset = phdr.p_vaddr & PGMASK;
 				uint32_t read_bytes, zero_bytes;
+
+				/* @region 읽을 바이트 계산 - 파일 데이터와 0으로 채울 영역
+				 * 분리 */
+				/* @note
+				 * p_filesz > 0
+				 * 파일에 실제 데이터가 있는 구역
+				 * 처음 부분은 디스크에서 읽고 남는 메모리 공간은 0으로 채움
+				 *
+				 * p_filesz == 0
+				 * 파일에는 데이터가 없고 메모리만 필요한 구역
+				 * 예: BSS
+				 * 전부 0으로 채움
+				 */
 				if (phdr.p_filesz > 0) {
-					/* @lock
-					 * 일반 세그먼트.
-					 * 처음 부분은 디스크에서 읽고 나머지는 0으로 채운다.
-					 */
 					read_bytes = page_offset + phdr.p_filesz;
 					zero_bytes =
 					        (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE) -
 					         read_bytes);
 				} else {
-					/* @lock
-					 * 전부 0인 세그먼트.
-					 * 디스크에서 아무것도 읽지 않는다.
-					 */
 					read_bytes = 0;
 					zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 				}
+				/* @endregion */
+
+				/* @region 실제 적재 - 계산한 범위를 페이지 단위로 메모리에
+				 * 배치 */
+				/* @note
+				 * file_page부터 read_bytes만큼 읽고
+				 * 나머지 zero_bytes는 0으로 채운 페이지를 매핑
+				 */
 				if (!load_segment (file, file_page, (void *) mem_page,
 				                   read_bytes, zero_bytes, writable))
 					goto done;
+				/* @endregion */
 			} else
 				goto done;
+			/* @endregion */
 			break;
 		}
+		/* @endregion */
 	}
+	/* @endregion */
 
-	/* @lock
-	 * 스택을 설정한다.
+	/* @region 유저 스택 준비 - 인자 문자열과 argv 배열 적재용 빈 스택 페이지
 	 */
 	if (!setup_stack (if_))
 		goto done;
+	/* @endregion */
 
 	char *stack_p = (char *) if_->rsp;
-	/* @lock
-	 * 시작 주소.
-	 */
-	if_->rip = ehdr.e_entry;
 
+	/* @region 시작 주소 설정 - ELF 헤더의 첫 실행 위치 */
+	if_->rip = ehdr.e_entry;
+	/* @endregion */
+
+	/* @region 문자열 복사 - 각 인자 문자열의 유저 스택 적재와 새 주소 갱신 */
 	/* @note
-	 * 스택은 아래 방향으로 자라므로 마지막 인자부터 거꾸로 넣는다.
-	 * 문자열을 복사한 뒤 argv[i]를 그 새 주소로 바꿔 두면
-	 * 별도의 포인터 저장 배열이 필요 없다.
+	 * 스택의 아래 방향 성장
+	 * 마지막 인자부터 역순 복사
+	 *
+	 * 예:
+	 * argv[0] = "echo"
+	 * argv[1] = "x"
+	 * argv[2] = "y"
+	 *
+	 * 복사 순서:
+	 * "y" -> "x" -> "echo"
+	 *
+	 * 복사 후:
+	 * argv[0] = 유저 스택 안 "echo" 시작 주소
+	 * argv[1] = 유저 스택 안 "x" 시작 주소
+	 * argv[2] = 유저 스택 안 "y" 시작 주소
 	 */
 	for (int argi = argc - 1; argi >= 0; argi--) {
 		int size = CSTR_SIZE (argv[argi]);
-		/* 포인터를 이동한 후 cpy 한다 */
 		stack_p -= size;
 		memcpy (stack_p, argv[argi], size);
 		argv[argi] = stack_p;
 	}
+	/* @endregion */
 
-	/* 잘은 모르겠는데.. 이렇게 셋팅해야 한다고 */
+	/* @region 포인터 정렬 - argv 포인터 배열 적재 전 8바이트 경계 정렬 */
+	/* @note
+	 * 예:
+	 * stack_p = 0x...f7 -> 0x...f0
+	 * 이후 적재 값의 8바이트 포인터 단위
+	 */
 	stack_p = (char *) ((uintptr_t) stack_p & -8);
+	/* @endregion */
 
-	/* padding 하기 */
+	/* @region argv 끝 표시 - argv[argc] = NULL 자리 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
+	/* @note
+	 * 문자열 포인터 배열의 끝 표시
+	 *
+	 * 예:
+	 * argv[0] = "echo"
+	 * argv[1] = "x"
+	 * argv[2] = "y"
+	 * argv[3] = NULL
+	 */
+	/* @endregion */
 
-	/* 포인터 주소 채우기 */
+	/* @region argv 배열 생성 - 문자열 주소들의 char *argv[] 형태 구성 */
+	/* @note
+	 * 앞 단계의 argv[i] = 유저 스택 안 문자열 주소
+	 * 해당 주소값들의 8바이트 단위 재적재
+	 *
+	 * 예:
+	 * argv[0] = 0x473ff7 -> "echo"
+	 * argv[1] = 0x473ffc -> "x"
+	 * argv[2] = 0x473ffe -> "y"
+	 *
+	 * 스택 기록 값:
+	 * [0x473ff7] [0x473ffc] [0x473ffe] [NULL]
+	 */
 	for (int n = argc - 1; n >= 0; n--) {
 		stack_p -= 8;
 		*(uintptr_t *) stack_p = (uintptr_t) argv[n];
 	}
+	/* @endregion */
 
-	/* 헤더 및 추가 주소값 설정 */
+	/* @region 레지스터 연결 - main(argc, argv) 전달값 */
+	/* @note
+	 * rdi : argc
+	 * rsi : argv 배열 시작 주소
+	 */
 	if_->R.rsi = stack_p;
 	if_->R.rdi = argc;
+	/* @endregion */
 
+	/* @region 최종 rsp 설정 - 유저 프로그램 시작 시점의 스택 포인터 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
 	if_->rsp = stack_p;
+	/* @note
+	 * if_->rsp = 유저 프로그램 시작 시 사용할 스택 포인터
+	 */
+	/* @endregion */
+
 	// hex_dump(if_->rsp, if_->rsp, USER_STACK - (uint64_t)if_->rsp, true);
 	success = true;
 
 done:
-	/* @lock
-	 * load의 성공 여부와 관계없이 여기로 도착한다.
+	/* @note
+	 * load의 성공 여부와 관계없이 여기로 도착
+	 * 메모리 해제 진행
 	 */
-
-	/* 메모리 해제 진행 */
 	if (fn_copy != NULL)
 		palloc_free_page (fn_copy);
 
