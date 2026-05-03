@@ -40,6 +40,9 @@ enum thread_status {
  */
 typedef int tid_t;
 
+/* @note
+ * 스레드 이름 버퍼의 최대 크기.
+ */
 #define THREAD_NAME_MAX 16
 /* @lock
  * tid_t의 오류 값.
@@ -143,6 +146,9 @@ struct thread {
 	/* 스레드를 언제 깨울지 나타내는 tick 값이다. */
 	int64_t wake_tick;
 
+	/* @bookmark [1] 임시 wait/exit 필드 선언 (주석 처리 상태)
+	 * 추가: synch.h 포함, wait_sema·exit_status 필드 (비활성)
+	 * 출처: 08db0db (args-none 테스트 통과) */
 	// struct semaphore wait_sema;
 	// int exit_status;
 
