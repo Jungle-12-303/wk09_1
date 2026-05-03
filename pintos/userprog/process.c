@@ -28,8 +28,8 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
-/* @lock
- * initd와 다른 프로세스를 위한 일반적인 프로세스 초기화 함수.
+/* @todo
+ * 프로세스를 위한 초기화 함수 (미구현)
  */
 static void
 process_init (void) {
@@ -37,7 +37,7 @@ process_init (void) {
 }
 
 /* @bookmark
- * [1] 프로세스 시작 - 스레드 생성
+ * process_create_initd - 프로세스 시작
  */
 tid_t
 process_create_initd (const char *file_name) {
@@ -60,8 +60,8 @@ process_create_initd (const char *file_name) {
 		*arg_start = '\0';
 
 	/* @note
-	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
-	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
+	 * 첫 공백 전 문자열 -> 스레드 이름
+	 * 전체 문자열이 담긴 커널 페이지 주소 -> 새 스레드 시작 함수 인자
 	 */
 	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
@@ -69,8 +69,8 @@ process_create_initd (const char *file_name) {
 	return tid;
 }
 
-/* @lock
- * 첫 번째 유저 프로세스를 시작하는 스레드 함수.
+/* @bookmark
+ * initd - 유저 프로세스를 시작
  */
 static void
 initd (void *f_name) {
@@ -202,46 +202,38 @@ error:
 	thread_exit ();
 }
 
-/* @bookmark [4] process_exec: 바이너리 로드 후 유저 모드 전환 (argument
- * passing 미구현) 변경 없음: load(file_name) 그대로, 인자 분리·스택 적재
- * 미구현 출처: 08db0db (args-none 테스트 통과) */
-/* @lock
- * 현재 실행 문맥을 f_name으로 전환한다.
- * 실패하면 -1을 반환한다.
+/* @bookmark
+ * process_exec - 바이너리 로드 후 유저 모드 전환
  */
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
 
-	/* @lock
-	 * thread 구조체에 있는 intr_frame은 사용할 수 없다.
-	 * 현재 스레드가 다시 스케줄될 때 실행 정보를 그 멤버에 저장하기 때문이다.
+	/* @note
+	 * 유저 모드용 intr_frame 준비
+	 * cs, ds, es, ss는 유저 세그먼트, eflags는 인터럽트 허용
 	 */
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	/* @lock
-	 * 먼저 현재 문맥을 제거한다.
+	/* @todo
+	 * 이전 주소 공간 초기화 (미구현)
 	 */
 	process_cleanup ();
 
-	/* @lock
-	 * 그리고 바이너리를 로드한다.
+	/* @note
+	 * 실행 파일 로드 및 유저 스택 구성
 	 */
 	success = load (file_name, &_if);
-
-	/* @lock
-	 * load에 실패하면 종료한다.
-	 */
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
 
-	/* @lock
-	 * 전환된 프로세스를 시작한다.
+	/* @note
+	 * _if 문맥으로 유저 모드 진입
 	 */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -294,7 +286,7 @@ process_exit (void) {
 	// sema_up(&curr->wait_sema);
 }
 
-/* @lock
+/* @note
  * 현재 프로세스의 자원을 해제한다.
  */
 static void
@@ -326,20 +318,12 @@ process_cleanup (void) {
 	}
 }
 
-/* @lock
- * 다음 스레드에서 유저 코드를 실행하도록 CPU를 설정한다.
- * 이 함수는 문맥 전환이 일어날 때마다 호출된다.
+/* @note
+ * 현재 스레드의 페이지 테이블과 커널 스택 기준 주소 반영
  */
 void
 process_activate (struct thread *next) {
-	/* @lock
-	 * 스레드의 페이지 테이블을 활성화한다.
-	 */
 	pml4_activate (next->pml4);
-
-	/* @lock
-	 * 인터럽트 처리에 사용할 스레드의 커널 스택을 설정한다.
-	 */
 	tss_update (next);
 }
 
@@ -399,9 +383,39 @@ process_activate (struct thread *next) {
  */
 #define PF_R 4
 
-/* @lock
- * 실행 파일 헤더. [ELF1] 1-4부터 1-8까지를 참고하라.
- * 이는 ELF 바이너리의 맨 앞에 위치한다.
+/* @note
+ * ELF64 헤더는 실행 파일의 맨 앞 64바이트에 위치한다.
+ * 이 영역은 파일 전체를 읽기 전에 먼저 확인하는 요약 정보다.
+ *
+ * 바이트 배치는 다음과 같다.
+ * 0x00 ~ 0x0f : e_ident
+ *               ELF 매직 값, 64비트 형식, 엔디안 같은 기본 식별 정보
+ * 0x10 ~ 0x11 : e_type
+ *               실행 파일인지, 목적 파일인지 같은 파일 종류
+ * 0x12 ~ 0x13 : e_machine
+ *               대상 CPU 종류, 여기서는 x86-64(0x3E)
+ * 0x14 ~ 0x17 : e_version
+ *               ELF 버전
+ * 0x18 ~ 0x1f : e_entry
+ *               적재가 끝난 뒤 처음 실행할 가상 주소
+ * 0x20 ~ 0x27 : e_phoff
+ *               프로그램 헤더 표가 파일에서 시작하는 위치
+ * 0x28 ~ 0x2f : e_shoff
+ *               섹션 헤더 표가 파일에서 시작하는 위치
+ * 0x30 ~ 0x33 : e_flags
+ *               추가 플래그
+ * 0x34 ~ 0x35 : e_ehsize
+ *               이 ELF 헤더 자체의 크기
+ * 0x36 ~ 0x37 : e_phentsize
+ *               프로그램 헤더 1개의 크기
+ * 0x38 ~ 0x39 : e_phnum
+ *               프로그램 헤더 개수
+ * 0x3a ~ 0x3b : e_shentsize
+ *               섹션 헤더 1개의 크기
+ * 0x3c ~ 0x3d : e_shnum
+ *               섹션 헤더 개수
+ * 0x3e ~ 0x3f : e_shstrndx
+ *               섹션 이름 문자열 표의 인덱스
  */
 struct ELF64_hdr {
 	unsigned char e_ident[EI_NIDENT];
@@ -443,37 +457,33 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
 
-/* @lock
- * FILE_NAME의 ELF 실행 파일을 현재 스레드에 로드한다.
- * 실행 파일의 진입점을 *RIP에 저장하고,
- * 초기 스택 포인터를 *RSP에 저장한다.
- * 성공하면 true, 그렇지 않으면 false를 반환한다.
+/* @bookmark
+ * load - 실행 파일의 진입점
  */
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
+	/* @note
+	 * 실행 파일 맨 앞 64바이트의 ELF 헤더 저장 변수
+	 */
 	struct ELF ehdr;
 	struct file *file = NULL;
 	off_t file_ofs;
 	bool success = false;
 	int i;
-
-	/* 적재용 변수 선언 */
 	char *argv[64];
-	char *temp, *save_point;
+	char *token, *save_point;
 	char *fn_copy = NULL;
 	int argc = 0;
 
-	char *store_p[64];
-	int j;
-
-	/* @lock
-	 * 페이지 디렉터리를 할당하고 활성화한다.
+	/* @note
+	 * 커널 주소 공간 매핑이 포함된 현재 프로세스용 페이지 테이블 생성
+	 * 생성한 페이지 테이블을 현재 스레드의 주소 공간으로 활성화
 	 */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
 		goto done;
-	process_activate (thread_current ());
+	process_activate (t);
 
 	/* 초기 설정:
 	 * 데이터 오염이 없도록, fn_copy에 안전하게 복사 */
@@ -483,20 +493,20 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	memcpy (fn_copy, file_name, CSTR_SIZE (file_name));
 
-	/* 이제 argv 배열 채우기 */
-	temp = strtok_r (fn_copy, " ", &save_point);
-	argv[argc] = temp;
-	argc++;
-
-	while (temp != NULL) {
-		temp = strtok_r (NULL, " ", &save_point);
-		if (temp != NULL) {
-			argv[argc] = temp;
-			argc++;
-		}
+	/* @note
+	 * strtok_r는 원본 문자열을 직접 잘라가며 토큰을 만든다.
+	 * 예를 들어 "echo x y"는 "echo\0x\0y\0" 형태로 바뀐다.
+	 */
+	token = strtok_r (fn_copy, " ", &save_point);
+	while (token != NULL) {
+		if ((size_t) argc >= sizeof argv / sizeof *argv)
+			goto done;
+		argv[argc++] = token;
+		token = strtok_r (NULL, " ", &save_point);
 	}
 
-	j = argc - 1;
+	if (argc == 0)
+		goto done;
 
 	/* @lock
 	 * 실행 파일을 연다.
@@ -510,7 +520,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* @lock
 	 * 실행 파일 헤더를 읽고 검증한다.
 	 */
-	/* amd64를 의미한다. */
+	/* @note
+	 * e_ident는 ELF 매직 값과 64비트 형식을 확인한다.
+	 * e_machine 0x3E는 x86-64를 의미한다.
+	 */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr ||
 	    memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 ||
 	    ehdr.e_machine != 0x3E || ehdr.e_version != 1 ||
@@ -592,17 +605,17 @@ load (const char *file_name, struct intr_frame *if_) {
 	 */
 	if_->rip = ehdr.e_entry;
 
-	/* 스택의 현 포인터를 찾는다
-	 * 쓸 대는 -8 하고, 읽을 때는 +8 함
-	 * 따라서, 배열도 거꾸로 적어야 한다 */
-	while (j >= 0) {
-		int size = CSTR_SIZE (argv[j]);
+	/* @note
+	 * 스택은 아래 방향으로 자라므로 마지막 인자부터 거꾸로 넣는다.
+	 * 문자열을 복사한 뒤 argv[i]를 그 새 주소로 바꿔 두면
+	 * 별도의 포인터 저장 배열이 필요 없다.
+	 */
+	for (int argi = argc - 1; argi >= 0; argi--) {
+		int size = CSTR_SIZE (argv[argi]);
 		/* 포인터를 이동한 후 cpy 한다 */
 		stack_p -= size;
-		memcpy (stack_p, argv[j], size);
-		/* 이후 주솟값을 사용해야 하므로 임시 저장 */
-		store_p[j] = stack_p;
-		j--;
+		memcpy (stack_p, argv[argi], size);
+		argv[argi] = stack_p;
 	}
 
 	/* 잘은 모르겠는데.. 이렇게 셋팅해야 한다고 */
@@ -615,7 +628,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* 포인터 주소 채우기 */
 	for (int n = argc - 1; n >= 0; n--) {
 		stack_p -= 8;
-		*(uintptr_t *) stack_p = (uintptr_t) store_p[n];
+		*(uintptr_t *) stack_p = (uintptr_t) argv[n];
 	}
 
 	/* 헤더 및 추가 주소값 설정 */
@@ -637,7 +650,8 @@ done:
 	if (fn_copy != NULL)
 		palloc_free_page (fn_copy);
 
-	file_close (file);
+	if (file != NULL)
+		file_close (file);
 	return success;
 }
 
