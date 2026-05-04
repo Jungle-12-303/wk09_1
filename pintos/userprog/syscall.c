@@ -84,6 +84,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		/* 종료 상태값 받음 */
 		exit (f->R.rdi);
 		break;
+	case SYS_FORK:
+		fork(f->R.rdi,f);
+		break;
 	default:
 		break;
 	}
@@ -99,7 +102,6 @@ exit (int status) {
 	printf ("%s: exit(%d)\n", thread_current ()->name, status);
 	thread_exit ();
 }
-
 
 int
 write (int fd, const void *buffer, unsigned size) {
@@ -139,4 +141,9 @@ check_address (void *addr) {
 	if (!is_user_vaddr (addr)) {
 		exit (-1);
 	}
+}
+
+int
+fork(const char *thread_name, struct intr_frame *f){
+	process_fork(thread_name, f);
 }
