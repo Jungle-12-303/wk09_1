@@ -22,7 +22,10 @@ void syscall_handler (struct intr_frame *);
 void halt (void);
 void exit (int status);
 int write (int fd, const void *buffer, unsigned size);
+bool create (const char *file, unsigned initial_size);
+
 void check_address (void *addr);
+
 
 struct lock filesys_lock;
 
@@ -85,6 +88,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		/* 종료 상태값 받음 */
 		exit (f->R.rdi);
 		break;
+	case SYS_CREATE:
+		
 	//open
 	//remove
 
@@ -105,23 +110,12 @@ halt (void) {
 // 일반적으로 0은 status성공 
 //0을 나타내고 0이 아닌 값은 오류를 나타냅니다.
 void exit(int status){ // status는 프로그램이 끝나면서 남기는 결과값, 0은 정상, -1 실패
-	printf("current thread : %s, exit(status) : %d", thread_current()->name, status);
+	printf("%s: exit(%d)\n", thread_current()->name, status);
 
 	//현재 스레드를 죽인다
 	thread_exit();
 }
 
-
-
-
-
-
-
-// void
-// exit (int status) {
-// 	printf ("%s: exit(%d)\n", thread_current ()->name, status);
-// 	thread_exit ();
-// }
 
 
 //buffer 시작 주소에서 size만큼 읽어서 stdout 콘솔에 출력해라
