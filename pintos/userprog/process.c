@@ -28,6 +28,12 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+struct fork_args {
+	struct thread *parent;        // fork를 호출한 부모 스레드
+	struct intr_frame if_;        // 부모의 유저 레지스터 스냅샷
+	struct child_status *cs;      // 부모가 만든 자식 상태 레코드
+};
+
 /* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
 #define FD_MAX (PGSIZE / sizeof (struct file *))
 
@@ -102,10 +108,28 @@ initd (void *f_name) {
  */
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
-	/*
-	 * 현재 스레드를 새 스레드로 복제한다.
-	 */
-	return thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
+	struct thread *curr = thread_current ();
+	struct child_status *cs;
+	tid_t tid;
+
+	cs = malloc (sizeof *cs);
+	if (cs == NULL)
+		return TID_ERROR;
+
+	cs->tid = TID_ERROR;
+	cs->exit_status = -1;
+	cs->waited = false;
+	cs->exited = false;
+	sema_init (&cs->wait_sema, 0);
+
+	list_push_back (&curr->child_status_list, &cs->elem);
+
+	tid = thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
+	if (tid == TID_ERROR) {
+		list_remove (&cs->elem);
+		free (cs);
+	}
+	return tid;
 }
 
 #ifndef VM
