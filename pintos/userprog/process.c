@@ -29,9 +29,9 @@ static void initd (void *f_name);
 static void __do_fork (void *);
 
 struct fork_args {
-	struct thread *parent;        // fork를 호출한 부모 스레드
-	struct intr_frame if_;        // 부모의 유저 레지스터 스냅샷
-	struct child_status *cs;      // 부모가 만든 자식 상태 레코드
+	struct thread *parent;   // fork를 호출한 부모 스레드
+	struct intr_frame if_;   // 부모의 유저 레지스터 스냅샷
+	struct child_status *cs; // 부모가 만든 자식 상태 레코드
 };
 
 /* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
@@ -107,11 +107,15 @@ initd (void *f_name) {
  * TID_ERROR를 반환한다.
  */
 tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED) {
+process_fork (const char *name, struct intr_frame *if_) {
 	struct thread *curr = thread_current ();
 	struct child_status *cs;
+	struct fork_args *args;
 	tid_t tid;
 
+	/* @note
+	 * 자식 스레드를 기다리기 위한 구조체
+	 */
 	cs = malloc (sizeof *cs);
 	if (cs == NULL)
 		return TID_ERROR;
@@ -124,11 +128,29 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 
 	list_push_back (&curr->child_status_list, &cs->elem);
 
-	tid = thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
+	/* @note
+	 * 스레드 포크를 위한 정보 구조체
+	 */
+	args = malloc (sizeof *args);
+	if (args == NULL) {
+		list_remove (&cs->elem);
+		free (cs);
+		return TID_ERROR;
+	}
+
+	args->parent = curr;
+	args->if_ = *if_;
+	args->cs = cs;
+
+	tid = thread_create (name, PRI_DEFAULT, __do_fork, args);
 	if (tid == TID_ERROR) {
 		list_remove (&cs->elem);
 		free (cs);
+		free (args);
+		return TID_ERROR;
 	}
+
+	cs->tid = tid;
 	return tid;
 }
 
@@ -195,88 +217,42 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
 static void
 __do_fork (void *aux) {
+	struct fork_args *args = aux;
+	struct thread *curr = thread_current ();
+	struct thread *parent = args->parent;
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
 
-	/* @todo
-	 * parent_if 전달 문제 해결:
-	 * process_fork()의 if_ (유저랜드 레지스터 스냅샷)를 여기로 전달해야 한다.
-	 * parent->tf는 커널 문맥이므로 쓸 수 없다.
-	 *
-	 * 방법: process_fork에서 if_를 parent의 멤버에 저장하고 여기서 읽는다.
-	 * 예) thread.h에 struct intr_frame parent_if 필드를 추가하거나,
-	 *     process_fork에서 memcpy(&parent->tf, if_)로 임시 저장한 뒤
-	 *     여기서 parent->tf를 읽는다.
-	 *
-	 * 현재: parent_if가 초기화되지 않아 memcpy가 크래시한다. */
-	struct intr_frame *parent_if;
-	bool succ = true;
+	curr->self_status = args->cs;
+	memcpy (&if_, &args->if_, sizeof if_);
+	free (args);
 
-	/* 1. CPU 문맥(레지스터)을 로컬 스택으로 복사한다. */
-	memcpy (&if_, parent_if, sizeof (struct intr_frame));
-
-	/* 2. 페이지 테이블을 복제한다. */
-	current->pml4 = pml4_create ();
-	if (current->pml4 == NULL)
+	curr->pml4 = pml4_create ();
+	if (curr->pml4 == NULL)
 		goto error;
 
-	process_activate (current);
+	process_activate (curr);
 #ifdef VM
-	supplemental_page_table_init (&current->spt);
-	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
+	supplemental_page_table_init (&curr->spt);
+	if (!supplemental_page_table_copy (&curr->spt, &parent->spt))
 		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
-	/* @todo
-	 * 3. 부모의 fd_table 복제:
-	 * parent->fd_table을 순회하며(i = 2 ~ FD_MAX) NULL이 아닌 슬롯마다
-	 * file_duplicate(parent->fd_table[i])로 복제하여
-	 * current->fd_table[i]에 저장한다.
-	 * current->next_fd = parent->next_fd로 동기화한다.
-	 *
-	 * file_duplicate는 inode 참조 카운트를 증가시키는 함수다.
-	 * 단순히 포인터를 복사하면 부모/자식이 같은 file 객체를 공유하게 되어
-	 * 한쪽이 close하면 다른 쪽도 닫혀버린다. */
-
-	/* @todo
-	 * 4. 자식의 fork 반환값 설정:
-	 * if_.R.rax = 0 으로 설정한다.
-	 * fork()는 부모에게 자식 tid를, 자식에게 0을 반환해야 한다.
-	 * 부모의 반환값은 process_fork가 thread_create의 tid를 반환하므로 자동.
-	 * 자식은 여기서 rax를 0으로 덮어써야 한다. */
-
-	/* @todo
-	 * 5. 자식의 child_list 재초기화:
-	 * memcpy로 부모의 메모리를 복사하면 child_list 포인터까지 복사된다.
-	 * 자식은 자기만의 빈 child_list를 가져야 하므로
-	 * list_init(&current->child_list)로 재초기화한다.
-	 * parent 포인터도 이미 thread_create에서 설정되어 있으므로 확인만 한다. */
-
-	/* @todo
-	 * 6. 부모-자식 동기화 (fork 완료 알림):
-	 * 힌트의 핵심: "이 함수가 부모의 자원을 성공적으로 복제하기 전까지
-	 * 부모는 fork()에서 반환되면 안 된다."
-	 *
-	 * 방법: 세마포어를 하나 추가한다 (예: fork_sema).
-	 *   - process_fork에서 thread_create 후 sema_down(&curr->fork_sema)
-	 *   - __do_fork에서 복제 완료 후 sema_up(&parent->fork_sema)
-	 *   - 실패(error) 시에도 sema_up 해서 부모가 깨어나야 한다.
-	 *   - 부모는 깨어난 후 성공/실패를 확인하여 tid 또는 TID_ERROR 반환. */
+	/* 자식 프로세스에서 fork()의 반환값은 0이다. */
+	if_.R.rax = 0;
 
 	process_init ();
 
 	/* 새로 생성된 프로세스로 전환한다. */
-	if (succ)
-		do_iret (&if_);
+	do_iret (&if_);
 error:
-	/* @todo
-	 * 실패 시 처리:
-	 * succ = false 설정 후, 부모에게 실패를 알려야 한다.
-	 * (fork_sema를 사용한다면 여기서도 sema_up 필요) */
+	if (curr->self_status != NULL) {
+		curr->self_status->exit_status = -1;
+		curr->self_status->exited = true;
+		sema_up (&curr->self_status->wait_sema);
+	}
 	thread_exit ();
 }
 
