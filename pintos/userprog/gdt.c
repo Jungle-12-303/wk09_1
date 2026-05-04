@@ -6,7 +6,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 
-/* @lock
+/*
  * Global Descriptor Table(GDT).
  *
  * GDT는 x86-64 전용 구조체로, 권한에 따라 시스템의 모든 프로세스가
@@ -75,14 +75,14 @@ struct desc_ptr gdt_ds = {
 	.address = (uint64_t) gdt
 };
 
-/* @lock
+/*
  * 올바른 GDT를 설정한다.
  * 부트스트랩 로더의 GDT에는 유저 모드 셀렉터나 TSS가 포함되어 있지 않았지만,
  * 이제는 둘 다 필요하다.
  */
 void
 gdt_init (void) {
-	/* @lock
+	/*
 	 * GDT를 초기화한다.
 	 */
 	struct segment_descriptor64 *tss_desc =

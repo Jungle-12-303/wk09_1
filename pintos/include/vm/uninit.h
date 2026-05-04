@@ -7,14 +7,14 @@ enum vm_type;
 
 typedef bool vm_initializer (struct page *, void *aux);
 
-/* Uninitlialized page. The type for implementing the
- * "Lazy loading". */
+/* 초기화되지 않은 페이지.
+ * "Lazy loading"을 구현하기 위한 타입이다. */
 struct uninit_page {
-	/* Initiate the contets of the page */
+	/* 페이지 내용을 초기화하는 함수. */
 	vm_initializer *init;
 	enum vm_type type;
 	void *aux;
-	/* Initiate the struct page and maps the pa to the va */
+	/* struct page를 초기화하고 pa를 va에 매핑하는 함수. */
 	bool (*page_initializer) (struct page *, enum vm_type, void *kva);
 };
 

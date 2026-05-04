@@ -4,15 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* @lock
+/*
  * 인터럽트가 켜져 있는가, 꺼져 있는가?
  */
 enum intr_level {
-	/* @lock
+	/*
 	 * 인터럽트가 비활성화됨.
 	 */
 	INTR_OFF,
-	/* @lock
+	/*
 	 * 인터럽트가 활성화됨.
 	 */
 	INTR_ON
@@ -23,7 +23,7 @@ enum intr_level intr_set_level (enum intr_level);
 enum intr_level intr_enable (void);
 enum intr_level intr_disable (void);
 
-/* @lock
+/*
  * 인터럽트 스택 프레임.
  */
 struct gp_registers {
@@ -45,7 +45,7 @@ struct gp_registers {
 } __attribute__((packed));
 
 struct intr_frame {
-	/* @lock
+	/*
 	 * intr-stubs.S의 intr_entry가 푸시한 값들이다.
 	 * 이는 인터럽트된 태스크의 저장된 레지스터들이다.
 	 */
@@ -56,20 +56,20 @@ struct intr_frame {
 	uint16_t ds;
 	uint16_t __pad3;
 	uint32_t __pad4;
-	/* @lock
+	/*
 	 * intr-stubs.S의 intrNN_stub가 푸시한 값이다.
 	 */
-	/* @lock
+	/*
 	 * 인터럽트 벡터 번호.
 	 */
 	uint64_t vec_no;
-	/* @lock
+	/*
 	 * 때때로 CPU가 푸시하고,
 	 * 그렇지 않으면 일관성을 위해 intrNN_stub가 0으로 푸시한다.
 	 * CPU는 이것을 `eip` 바로 아래에 두지만, 우리는 이를 여기로 옮긴다.
 	 */
 	uint64_t error_code;
-	/* @lock
+	/*
 	 * CPU가 푸시한 값들이다.
 	 * 이는 인터럽트된 태스크의 저장된 레지스터들이다.
 	 */

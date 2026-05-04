@@ -4,11 +4,11 @@
 #include <stdbool.h>
 #include "filesys/off_t.h"
 
-/* Sectors of system file inodes. */
-#define FREE_MAP_SECTOR 0       /* Free map file inode sector. */
-#define ROOT_DIR_SECTOR 1       /* Root directory file inode sector. */
+/* 시스템 파일 inode의 섹터들. */
+#define FREE_MAP_SECTOR 0       /* free map 파일의 inode 섹터. */
+#define ROOT_DIR_SECTOR 1       /* 루트 디렉터리 파일 inode 섹터. */
 
-/* Disk used for file system. */
+/* 파일 시스템에 사용되는 디스크. */
 extern struct disk *filesys_disk;
 
 void filesys_init (bool format);
