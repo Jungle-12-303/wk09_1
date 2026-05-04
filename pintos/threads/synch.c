@@ -29,7 +29,8 @@
 
 /* 보조 함수 선언부. */
 static bool cmp_sema_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
-bool thread_priority_d_elem(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool thread_priority_donation_elem(const struct list_elem *a,
+                                   const struct list_elem *b, void *aux);
 
 /*
  * 세마포어 SEMA를 VALUE로 초기화한다.
@@ -211,9 +212,10 @@ lock_acquire (struct lock *lock) {
 		int idx = 0;
 		
 		/* holder의 donation_list에 추가하기: 내림차순 */
-		list_insert_ordered(&holder->donation_list, &curr->d_elem, thread_priority_d_elem, NULL);
+		list_insert_ordered(&holder->donation_list, &curr->donation_elem,
+		                    thread_priority_donation_elem, NULL);
 		/* 내가 누구에 의해 lock 되었는지 명시하기 */
-		curr->locked_by = lock;
+		curr->waiting_lock = lock;
 		
 		/* 만약 lock 소유 스레드의 priority가 낮다면? => 기부 */
 		if(holder->priority < curr->priority){
@@ -222,7 +224,7 @@ lock_acquire (struct lock *lock) {
 
 		/* 일단 임시로 여기에 중첩 기부를 넣기로... */
 		while(idx < 7){
-			struct lock *next_lock = holder->locked_by;
+			struct lock *next_lock = holder->waiting_lock;
 			if(next_lock == NULL) break;
 			holder = next_lock->holder;
 			
@@ -238,8 +240,8 @@ lock_acquire (struct lock *lock) {
 
 	/* 단순히 sema_val을 낮출 뿐만 아니라, lock 획득을 위한 대기함(wait에 넣기) */
 	sema_down (&lock->semaphore);
-	/* 여기선 락을 획득했으니까, locked_by를 null 처리 */
-	curr->locked_by = NULL;
+	/* 여기선 락을 획득했으니까, waiting_lock을 null 처리 */
+	curr->waiting_lock = NULL;
 	lock->holder = thread_current ();
 }
 
@@ -284,12 +286,12 @@ lock_release (struct lock *lock) {
 	struct list_elem *d_e = list_begin(d_list);
 	
 	while(d_e != list_end(d_list)){
-		struct thread *d_t = list_entry(d_e, struct thread, d_elem);
+		struct thread *d_t = list_entry(d_e, struct thread, donation_elem);
 		/* 순회 꼬이지 않도록 미리미리 다음 것 확보하기 */
 		struct list_elem *next = list_next(d_e);
 
 		/* 이 스레드가 어떤 lock에 의해 대기타는지 확인 => 같은 lock이면 제거 */
-		if(d_t->locked_by == lock){
+		if(d_t->waiting_lock == lock){
 			list_remove(d_e);
 		}
 
@@ -433,10 +435,11 @@ cmp_sema_priority(const struct list_elem *a, const struct list_elem *b, void *au
 	return ta->priority > tb->priority;
 }
 
-/* d_elem 기준 priority 구하기 */
+/* donation_elem 기준 priority 구하기 */
 bool
-thread_priority_d_elem(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+thread_priority_donation_elem(const struct list_elem *a,
+                              const struct list_elem *b, void *aux UNUSED){
 	/* 이번에는 좀 더 간결하게 표현 */
-	return list_entry(a, struct thread, d_elem)->priority > 
-		   list_entry(b, struct thread, d_elem)->priority;
+	return list_entry(a, struct thread, donation_elem)->priority >
+		   list_entry(b, struct thread, donation_elem)->priority;
 }

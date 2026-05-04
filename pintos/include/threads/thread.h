@@ -15,22 +15,10 @@
  * 스레드 생애 주기의 상태들.
  */
 enum thread_status {
-	/*
-	 * 실행 중인 스레드.
-	 */
-	THREAD_RUNNING,
-	/*
-	 * 실행 중은 아니지만 실행될 준비가 된 상태.
-	 */
-	THREAD_READY,
-	/*
-	 * 어떤 이벤트가 발생하기를 기다리는 상태.
-	 */
-	THREAD_BLOCKED,
-	/*
-	 * 곧 파괴될 상태.
-	 */
-	THREAD_DYING
+	THREAD_RUNNING, // 실행 중인 스레드
+	THREAD_READY,   // 실행 중은 아니지만 실행될 준비가 된 상태
+	THREAD_BLOCKED, // 어떤 이벤트가 발생하기를 기다리는 상태
+	THREAD_DYING    // 곧 파괴될 상태
 };
 
 /*
@@ -121,45 +109,22 @@ typedef int tid_t;
  * semaphore 대기 리스트에 있기 때문이다.
  */
 struct thread {
-	/*
-	 * thread.c가 소유한다.
-	 */
-	/*
-	 * 스레드 식별자.
-	 */
-	tid_t tid;
-	/*
-	 * 스레드 상태.
-	 */
-	enum thread_status status;
-	/*
-	 * 이름(디버깅 목적).
-	 */
-	char name[THREAD_NAME_MAX];
-	/*
-	 * 우선순위.
-	 */
-	int priority;
-	/* 변하지 않는 원래 우선순위를 저장한다. */
-	int base_priority;
-	/* 스레드를 언제 깨울지 나타내는 tick 값이다. */
-	int64_t wake_tick;
-
-	// struct semaphore wait_sema;
-	// int exit_status;
-
-	/* donation-multiple 구현을 위한 필드들이다. */
-	struct list donation_list;
-	struct list_elem d_elem;
-	struct lock *locked_by;
-
-	/*
-	 * thread.c와 synch.c가 공유한다.
-	 */
-	/*
-	 * 리스트 원소.
-	 */
-	struct list_elem elem;
+	tid_t tid;                  // 스레드 식별자
+	enum thread_status status;  // 현재 스케줄링 상태
+	int priority;               // 현재 유효 우선순위
+	int base_priority;          // 우선순위 기부 전 원래 우선순위
+	int exit_status;            // 프로세스 종료 코드
+	int64_t wake_tick;          // 깨워야 할 절대 tick
+	char name[THREAD_NAME_MAX]; // 디버깅용 이름
+	struct semaphore wait_sema; // 부모가 자식 종료를 기다릴 때 쓰는 세마포어
+	struct semaphore
+	        exit_sema;    // 부모가 자식 수거를 끝낼 때까지 기다리는 세마포어
+	struct list children; // 내가 만든 자식 스레드 목록
+	struct list_elem child_elem;    // 부모 children 리스트의 원소
+	struct list donation_list;      // 나에게 우선순위를 기부한 스레드 목록
+	struct list_elem donation_elem; // 다른 스레드 donation_list의 원소
+	struct lock *waiting_lock;      // 현재 기다리는 락, 우선순위 기부 전파용
+	struct list_elem elem;          // ready_list 또는 semaphore waiters의 원소
 
 #ifdef USERPROG
 	/*
@@ -182,18 +147,8 @@ struct thread {
 	 */
 	struct supplemental_page_table spt;
 #endif
-
-	/*
-	 * thread.c가 소유한다.
-	 */
-	/*
-	 * 문맥 전환에 필요한 정보.
-	 */
-	struct intr_frame tf;
-	/*
-	 * 스택 오버플로우를 감지한다.
-	 */
-	unsigned magic;
+	struct intr_frame tf; // 문맥 전환에 필요한 레지스터 문맥
+	unsigned magic;       // 스택 오버플로우 감지용 마법값
 };
 
 /*
@@ -243,7 +198,7 @@ void check_preemption (void);
 void refresh_priority (struct thread *t);
 bool thread_priority (const struct list_elem *a, const struct list_elem *b,
                       void *aux);
-bool thread_priority_d_elem (const struct list_elem *a,
-                             const struct list_elem *b, void *aux);
+bool thread_priority_donation_elem (const struct list_elem *a,
+                                    const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */

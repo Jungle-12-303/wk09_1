@@ -514,12 +514,16 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->base_priority = priority;
+	t->priority = priority;
+	t->exit_status = -1;
 	t->magic = THREAD_MAGIC;
+	sema_init (&t->wait_sema, 0);
+	sema_init (&t->exit_sema, 0);
+	list_init (&t->children);
 
 	/* phase 3: priority donation 추가 구현 변수 초기화 */
 	list_init (&t->donation_list);
-	t->priority = priority;
-	t->locked_by = NULL;
+	t->waiting_lock = NULL;
 
 #ifdef USERPROG
 	/* @todo
@@ -797,9 +801,9 @@ refresh_priority (struct thread *t) {
 	t->priority = t->base_priority;
 
 	if (!list_empty (&t->donation_list)) {
-		list_sort (&t->donation_list, thread_priority_d_elem, NULL);
+		list_sort (&t->donation_list, thread_priority_donation_elem, NULL);
 		struct thread *top = list_entry (list_front (&t->donation_list),
-		                                 struct thread, d_elem);
+		                                 struct thread, donation_elem);
 		if (top->priority > t->priority)
 			t->priority = top->priority;
 	}
