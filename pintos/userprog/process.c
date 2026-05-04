@@ -175,24 +175,20 @@ __do_fork(struct fork_args *aux)
 		goto error;
 #endif
 
-	/* @lock TODO: 여기에 코드를 작성한다.
+	/* TODO: 여기에 코드를 작성한다.
 	 * TODO: 힌트) 파일 객체를 복제하려면 include/filesys/file.h의
 	 * TODO:       `file_duplicate'를 사용한다. 이 함수가 부모의 리소스를
 	 * TODO:       성공적으로 복제하기 전까지 부모가 fork()에서 반환되면
 	 * TODO:       안 된다는 점에 주의한다. */
 
-	/* 3. 부모의 fd_table 복제 */
+	process_init();
+
+	/* 부모의 fd_table 복제 */
 	if (file_duplicate(parent->fd_table) == NULL)
 	{
 		goto error;
 	}
-
 	succ = true;
-
-	/*자식의 fork 반환값을 0으로 설정*/
-	/*5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
-
-	process_init();
 
 	/* 새로 생성된 프로세스로 전환 */
 	if (succ)
