@@ -1,11 +1,17 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+// @warn [C/C++] #include 오류가 검색되었습니다. includePath를 업데이트하세요.
+// 이 변환 단위(/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W
+// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "debug.h"
 #include <debug.h>
+// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "list.h"
 #include <list.h>
 #include <stdint.h>
+// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "threads/interrupt.h"
 #include "threads/interrupt.h"
 /* 임시 해결용 */
+// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "threads/synch.h"
 #include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -28,12 +34,12 @@ enum thread_status {
 typedef int tid_t;
 
 struct child_status {
-	tid_t tid;                 // 자식 스레드 식별자
-	int exit_status;           // 자식 종료 코드
-	bool waited;               // 부모가 이미 wait했는지 여부
-	bool exited;               // 자식이 이미 종료했는지 여부
+	tid_t tid;                  // 자식 스레드 식별자
+	int exit_status;            // 자식 종료 코드
+	bool waited;                // 부모가 이미 wait했는지 여부
+	bool exited;                // 자식이 이미 종료했는지 여부
 	struct semaphore wait_sema; // 자식 종료 알림용 세마포어
-	struct list_elem elem;     // 부모의 child_status_list 원소
+	struct list_elem elem;      // 부모의 child_status_list 원소
 };
 
 /*
@@ -118,24 +124,24 @@ struct child_status {
  * semaphore 대기 리스트에 있기 때문이다.
  */
 struct thread {
-	tid_t tid;                  // 스레드 식별자
-	enum thread_status status;  // 현재 스케줄링 상태
-	int priority;               // 현재 유효 우선순위
-	int base_priority;          // 우선순위 기부 전 원래 우선순위
-	int64_t wake_tick;          // 깨워야 할 절대 tick
-	char name[THREAD_NAME_MAX]; // 디버깅용 이름
+	tid_t tid;                      // 스레드 식별자
+	enum thread_status status;      // 현재 스케줄링 상태
+	int priority;                   // 현재 유효 우선순위
+	int base_priority               // 우선순위 기부 전 원래 우선순위
+	        int64_t wake_tick;      // 깨워야 할 절대 tick
+	char name[THREAD_NAME_MAX];     // 디버깅용 이름
 	struct list donation_list;      // 나에게 우선순위를 기부한 스레드 목록
 	struct list_elem donation_elem; // 다른 스레드 donation_list의 원소
 	struct lock *waiting_lock;      // 현재 기다리는 락, 우선순위 기부 전파용
 	struct list_elem elem;          // ready_list 또는 semaphore waiters의 원소
 
 #ifdef USERPROG
-	uint64_t *pml4;                     // userprog/process.c가 소유하는 페이지 맵 레벨 4
+	uint64_t *pml4; // userprog/process.c가 소유하는 페이지 맵 레벨 4
 
-	struct file **fd_table;              // 파일 디스크립터 테이블
-	int next_fd;                         // 다음에 할당할 fd 번호
-	struct list child_status_list;       // 부모가 소유하는 자식 상태 레코드 목록
-	struct child_status *self_status;    // 현재 스레드 자신의 child_status
+	struct file **fd_table;           // 파일 디스크립터 테이블
+	int next_fd;                      // 다음에 할당할 fd 번호
+	struct list child_status_list;    // 부모가 소유하는 자식 상태 레코드 목록
+	struct child_status *self_status; // 현재 스레드 자신의 child_status
 #endif
 #ifdef VM
 	/*

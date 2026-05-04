@@ -101,6 +101,9 @@ initd (void *f_name) {
 	NOT_REACHED ();
 }
 
+/* @bookmark
+ * process_fork - 스레드 포크
+ */
 /*
  * 현재 프로세스를 `name`이라는 이름으로 복제한다.
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
@@ -149,6 +152,8 @@ process_fork (const char *name, struct intr_frame *if_) {
 		free (args);
 		return TID_ERROR;
 	}
+
+	sema_down (&cs->wait_sema);
 
 	cs->tid = tid;
 	return tid;
@@ -320,7 +325,7 @@ process_exec (void *f_name) {
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
 /* @bookmark
- * process_wait: timer_sleep 임시 대기
+ * process_wait: 자식 프로세스 대기
  */
 int
 process_wait (tid_t child_tid UNUSED) {
