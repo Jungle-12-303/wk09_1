@@ -257,6 +257,9 @@ thread_create (const char *name, int priority, thread_func *function,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	/* @breakpoint
+	* (void *) t->tf.R.rip, (void *) t->tf.R.rdi, (char *) t->tf.R.rsi
+	*/
 	/*
 	 * 새 스레드를 스케줄러 ready_list 추가
 	 */
@@ -519,6 +522,10 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->locked_by = NULL;
 
 #ifdef USERPROG
+	/* @todo
+	 * fd_table: palloc으로 1페이지(4KB) 할당하여 512개 슬롯 확보.
+	 * memset으로 전부 NULL 초기화.
+	 * next_fd = 2 (0=stdin, 1=stdout 예약). */
 	t->fd_table = palloc_get_page (PAL_ZERO);
 	t->next_fd = 2;
 #endif
@@ -540,6 +547,9 @@ next_thread_to_run (void) {
 
 /*
  * iretq를 사용해 스레드를 시작한다.
+ */
+/* @bookmark
+ * do_iret - 스레드를 시작
  */
 void
 do_iret (struct intr_frame *tf) {
