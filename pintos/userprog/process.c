@@ -112,6 +112,12 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
  * 이 함수를 pml4_for_each에 넘겨 부모의 주소 공간을 복제한다.
  * 이는 project 2에서만 사용된다.
  */
+/* duplicate_pte - pml4_for_each 콜백. 부모의 PTE 하나를 자식에게 복제한다.
+ *
+ * 매개변수:
+ *   pte - 부모의 페이지 테이블 엔트리 포인터
+ *   va  - 이 PTE가 매핑하는 가상 주소
+ *   aux - 부모 struct thread 포인터 (pml4_for_each에서 전달) */
 static bool
 duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	struct thread *current = thread_current ();
@@ -120,34 +126,26 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	void *newpage;
 	bool writable;
 
-	/*
-	 * TODO: parent_page가 커널 페이지라면 즉시 반환하라.
-	 */
+	/* @todo 1. 커널 페이지 필터링:
+	 * is_kernel_vaddr(va)이면 return true로 건너뛴다.
+	 * 커널 영역은 모든 프로세스가 공유하므로 복제 대상이 아니다. */
 
-	/*
-	 * 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다.
-	 */
+	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
-	/*
-	 * TODO: 3. 자식을 위한 새 PAL_USER 페이지를 할당하고 결과를
-	 * TODO: NEWPAGE에 저장하라.
-	 */
+	/* @todo 3. 자식용 새 페이지 할당:
+	 * palloc_get_page(PAL_USER)로 유저 영역 페이지 1개를 할당한다.
+	 * 실패하면 return false (메모리 부족 → __do_fork의 error로 점프). */
 
-	/*
-	 * TODO: 4. 부모의 페이지를 새 페이지로 복제하고,
-	 * TODO: 부모 페이지가 쓰기 가능한지 확인하여 결과에 따라 WRITABLE을
-	 * TODO: 설정하라.
-	 */
+	/* @todo 4. 부모 페이지 복사 + 쓰기 권한 확인:
+	 * memcpy(newpage, parent_page, PGSIZE)로 4KB 전체를 복사한다.
+	 * writable = is_writable(pte)로 부모 PTE의 쓰기 비트를 읽는다.
+	 * (include/threads/mmu.h에 매크로 정의됨) */
 
-	/*
-	 * 5. WRITABLE 권한으로 VA 주소에 자식의 페이지 테이블에 새 페이지를
-	 * 추가한다.
-	 */
+	/* 5. 자식 페이지 테이블에 매핑 추가. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
-		/*
-		 * TODO: 6. 페이지 삽입에 실패하면 오류 처리를 하라.
-		 */
+		/* @todo 6. 실패 시 방금 할당한 newpage를 palloc_free_page로 해제하고
+		 * return false 한다. */
 	}
 	return true;
 }
