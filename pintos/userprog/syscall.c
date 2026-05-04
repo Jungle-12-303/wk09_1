@@ -104,12 +104,12 @@ halt (void) {
 // 프로세스의 부모 wait프로세스가 해당 프로세스에 대해 종료를 요청한 경우(아래 참조), 이 상태가 반환됩니다. 
 // 일반적으로 0은 status성공 
 //0을 나타내고 0이 아닌 값은 오류를 나타냅니다.
-// void exit(int status){ // status는 프로그램이 끝나면서 남기는 결과값, 0은 정상, -1 실패
-// 	printf("current thread : %s, exit(status) : %d", thread_current()->name, status);
+void exit(int status){ // status는 프로그램이 끝나면서 남기는 결과값, 0은 정상, -1 실패
+	printf("current thread : %s, exit(status) : %d", thread_current()->name, status);
 
-// 	//현재 스레드를 죽인다
-// 	thread_exit();
-// }
+	//현재 스레드를 죽인다
+	thread_exit();
+}
 
 
 
