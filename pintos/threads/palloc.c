@@ -12,7 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 
-/* @lock
+/*
  * 페이지 할당기.
  * 메모리를 페이지 크기(또는 그 배수) 단위로 나누어 제공한다.
  * 더 작은 단위를 제공하는 할당기는 malloc.h를 참고하라.
@@ -26,30 +26,30 @@
  * 커널 풀에는 다소 과한 양일 수 있지만, 데모 목적에는 충분히 괜찮다.
  */
 
-/* @lock
+/*
  * 메모리 풀.
  */
 struct pool {
-	/* @lock
+	/*
 	 * 상호 배제를 위한 락.
 	 */
 	struct lock lock;
-	/* @lock
+	/*
 	 * free 페이지를 나타내는 비트맵.
 	 */
 	struct bitmap *used_map;
-	/* @lock
+	/*
 	 * 풀의 시작 주소.
 	 */
 	uint8_t *base;
 };
 
-/* @lock
+/*
  * 두 개의 풀: 하나는 커널 데이터용, 하나는 유저 페이지용.
  */
 static struct pool kernel_pool, user_pool;
 
-/* @lock
+/*
  * 유저 풀에 넣을 최대 페이지 수.
  */
 size_t user_page_limit = SIZE_MAX;
@@ -58,7 +58,7 @@ init_pool (struct pool *p, void **bm_base, uint64_t start, uint64_t end);
 
 static bool page_from_pool (const struct pool *, void *page);
 
-/* @lock
+/*
  * multiboot 정보.
  */
 struct multiboot_info {
@@ -70,7 +70,7 @@ struct multiboot_info {
 	uint32_t mmap_base;
 };
 
-/* @lock
+/*
  * e820 엔트리.
  */
 struct e820_entry {
@@ -82,8 +82,8 @@ struct e820_entry {
 	uint32_t type;
 };
 
-/* @lock
- * ext_mem/base_mem의 범위 정보를 표현한다.
+/*
+ * ext_mem/base_mem의 범위 정보를 나타낸다.
  */
 struct area {
 	uint64_t start;
@@ -96,7 +96,7 @@ struct area {
 #define ACPI_RECLAIMABLE 3
 #define APPEND_HILO(hi, lo) (((uint64_t) ((hi)) << 32) + (lo))
 
-/* @lock
+/*
  * e820 엔트리를 순회하며 basemem과 extmem의 범위를 파싱한다.
  */
 static void
@@ -136,7 +136,7 @@ resolve_area_info (struct area *base_mem, struct area *ext_mem) {
 	}
 }
 
-/* @lock
+/*
  * 풀을 채운다.
  * 코드 페이지를 포함한 모든 페이지는 이 할당기가 관리한다.
  * 기본적으로 메모리의 절반은 커널에, 절반은 유저에 준다.
@@ -257,12 +257,12 @@ split:
 	}
 }
 
-/* @lock
+/*
  * 페이지 할당기를 초기화하고 메모리 크기를 얻는다.
  */
 uint64_t
 palloc_init (void) {
-	/* @lock
+	/*
 	 * 링커가 기록한 커널의 끝 지점이다.
 	 * kernel.lds.S를 참고하라.
 	 */
@@ -280,7 +280,7 @@ palloc_init (void) {
 	return ext_mem.end;
 }
 
-/* @lock
+/*
  * PAGE_CNT개의 연속된 free 페이지 묶음을 얻어 반환한다.
  * PAL_USER가 설정되어 있으면 유저 풀에서, 아니면 커널 풀에서 페이지를 얻는다.
  * FLAGS에 PAL_ZERO가 설정되어 있으면 페이지를 0으로 채운다.
@@ -312,7 +312,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt) {
 	return pages;
 }
 
-/* @lock
+/*
  * free 페이지 하나를 얻어 그 커널 가상 주소를 반환한다.
  * PAL_USER가 설정되어 있으면 유저 풀에서, 아니면 커널 풀에서 페이지를 얻는다.
  * FLAGS에 PAL_ZERO가 설정되어 있으면 페이지를 0으로 채운다.
@@ -324,7 +324,7 @@ palloc_get_page (enum palloc_flags flags) {
 	return palloc_get_multiple (flags, 1);
 }
 
-/* @lock
+/*
  * PAGES에서 시작하는 PAGE_CNT개의 페이지를 해제한다.
  */
 void
@@ -352,7 +352,7 @@ palloc_free_multiple (void *pages, size_t page_cnt) {
 	bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
 }
 
-/* @lock
+/*
  * PAGE 위치의 페이지를 해제한다.
  */
 void
@@ -360,12 +360,12 @@ palloc_free_page (void *page) {
 	palloc_free_multiple (page, 1);
 }
 
-/* @lock
+/*
  * START에서 시작해 END에서 끝나는 범위로 풀 P를 초기화한다.
  */
 static void
 init_pool (struct pool *p, void **bm_base, uint64_t start, uint64_t end) {
-	/* @lock
+	/*
 	 * 풀의 used_map은 풀 시작 부분에 둔다.
 	 * 비트맵에 필요한 공간을 계산하고, 그만큼을 풀 크기에서 뺀다.
 	 */
@@ -382,7 +382,7 @@ init_pool (struct pool *p, void **bm_base, uint64_t start, uint64_t end) {
 	*bm_base += bm_pages;
 }
 
-/* @lock
+/*
  * PAGE가 POOL에서 할당된 것이면 true를, 아니면 false를 반환한다.
  */
 static bool

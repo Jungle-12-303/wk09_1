@@ -1,9 +1,9 @@
-/* @lock
+/*
  * 이 파일은 교육용 운영체제 Nachos의 소스 코드에서 파생되었다.
  * Nachos의 저작권 고지는 아래에 전문이 재수록되어 있다.
  */
 
-/* @lock
+/*
  * Copyright (c) 1992-1996 The Regents of the University of California.
  * All rights reserved.
  *
@@ -31,7 +31,7 @@
 static bool cmp_sema_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 bool thread_priority_d_elem(const struct list_elem *a, const struct list_elem *b, void *aux);
 
-/* @lock
+/*
  * 세마포어 SEMA를 VALUE로 초기화한다.
  * 세마포어는 음이 아닌 정수 값과, 그것을 조작하는 두 개의 원자적 연산으로 구성된다.
  *
@@ -47,7 +47,7 @@ sema_init (struct semaphore *sema, unsigned value) {
 	list_init (&sema->waiters);
 }
 
-/* @lock
+/*
  * 세마포어에 대한 down 또는 "P" 연산.
  * SEMA의 값이 양수가 될 때까지 기다렸다가 원자적으로 감소시킨다.
  *
@@ -74,7 +74,7 @@ sema_down (struct semaphore *sema) {
 	intr_set_level (old_level);
 }
 
-/* @lock
+/*
  * 세마포어에 대한 down 또는 "P" 연산이지만,
  * 세마포어 값이 이미 0이 아닐 때만 수행한다.
  * 세마포어를 감소시켰다면 true를, 아니면 false를 반환한다.
@@ -101,7 +101,7 @@ sema_try_down (struct semaphore *sema) {
 	return success;
 }
 
-/* @lock
+/*
  * 세마포어에 대한 up 또는 "V" 연산.
  * SEMA의 값을 증가시키고, SEMA를 기다리는 스레드가 있다면 그중 하나를 깨운다.
  *
@@ -130,7 +130,7 @@ sema_up (struct semaphore *sema) {
 
 static void sema_test_helper (void *sema_);
 
-/* @lock
+/*
  * 세마포어 self-test.
  * 두 스레드 사이에서 제어가 "핑퐁"처럼 오가도록 만든다.
  * 무슨 일이 일어나는지 보려면 printf() 호출을 넣어 보라.
@@ -152,7 +152,7 @@ sema_self_test (void) {
 	printf ("done.\n");
 }
 
-/* @lock
+/*
  * sema_self_test()에서 사용하는 스레드 함수.
  */
 static void
@@ -167,7 +167,7 @@ sema_test_helper (void *sema_) {
 	}
 }
 
-/* @lock
+/*
  * LOCK을 초기화한다.
  * 락은 어느 시점이든 최대 하나의 스레드만 가질 수 있다.
  * 우리의 락은 "재귀적(recursive)"이지 않다.
@@ -188,7 +188,7 @@ lock_init (struct lock *lock) {
 	sema_init (&lock->semaphore, 1);
 }
 
-/* @lock
+/*
  * LOCK을 획득한다.
  * 필요하다면 사용 가능해질 때까지 잠들어 기다린다.
  * 현재 스레드는 이미 이 락을 들고 있으면 안 된다.
@@ -243,7 +243,7 @@ lock_acquire (struct lock *lock) {
 	lock->holder = thread_current ();
 }
 
-/* @lock
+/*
  * LOCK 획득을 시도하고 성공하면 true, 실패하면 false를 반환한다.
  * 현재 스레드는 이미 이 락을 들고 있으면 안 된다.
  *
@@ -262,7 +262,7 @@ lock_try_acquire (struct lock *lock) {
 	return success;
 }
 
-/* @lock
+/*
  * LOCK을 해제한다.
  * 이 락은 현재 스레드가 소유하고 있어야 한다.
  * 이것이 lock_release 함수다.
@@ -304,7 +304,7 @@ lock_release (struct lock *lock) {
 
 }
 
-/* @lock
+/*
  * 현재 스레드가 LOCK을 들고 있으면 true를, 아니면 false를 반환한다.
  * (다른 어떤 스레드가 락을 들고 있는지 검사하는 것은 race 상태가 될 수 있다.)
  */
@@ -315,21 +315,21 @@ lock_held_by_current_thread (const struct lock *lock) {
 	return lock->holder == thread_current ();
 }
 
-/* @lock
+/*
  * 리스트 안의 세마포어 하나.
  */
 struct semaphore_elem {
-	/* @lock
+	/*
 	 * 리스트 원소.
 	 */
 	struct list_elem elem;
-	/* @lock
+	/*
 	 * 이 세마포어.
 	 */
 	struct semaphore semaphore;
 };
 
-/* @lock
+/*
  * 조건 변수 COND를 초기화한다.
  * 조건 변수는 한쪽 코드가 어떤 조건을 신호로 보내고,
  * 협력하는 다른 코드가 그 신호를 받아 동작하도록 해 준다.
@@ -341,7 +341,7 @@ cond_init (struct condition *cond) {
 	list_init (&cond->waiters);
 }
 
-/* @lock
+/*
  * LOCK을 원자적으로 해제하고, 다른 코드가 COND를 신호로 보낼 때까지 기다린다.
  * COND가 신호된 뒤에는 반환 전에 LOCK을 다시 획득한다.
  * 이 함수를 호출하기 전에는 반드시 LOCK을 들고 있어야 한다.
@@ -377,7 +377,7 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	lock_acquire (lock);
 }
 
-/* @lock
+/*
  * LOCK으로 보호되는 COND를 기다리는 스레드가 있다면,
  * 이 함수는 그중 하나를 깨우도록 신호를 보낸다.
  * 이 함수를 호출하기 전에는 반드시 LOCK을 들고 있어야 한다.
@@ -399,7 +399,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	}
 }
 
-/* @lock
+/*
  * LOCK으로 보호되는 COND를 기다리는 모든 스레드를 깨운다.
  * 이 함수를 호출하기 전에는 반드시 LOCK을 들고 있어야 한다.
  *

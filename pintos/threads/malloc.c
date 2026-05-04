@@ -9,7 +9,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 
-/* @lock
+/*
  * malloc()의 단순한 구현.
  *
  * 각 요청의 크기(바이트 단위)는 2의 거듭제곱 크기로 올림되며,
@@ -32,69 +32,69 @@
  * 할당 크기를 arena 헤더의 시작 부분에 기록해 처리한다.
  */
 
-/* @lock
+/*
  * 디스크립터.
  */
 struct desc {
-	/* @lock
+	/*
 	 * 각 원소의 바이트 단위 크기.
 	 */
 	size_t block_size;
-	/* @lock
+	/*
 	 * arena 하나에 들어가는 블록 수.
 	 */
 	size_t blocks_per_arena;
-	/* @lock
+	/*
 	 * 빈 블록들의 리스트.
 	 */
 	struct list free_list;
-	/* @lock
+	/*
 	 * 락.
 	 */
 	struct lock lock;
 };
 
-/* @lock
+/*
  * arena 손상을 감지하기 위한 매직 넘버.
  */
 #define ARENA_MAGIC 0x9a548eed
 
-/* @lock
+/*
  * arena.
  */
 struct arena {
-	/* @lock
-	 * 항상 ARENA_MAGIC으로 설정된다.
+	/*
+ * 항상 ARENA_MAGIC 값으로 설정된다.
 	 */
 	unsigned magic;
-	/* @lock
+	/*
 	 * 소유한 디스크립터. 큰 블록이면 null이다.
 	 */
 	struct desc *desc;
-	/* @lock
+	/*
 	 * 빈 블록 수. 큰 블록에서는 페이지 수를 뜻한다.
 	 */
 	size_t free_cnt;
 };
 
-/* @lock
+/*
  * 빈 블록.
  */
 struct block {
-	/* @lock
-	 * free list 원소.
+	/*
+ * 빈 블록 리스트 원소.
 	 */
 	struct list_elem free_elem;
 };
 
-/* @lock
+/*
  * 우리가 사용하는 디스크립터 집합.
  */
-/* @lock
+/*
  * 디스크립터들.
  */
 static struct desc descs[10];
-/* @lock
+/*
  * 디스크립터의 개수.
  */
 static size_t desc_cnt;
@@ -102,7 +102,7 @@ static size_t desc_cnt;
 static struct arena *block_to_arena (struct block *);
 static struct block *arena_to_block (struct arena *, size_t idx);
 
-/* @lock
+/*
  * malloc() 디스크립터들을 초기화한다.
  */
 void
@@ -119,7 +119,7 @@ malloc_init (void) {
 	}
 }
 
-/* @lock
+/*
  * 최소 SIZE 바이트 이상인 새 블록을 얻어 반환한다.
  * 사용 가능한 메모리가 없으면 null 포인터를 반환한다.
  */
@@ -129,20 +129,20 @@ malloc (size_t size) {
 	struct block *b;
 	struct arena *a;
 
-	/* @lock
+	/*
 	 * 0바이트 요청은 null 포인터로 만족시킨다.
 	 */
 	if (size == 0)
 		return NULL;
 
-	/* @lock
+	/*
 	 * SIZE 바이트 요청을 만족하는 가장 작은 디스크립터를 찾는다.
 	 */
 	for (d = descs; d < descs + desc_cnt; d++)
 		if (d->block_size >= size)
 			break;
 	if (d == descs + desc_cnt) {
-		/* @lock
+		/*
 		 * SIZE가 어떤 디스크립터에도 맞지 않을 만큼 크다.
 		 * SIZE와 arena를 담을 수 있을 만큼의 페이지를 할당한다.
 		 */
@@ -151,7 +151,7 @@ malloc (size_t size) {
 		if (a == NULL)
 			return NULL;
 
-		/* @lock
+		/*
 		 * PAGE_CNT 페이지로 이루어진 큰 블록임을 나타내도록 arena를 초기화하고
 		 * 그것을 반환한다.
 		 */
@@ -163,13 +163,13 @@ malloc (size_t size) {
 
 	lock_acquire (&d->lock);
 
-	/* @lock
+	/*
 	 * free list가 비어 있으면 새 arena를 만든다.
 	 */
 	if (list_empty (&d->free_list)) {
 		size_t i;
 
-		/* @lock
+		/*
 		 * 페이지 하나를 할당한다.
 		 */
 		a = palloc_get_page (0);
@@ -178,7 +178,7 @@ malloc (size_t size) {
 			return NULL;
 		}
 
-		/* @lock
+		/*
 		 * arena를 초기화하고 그 블록들을 free list에 추가한다.
 		 */
 		a->magic = ARENA_MAGIC;
@@ -190,7 +190,7 @@ malloc (size_t size) {
 		}
 	}
 
-	/* @lock
+	/*
 	 * free list에서 블록 하나를 꺼내 반환한다.
 	 */
 	b = list_entry (list_pop_front (&d->free_list), struct block, free_elem);
@@ -200,7 +200,7 @@ malloc (size_t size) {
 	return b;
 }
 
-/* @lock
+/*
  * A * B 바이트를 할당하고 0으로 초기화해 반환한다.
  * 사용 가능한 메모리가 없으면 null 포인터를 반환한다.
  */
@@ -209,14 +209,14 @@ calloc (size_t a, size_t b) {
 	void *p;
 	size_t size;
 
-	/* @lock
+	/*
 	 * 블록 크기를 계산하고 size_t에 들어가는지 확인한다.
 	 */
 	size = a * b;
 	if (size < a || size < b)
 		return NULL;
 
-	/* @lock
+	/*
 	 * 메모리를 할당하고 0으로 채운다.
 	 */
 	p = malloc (size);
@@ -226,7 +226,7 @@ calloc (size_t a, size_t b) {
 	return p;
 }
 
-/* @lock
+/*
  * BLOCK에 할당된 바이트 수를 반환한다.
  */
 static size_t
@@ -238,7 +238,7 @@ block_size (void *block) {
 	return d != NULL ? d->block_size : PGSIZE * a->free_cnt - pg_ofs (block);
 }
 
-/* @lock
+/*
  * OLD_BLOCK을 NEW_SIZE 바이트로 재조정하려 시도하며,
  * 그 과정에서 블록이 이동할 수도 있다.
  * 성공하면 새 블록을 반환하고, 실패하면 null 포인터를 반환한다.
@@ -262,7 +262,7 @@ realloc (void *old_block, size_t new_size) {
 	}
 }
 
-/* @lock
+/*
  * 블록 P를 해제한다.
  * 이 블록은 이전에 malloc(), calloc(), realloc()으로 할당된 것이어야 한다.
  */
@@ -274,12 +274,12 @@ free (void *p) {
 		struct desc *d = a->desc;
 
 		if (d != NULL) {
-			/* @lock
+			/*
 			 * 일반 블록이다. 여기서 처리한다.
 			 */
 
 #ifndef NDEBUG
-			/* @lock
+			/*
 			 * free 이후 사용 버그를 탐지하기 쉽도록 블록 내용을 지운다.
 			 */
 			memset (b, 0xcc, d->block_size);
@@ -287,12 +287,12 @@ free (void *p) {
 
 			lock_acquire (&d->lock);
 
-			/* @lock
+			/*
 			 * 블록을 free list에 추가한다.
 			 */
 			list_push_front (&d->free_list, &b->free_elem);
 
-			/* @lock
+			/*
 			 * arena가 이제 완전히 사용되지 않는 상태라면 그것도 해제한다.
 			 */
 			if (++a->free_cnt >= d->blocks_per_arena) {
@@ -308,7 +308,7 @@ free (void *p) {
 
 			lock_release (&d->lock);
 		} else {
-			/* @lock
+			/*
 			 * 큰 블록이다. 해당 페이지들을 해제한다.
 			 */
 			palloc_free_multiple (a, a->free_cnt);
@@ -317,20 +317,20 @@ free (void *p) {
 	}
 }
 
-/* @lock
+/*
  * 블록 B가 속한 arena를 반환한다.
  */
 static struct arena *
 block_to_arena (struct block *b) {
 	struct arena *a = pg_round_down (b);
 
-	/* @lock
+	/*
 	 * arena가 유효한지 확인한다.
 	 */
 	ASSERT (a != NULL);
 	ASSERT (a->magic == ARENA_MAGIC);
 
-	/* @lock
+	/*
 	 * 블록이 해당 arena 기준으로 올바르게 정렬되어 있는지 확인한다.
 	 */
 	ASSERT (a->desc == NULL
@@ -340,7 +340,7 @@ block_to_arena (struct block *b) {
 	return a;
 }
 
-/* @lock
+/*
  * arena A 안의 (IDX - 1)번째 블록을 반환한다.
  */
 static struct block *

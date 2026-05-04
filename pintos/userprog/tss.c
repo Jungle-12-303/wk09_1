@@ -7,7 +7,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 
-/* @lock
+/*
  * Task-State Segment(TSS).
  *
  * TSS의 인스턴스는 x86-64 전용 구조체로, 프로세서에 내장된 멀티태스킹 지원
@@ -39,17 +39,17 @@
  *      변경된다. (호출 위치는 thread.c의 schedule 안이다.)
  */
 
-/* @lock
+/*
  * 커널 TSS.
  */
 struct task_state *tss;
 
-/* @lock
+/*
  * 커널 TSS를 초기화한다.
  */
 void
 tss_init (void) {
-	/* @lock
+	/*
 	 * 우리의 TSS는 call gate나 task gate에서 절대 사용되지 않으므로,
 	 * 실제로 참조되는 필드는 일부뿐이며, 따라서 그 필드들만 초기화한다.
 	 */
@@ -57,7 +57,7 @@ tss_init (void) {
 	tss_update (thread_current ());
 }
 
-/* @lock
+/*
  * 커널 TSS를 반환한다.
  */
 struct task_state *
@@ -66,7 +66,10 @@ tss_get (void) {
 	return tss;
 }
 
-/* @note
+/*
+ * TSS의 ring 0 스택 포인터가 스레드 스택의 끝을 가리키도록 설정한다.
+ */
+/*
  * 유저 모드 -> 커널 모드 전환 시 사용할 현재 스레드의 커널 스택 시작 주소
  */
 void

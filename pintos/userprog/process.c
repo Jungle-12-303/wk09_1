@@ -28,6 +28,12 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+/* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
+#define FD_MAX (PGSIZE / sizeof (struct file *))
+
+/*
+ * initd와 다른 프로세스를 위한 일반적인 프로세스 초기화 함수.
+ */
 /* @todo
  * 프로세스를 위한 초기화 함수 (미구현)
  */
@@ -46,7 +52,7 @@ process_create_initd (const char *file_name) {
 	char *arg_start;
 	tid_t tid;
 
-	/* @note
+	/*
 	 * 커널 풀에서 페이지 메모리 할당, 0 = 커널 영역(유저 옵션 없음)
 	 */
 	file_name_copy = palloc_get_page (0);
@@ -59,7 +65,7 @@ process_create_initd (const char *file_name) {
 	if (arg_start != NULL)
 		*arg_start = '\0';
 
-	/* @note
+	/*
 	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
 	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
 	 */
@@ -69,6 +75,9 @@ process_create_initd (const char *file_name) {
 	return tid;
 }
 
+/*
+ * 첫 번째 유저 프로세스를 시작하는 스레드 함수.
+ */
 /* @bookmark
  * initd - 유저 프로세스를 시작
  */
@@ -85,21 +94,21 @@ initd (void *f_name) {
 	NOT_REACHED ();
 }
 
-/* @lock
+/*
  * 현재 프로세스를 `name`이라는 이름으로 복제한다.
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
  * TID_ERROR를 반환한다.
  */
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
-	/* @lock
+	/*
 	 * 현재 스레드를 새 스레드로 복제한다.
 	 */
 	return thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
 }
 
 #ifndef VM
-/* @lock
+/*
  * 이 함수를 pml4_for_each에 넘겨 부모의 주소 공간을 복제한다.
  * 이는 project 2에서만 사용된다.
  */
@@ -111,32 +120,32 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	void *newpage;
 	bool writable;
 
-	/* @lock
+	/*
 	 * TODO: parent_page가 커널 페이지라면 즉시 반환하라.
 	 */
 
-	/* @lock
+	/*
 	 * 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다.
 	 */
 	parent_page = pml4_get_page (parent->pml4, va);
 
-	/* @lock
+	/*
 	 * TODO: 3. 자식을 위한 새 PAL_USER 페이지를 할당하고 결과를
 	 * TODO: NEWPAGE에 저장하라.
 	 */
 
-	/* @lock
+	/*
 	 * TODO: 4. 부모의 페이지를 새 페이지로 복제하고,
 	 * TODO: 부모 페이지가 쓰기 가능한지 확인하여 결과에 따라 WRITABLE을
 	 * TODO: 설정하라.
 	 */
 
-	/* @lock
+	/*
 	 * 5. WRITABLE 권한으로 VA 주소에 자식의 페이지 테이블에 새 페이지를
 	 * 추가한다.
 	 */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
-		/* @lock
+		/*
 		 * TODO: 6. 페이지 삽입에 실패하면 오류 처리를 하라.
 		 */
 	}
@@ -144,7 +153,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 }
 #endif
 
-/* @lock
+/*
  * 부모의 실행 문맥을 복사하는 스레드 함수.
  * 힌트) parent->tf에는 프로세스의 유저랜드 문맥이 들어 있지 않다.
  * 즉, process_fork의 두 번째 인자를 이 함수에 전달해야 한다.
@@ -154,19 +163,19 @@ __do_fork (void *aux) {
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
-	/* @lock
+	/*
 	 * TODO: 어떻게든 parent_if를 전달하라.
 	 * TODO: 즉 process_fork()의 if_를 전달해야 한다.
 	 */
 	struct intr_frame *parent_if;
 	bool succ = true;
 
-	/* @lock
+	/*
 	 * 1. CPU 문맥을 로컬 스택으로 읽어 온다.
 	 */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
-	/* @lock
+	/*
 	 * 2. 페이지 테이블을 복제한다.
 	 */
 	current->pml4 = pml4_create ();
@@ -183,7 +192,7 @@ __do_fork (void *aux) {
 		goto error;
 #endif
 
-	/* @lock
+	/*
 	 * TODO: 여기에 코드를 작성하라.
 	 * TODO: 힌트) 파일 객체를 복제하려면 include/filesys/file.h의
 	 * TODO: `file_duplicate`를 사용하라. 이 함수가 부모의 자원을 성공적으로
@@ -193,7 +202,7 @@ __do_fork (void *aux) {
 
 	process_init ();
 
-	/* @lock
+	/*
 	 * 마지막으로 새로 생성된 프로세스로 전환한다.
 	 */
 	if (succ)
@@ -202,6 +211,10 @@ error:
 	thread_exit ();
 }
 
+/*
+ * 현재 실행 문맥을 f_name으로 전환한다.
+ * 실패하면 -1을 반환한다.
+ */
 /* @bookmark
  * process_exec - 바이너리 로드 후 유저 모드 전환
  */
@@ -210,7 +223,11 @@ process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
 
-	/* @note
+	/*
+	 * thread 구조체에 있는 intr_frame은 사용할 수 없다.
+	 * 현재 스레드가 다시 스케줄될 때 실행 정보를 그 멤버에 저장하기 때문이다.
+	 */
+	/*
 	 * cs, ss, ds, es는 유저 모드
 	 * eflags는 인터럽트 허용
 	 */
@@ -219,12 +236,18 @@ process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+	/*
+	 * 먼저 현재 문맥을 제거한다.
+	 */
 	/* @todo
 	 * 이전 주소 공간 초기화 (미구현)
 	 */
 	process_cleanup ();
 
-	/* @note
+	/*
+	 * 그리고 바이너리를 로드한다.
+	 */
+	/*
 	 * 바이너리 세팅
 	 */
 	success = load (file_name, &_if);
@@ -232,14 +255,17 @@ process_exec (void *f_name) {
 	if (!success)
 		return -1;
 
-	/* @note
+	/*
+	 * 전환된 프로세스를 시작한다.
+	 */
+	/*
 	 * 프로세스를 시작
 	 */
 	do_iret (&_if);
 	NOT_REACHED ();
 }
 
-/* @lock
+/*
  * 스레드 TID가 죽을 때까지 기다린 뒤 그 종료 상태를 반환한다.
  * 커널에 의해 종료되었다면(즉 예외 때문에 죽었다면) -1을 반환한다.
  * TID가 유효하지 않거나, 호출한 프로세스의 자식이 아니거나,
@@ -253,7 +279,7 @@ process_exec (void *f_name) {
  */
 int
 process_wait (tid_t child_tid UNUSED) {
-	/* @lock
+	/*
 	 * XXX: 힌트) process_wait(initd)를 호출하면 pintos가 종료된다.
 	 * XXX: 따라서 process_wait를 구현하기 전에 여기에 무한 루프를 추가하는
 	 * 것을
@@ -269,17 +295,79 @@ process_wait (tid_t child_tid UNUSED) {
 /* @bookmark [13] process_exit: TODO 상태 (종료 메시지·자원 해제 미구현)
  * 변경 없음: process_cleanup()만 호출, printf·sema 동기화 미구현
  * 출처: 08db0db (args-none 테스트 통과) */
-/* @lock
+/*
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
+
+	/* @todo 열린 파일 전부 닫기:
+	 * fd_table을 2번부터 FD_MAX까지 순회하며
+	 * NULL이 아닌 슬롯은 file_close() 호출 후 NULL로 비운다. */
+
+	/* @todo fd_table 페이지 해제:
+	 * palloc_free_page(curr->fd_table)로 반환한다. */
+
+	/* @todo 고아 해방 루프:
+	 * child_list를 순회하며 wait하지 않은 자식들의
+	 * exit_sema를 sema_up해서 소멸을 허가한다. */
+
+	/* @todo 부모에게 종료 알림 (유저 프로세스만):
+	 * if (curr->pml4 != NULL)
+	 *   sema_up(&curr->wait_sema) → 부모 깨우기
+	 *   sema_down(&curr->exit_sema) → 부모 수거 대기 */
+
 	process_cleanup ();
-	sema_up (&curr->wait_sema);
 }
 
-/* @note
+/* @todo process_add_file - 파일을 fd_table에 등록하고 fd 번호를 반환한다.
+ *
+ * 구현해야 할 것:
+ * 1. curr->next_fd가 FD_MAX 이상이면 -1 반환 (테이블 꽉 참).
+ * 2. curr->fd_table[curr->next_fd] = f 로 저장.
+ * 3. curr->next_fd를 반환값으로 쓰고, next_fd++ 증가.
+ * 4. 반환한 fd 번호를 돌려준다.
+ *
+ * 주의: 중간에 close로 빈 슬롯이 생기면 next_fd 방식은
+ * 그 빈 자리를 재활용하지 못한다. 단순 구현에서는 괜찮지만,
+ * multi-oom 테스트를 통과하려면 빈 슬롯 탐색이 필요할 수 있다. */
+int
+process_add_file (struct file *f) {
+	struct thread *curr = thread_current ();
+	(void) curr;
+	(void) f;
+	return -1;
+}
+
+/* @todo process_get_file - fd 번호로 파일 포인터를 반환한다.
+ *
+ * 구현해야 할 것:
+ * 1. fd가 범위 밖이면 (fd < 0 || fd >= FD_MAX) NULL 반환.
+ * 2. curr->fd_table[fd]를 반환한다 (NULL이면 열리지 않은 fd). */
+struct file *
+process_get_file (int fd) {
+	struct thread *curr = thread_current ();
+	(void) curr;
+	(void) fd;
+	return NULL;
+}
+
+/* @todo process_close_file - fd를 닫고 fd_table에서 제거한다.
+ *
+ * 구현해야 할 것:
+ * 1. fd가 범위 밖이면 (fd < 2 || fd >= FD_MAX) 무시 (0,1은 예약).
+ * 2. curr->fd_table[fd]가 NULL이면 무시.
+ * 3. file_close(curr->fd_table[fd]) 호출.
+ * 4. curr->fd_table[fd] = NULL로 비운다. */
+void
+process_close_file (int fd) {
+	struct thread *curr = thread_current ();
+	(void) curr;
+	(void) fd;
+}
+
+/*
  * 현재 프로세스의 자원을 해제한다.
  */
 static void
@@ -291,13 +379,13 @@ process_cleanup (void) {
 #endif
 
 	uint64_t *pml4;
-	/* @lock
+	/*
 	 * 현재 프로세스의 페이지 디렉터리를 파괴하고 커널 전용 페이지 디렉터리로
 	 * 되돌린다.
 	 */
 	pml4 = curr->pml4;
 	if (pml4 != NULL) {
-		/* @lock
+		/*
 		 * 여기서 순서는 매우 중요하다. 페이지 디렉터리를 전환하기 전에
 		 * cur->pagedir를 NULL로 설정해야 타이머 인터럽트가 다시 프로세스의
 		 * 페이지 디렉터리로 되돌아가지 않는다. 또한 프로세스의 페이지
@@ -311,8 +399,9 @@ process_cleanup (void) {
 	}
 }
 
-/* @note
- * 현재 스레드의 페이지 테이블과 커널 스택 기준 주소 반영
+/*
+ * 다음 스레드에서 유저 코드를 실행하도록 CPU를 설정한다.
+ * 이 함수는 문맥 전환이 일어날 때마다 호출된다.
  */
 void
 process_activate (struct thread *next) {
@@ -320,63 +409,67 @@ process_activate (struct thread *next) {
 	tss_update (next);
 }
 
-/* @lock
+/*
  * 우리는 ELF 바이너리를 로드한다. 다음 정의들은 ELF 명세 [ELF1]에서
  * 거의 그대로 가져온 것이다.
  */
 
-/* @lock
+/*
  * ELF 타입들. [ELF1] 1-2를 참고하라.
  */
 #define EI_NIDENT 16
 
-/* @lock
+/*
  * 무시한다.
  */
 #define PT_NULL 0
-/* @lock
+/*
  * 로드 가능한 세그먼트.
  */
 #define PT_LOAD 1
-/* @lock
+/*
  * 동적 링크 정보.
  */
 #define PT_DYNAMIC 2
-/* @lock
+/*
  * 동적 로더의 이름.
  */
 #define PT_INTERP 3
-/* @lock
+/*
  * 보조 정보.
  */
 #define PT_NOTE 4
-/* @lock
+/*
  * 예약됨.
  */
 #define PT_SHLIB 5
-/* @lock
+/*
  * 프로그램 헤더 테이블.
  */
 #define PT_PHDR 6
-/* @lock
+/*
  * 스택 세그먼트.
  */
 #define PT_STACK 0x6474e551
 
-/* @lock
+/*
  * 실행 가능.
  */
 #define PF_X 1
-/* @lock
+/*
  * 쓰기 가능.
  */
 #define PF_W 2
-/* @lock
+/*
  * 읽기 가능.
  */
 #define PF_R 4
 
-/* @note
+/*
+ * 실행 파일 헤더. [ELF1] 1-4부터 1-8까지를 참고하라.
+ * 이는 ELF 바이너리의 맨 앞에 위치한다.
+ */
+/*
  * ELF64 헤더는 실행 파일의 맨 앞 64바이트에 위치한다.
  * 이 영역은 파일 전체를 읽기 전에 먼저 확인하는 요약 정보다.
  *
@@ -438,7 +531,7 @@ struct ELF64_PHDR {
 	uint64_t p_align;
 };
 
-/* @lock
+/*
  * 약어.
  */
 #define ELF  ELF64_hdr
@@ -450,13 +543,19 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
 
+/*
+ * FILE_NAME의 ELF 실행 파일을 현재 스레드에 로드한다.
+ * 실행 파일의 진입점을 *RIP에 저장하고,
+ * 초기 스택 포인터를 *RSP에 저장한다.
+ * 성공하면 true, 그렇지 않으면 false를 반환한다.
+ */
 /* @bookmark
  * load - 실행 파일의 진입점
  */
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
-	/* @note
+	/*
 	 * ELF : 현재 실행 파일의 ELF64 헤더 저장 변수
 	 */
 	struct ELF ehdr;
@@ -469,7 +568,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	char *fn_copy = NULL;
 	int argc = 0;
 
-	/* @note
+	/*
+	 * 페이지 디렉터리를 할당하고 활성화한다.
+	 */
+	/*
 	 * 커널 주소 공간 매핑이 포함된 현재 프로세스용 페이지 테이블 생성
 	 * 생성한 페이지 테이블을 현재 CPU에 반영
 	 */
@@ -486,7 +588,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	 */
 	memcpy (fn_copy, file_name, CSTR_SIZE (file_name));
 
-	/* @note
+	/*
 	 * 원본 문자열을 잘라가며 토큰 생성
 	 */
 	token = strtok_r (fn_copy, " ", &save_point);
@@ -500,14 +602,20 @@ load (const char *file_name, struct intr_frame *if_) {
 	if (argc == 0)
 		goto done;
 
+	/*
+	 * 실행 파일을 연다.
+	 */
 	file = filesys_open (argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
+	/*
+	 * 실행 파일 헤더를 읽고 검증한다.
+	 */
 	/* @region ELF 헤더 검사 - 실행 가능한 ELF 파일 형식 확인 */
-	/* @note
+	/*
 	 * e_ident    : ELF 파일 여부, 64비트 여부, 엔디안 정보
 	 *              \177ELF = ELF 매직 값
 	 *              \2      = 64비트 ELF
@@ -529,8 +637,11 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 	/* @endregion */
 
+	/*
+	 * 프로그램 헤더들을 읽는다.
+	 */
 	/* @region 프로그램 헤더 표 순회 - 메모리에 올릴 파일 구역 설명서 읽기 */
-	/* @note
+	/*
 	 * e_phoff : 파일 시작 기준 프로그램 헤더 표 시작 위치
 	 * e_phnum : 프로그램 헤더 개수
 	 *
@@ -542,7 +653,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		struct Phdr phdr;
 
 		/* @region 헤더 읽기 위치 이동 - 현재 설명서가 있는 파일 위치로 이동 */
-		/* @note
+		/*
 		 * file_ofs 범위 검사
 		 * file_seek 이후의 file_read는 file_ofs 위치부터 읽는다.
 		 */
@@ -558,7 +669,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		/* @endregion */
 
 		/* @region 적재 종류 분기 - 메모리에 올릴 구역인지 확인 */
-		/* @note
+		/*
 		 * PT_LOAD   : 실제 메모리에 올릴 파일 구역
 		 * PT_NULL   : 비어 있는 항목
 		 * PT_NOTE   : 부가 정보
@@ -572,6 +683,9 @@ load (const char *file_name, struct intr_frame *if_) {
 		case PT_PHDR:
 		case PT_STACK:
 		default:
+			/*
+			 * 이 세그먼트는 무시한다.
+			 */
 			break;
 		case PT_DYNAMIC:
 		case PT_INTERP:
@@ -579,7 +693,7 @@ load (const char *file_name, struct intr_frame *if_) {
 			goto done;
 		case PT_LOAD:
 			/* @region PT_LOAD 처리 - 파일 구역을 메모리에 올릴 준비 */
-			/* @note
+			/*
 			 * validate_segment : 이 구역을 실제로 적재 가능한지 검사
 			 * p_flags          : 쓰기 가능 여부 확인
 			 * p_offset         : 파일 안에서 이 구역이 시작하는 위치
@@ -598,7 +712,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 				/* @region 읽을 바이트 계산 - 파일 데이터와 0으로 채울 영역
 				 * 분리 */
-				/* @note
+				/*
 				 * p_filesz > 0
 				 * 파일에 실제 데이터가 있는 구역
 				 * 처음 부분은 디스크에서 읽고 남는 메모리 공간은 0으로 채움
@@ -609,11 +723,19 @@ load (const char *file_name, struct intr_frame *if_) {
 				 * 전부 0으로 채움
 				 */
 				if (phdr.p_filesz > 0) {
+					/*
+					 * 일반 세그먼트.
+					 * 처음 부분은 디스크에서 읽고 나머지는 0으로 채운다.
+					 */
 					read_bytes = page_offset + phdr.p_filesz;
 					zero_bytes =
 					        (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE) -
 					         read_bytes);
 				} else {
+					/*
+					 * 전부 0인 세그먼트.
+					 * 디스크에서 아무것도 읽지 않는다.
+					 */
 					read_bytes = 0;
 					zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 				}
@@ -621,7 +743,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 				/* @region 실제 적재 - 계산한 범위를 페이지 단위로 메모리에
 				 * 배치 */
-				/* @note
+				/*
 				 * file_page부터 read_bytes만큼 읽고
 				 * 나머지 zero_bytes는 0으로 채운 페이지를 매핑
 				 */
@@ -638,6 +760,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 	/* @endregion */
 
+	/*
+	 * 스택을 설정한다.
+	 */
 	/* @region 유저 스택 준비 - 인자 문자열과 argv 배열 적재용 빈 스택 페이지
 	 */
 	if (!setup_stack (if_))
@@ -646,12 +771,15 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	char *stack_p = (char *) if_->rsp;
 
+	/*
+	 * 시작 주소.
+	 */
 	/* @region 시작 주소 설정 - ELF 헤더의 첫 실행 위치 */
 	if_->rip = ehdr.e_entry;
 	/* @endregion */
 
 	/* @region 문자열 복사 - 각 인자 문자열의 유저 스택 적재와 새 주소 갱신 */
-	/* @note
+	/*
 	 * 스택의 아래 방향 성장
 	 * 마지막 인자부터 역순 복사
 	 *
@@ -677,7 +805,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* @endregion */
 
 	/* @region 포인터 정렬 - argv 포인터 배열 적재 전 8바이트 경계 정렬 */
-	/* @note
+	/*
 	 * 예:
 	 * stack_p = 0x...f7 -> 0x...f0
 	 * 이후 적재 값의 8바이트 포인터 단위
@@ -688,7 +816,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* @region argv 끝 표시 - argv[argc] = NULL 자리 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
-	/* @note
+	/*
 	 * 문자열 포인터 배열의 끝 표시
 	 *
 	 * 예:
@@ -700,7 +828,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* @endregion */
 
 	/* @region argv 배열 생성 - 문자열 주소들의 char *argv[] 형태 구성 */
-	/* @note
+	/*
 	 * 앞 단계의 argv[i] = 유저 스택 안 문자열 주소
 	 * 해당 주소값들의 8바이트 단위 재적재
 	 *
@@ -719,7 +847,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* @endregion */
 
 	/* @region 레지스터 연결 - main(argc, argv) 전달값 */
-	/* @note
+	/*
 	 * rdi : argc
 	 * rsi : argv 배열 시작 주소
 	 */
@@ -731,7 +859,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
 	if_->rsp = stack_p;
-	/* @note
+	/*
 	 * if_->rsp = 유저 프로그램 시작 시 사용할 스택 포인터
 	 */
 	/* @endregion */
@@ -740,7 +868,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	success = true;
 
 done:
-	/* @note
+	/*
 	 * load의 성공 여부와 관계없이 여기로 도착
 	 * 메모리 해제 진행
 	 */
@@ -753,17 +881,17 @@ done:
 }
 
 #ifndef VM
-/* @lock
+/*
  * 이 블록의 코드는 project 2 동안에만 사용된다.
  * project 2 전체를 위한 함수를 구현하고 싶다면 #ifndef 매크로 바깥에 구현하라.
  */
 
-/* @lock
+/*
  * load() 보조 함수들.
  */
 static bool install_page (void *upage, void *kpage, bool writable);
 
-/* @lock
+/*
  * FILE의 OFS 오프셋에서 시작하는 세그먼트를 UPAGE 주소에 로드한다.
  * 전체적으로 READ_BYTES + ZERO_BYTES 바이트의 가상 메모리가 아래와 같이
  * 초기화된다.
@@ -787,7 +915,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 	file_seek (file, ofs);
 	while (read_bytes > 0 || zero_bytes > 0) {
-		/* @lock
+		/*
 		 * 이 페이지를 어떻게 채울지 계산한다.
 		 * FILE에서 PAGE_READ_BYTES 바이트를 읽고
 		 * 마지막 PAGE_ZERO_BYTES 바이트를 0으로 채운다.
@@ -795,14 +923,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* @lock
+		/*
 		 * 메모리 페이지 하나를 얻는다.
 		 */
 		uint8_t *kpage = palloc_get_page (PAL_USER);
 		if (kpage == NULL)
 			return false;
 
-		/* @lock
+		/*
 		 * 이 페이지를 로드한다.
 		 */
 		if (file_read (file, kpage, page_read_bytes) !=
@@ -812,7 +940,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		}
 		memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-		/* @lock
+		/*
 		 * 이 페이지를 프로세스의 주소 공간에 추가한다.
 		 */
 		if (!install_page (upage, kpage, writable)) {
@@ -821,7 +949,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 			return false;
 		}
 
-		/* @lock
+		/*
 		 * 다음 페이지로 진행한다.
 		 */
 		read_bytes -= page_read_bytes;
@@ -831,7 +959,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	return true;
 }
 
-/* @lock
+/*
  * USER_STACK에 0으로 채워진 페이지를 매핑해 최소한의 스택을 만든다.
  */
 static bool
@@ -851,7 +979,7 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 
-/* @lock
+/*
  * 유저 가상 주소 UPAGE에서 커널 가상 주소 KPAGE로의 매핑을 페이지 테이블에
  * 추가한다.
  * WRITABLE이 true면 유저 프로세스가 이 페이지를 수정할 수 있고,
@@ -865,7 +993,7 @@ static bool
 install_page (void *upage, void *kpage, bool writable) {
 	struct thread *t = thread_current ();
 
-	/* @lock
+	/*
 	 * 그 가상 주소에 이미 페이지가 없는지 확인한 뒤, 그 위치에 페이지를
 	 * 매핑한다.
 	 */
@@ -909,25 +1037,25 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 }
 
 #else
-/* @lock
+/*
  * 여기부터의 코드는 project 3 이후에 사용된다.
  * project 2만을 위한 함수를 구현하려면 위쪽 블록에 구현하라.
  */
 
 static bool
 lazy_load_segment (struct page *page, void *aux) {
-	/* @lock
+	/*
 	 * TODO: 파일에서 세그먼트를 로드하라.
 	 */
-	/* @lock
+	/*
 	 * TODO: 이 함수는 VA 주소에서 첫 번째 페이지 폴트가 발생했을 때 호출된다.
 	 */
-	/* @lock
+	/*
 	 * TODO: 이 함수를 호출할 때 VA를 사용할 수 있다.
 	 */
 }
 
-/* @lock
+/*
  * FILE의 OFS 오프셋에서 시작하는 세그먼트를 UPAGE 주소에 로드한다.
  * 전체적으로 READ_BYTES + ZERO_BYTES 바이트의 가상 메모리가 아래와 같이
  * 초기화된다.
@@ -950,7 +1078,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT (ofs % PGSIZE == 0);
 
 	while (read_bytes > 0 || zero_bytes > 0) {
-		/* @lock
+		/*
 		 * 이 페이지를 어떻게 채울지 계산한다.
 		 * FILE에서 PAGE_READ_BYTES 바이트를 읽고
 		 * 마지막 PAGE_ZERO_BYTES 바이트를 0으로 채운다.
@@ -958,7 +1086,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* @lock
+		/*
 		 * TODO: lazy_load_segment에 정보를 전달할 aux를 설정하라.
 		 */
 		void *aux = NULL;
@@ -966,7 +1094,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		                                     lazy_load_segment, aux))
 			return false;
 
-		/* @lock
+		/*
 		 * 다음 페이지로 진행한다.
 		 */
 		read_bytes -= page_read_bytes;
@@ -976,7 +1104,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	return true;
 }
 
-/* @lock
+/*
  * USER_STACK에 스택용 PAGE를 만든다. 성공하면 true를 반환한다.
  */
 static bool
@@ -984,12 +1112,12 @@ setup_stack (struct intr_frame *if_) {
 	bool success = false;
 	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);
 
-	/* @lock
+	/*
 	 * TODO: stack_bottom에 스택을 매핑하고 페이지를 즉시 claim하라.
 	 * TODO: 성공하면 그에 맞게 rsp를 설정하라.
 	 * TODO: 해당 페이지를 스택 페이지로 표시해야 한다.
 	 */
-	/* @lock
+	/*
 	 * TODO: 여기에 코드를 작성하라.
 	 */
 
