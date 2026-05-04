@@ -98,7 +98,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	 * 현재 스레드를 새 스레드로 복제한다.
 	 */
 	// 생성된 스레드는 나중에 스케줄링 되어 실행되기 때문에 fork_args를 넘겨야 함
-	struct fork_args *args = malloc(sizedof(*args));
+	struct fork_args *args = malloc(sizeof(*args));
 	args->if_ = if_;
 	args->current_tid = thread_current();
 
@@ -120,7 +120,7 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	/* 1. TODO: parent_page가 커널 페이지이면 즉시 반환한다. */
 	if (is_kernel_vaddr(va))
 	{
-		return false;
+		return true;
 	}
 
 	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다. */
@@ -128,12 +128,12 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 
 	/* 3. TODO: 자식용 새 PAL_USER 페이지를 할당하고 결과를
 	 *    TODO: NEWPAGE로 설정한다. */
-	*newpage = palloc_get_page(PAL_USER);
+	newpage = palloc_get_page(PAL_USER);
 
 	/* 4. TODO: 부모의 페이지를 새 페이지로 복제하고,
 	 *    TODO: 부모 페이지가 쓰기 가능한지 확인한다. 결과에 따라 WRITABLE을
 	 *    TODO: 설정한다. */
-	memcpy(newpage, parent_page, sizeof(&parent_page));
+	memcpy(newpage, parent_page, PGSIZE);
 	writable = is_writable(pte);
 
 	/* 5. 자식의 페이지 테이블에 VA 주소로 새 페이지를 WRITABLE
@@ -141,7 +141,7 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
 		/* 6. TODO: 페이지 삽입에 실패하면 오류 처리를 수행한다. */
-		return TID_ERROR;
+		return false;
 	}
 	return true;
 }
