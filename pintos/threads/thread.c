@@ -527,6 +527,9 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init(&t->donation_list);
 	t->priority = priority;
 	t->locked_by = NULL;
+
+	/* user prog: 파일 fd 관리를 위한 변수 초기화 */
+	list_init(&t->file_fd_list);
 }
 
 /* @lock

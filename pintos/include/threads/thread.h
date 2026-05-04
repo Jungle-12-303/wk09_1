@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 /* 임시 해결용 */
 #include "threads/synch.h"
+#include "lib/kernel/list.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -145,10 +146,14 @@ struct thread {
 	// struct semaphore wait_sema;
 	// int exit_status;
 
-	/* donation-multiple 구현을 위한 필드들이다. */
+	/* donation-multiple 구현을 위한 필드이다. */
 	struct list donation_list;
 	struct list_elem d_elem;
 	struct lock *locked_by;
+
+	/* 스레드가 이용 중인 fd를 저장하기 위한 필드이다. */
+	struct list file_fd_list;
+	struct list_elem ff_elem;
 
 	/* @lock
 	 * thread.c와 synch.c가 공유한다.

@@ -14,14 +14,20 @@
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
 #include "userprog/process.h"
+#include "filesys/filesys.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
-/* 추가 함수들 */
+
+/* 콜 함수들 */
 void halt(void);
 void exit(int status);
 int write(int fd, const void *buffer, unsigned size);
+bool create(const char *file, unsigned initial_size);
+int open (const char *file);
+
+/* 헬퍼 함수들*/
 void check_address(void *addr);
 
 /* 추가 변수들 */
@@ -50,6 +56,7 @@ struct lock filesys_lock;
  * eflags용 마스크.
  */
 #define MSR_SYSCALL_MASK 0xc0000084
+
 
 void
 syscall_init (void) {
@@ -87,11 +94,18 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		/* 종료 상태값 받음 */
 		exit(f->R.rdi);
 		break;
+	case SYS_CREATE:
+		/* 파일 생성하기 */
+		f->R.rax = create(f->R.rdi, f->R.rsi);
+		break;
+	case SYS_OPEN:
+		/* 해당 파일 열기 */
+		f->R.rax = open(f->R.rdi);
+		break;
 	default:	
 		break;
 	}
 }
-
 
 /* 구현 명령어들 */
 /* 시스템 전체 셧다운 */
@@ -135,8 +149,32 @@ write(int fd, const void *buffer, unsigned size){
 	return write_result;
 }
 
+/* 생성 함수: file 생성 및 공간을 할당한다 */
+bool 
+create(const char *file, unsigned initial_size){
+	/* 에러로 인한 exit(-1) 반환을 위해 validation 추가 */
+	check_address(file);
+	return filesys_create(file, initial_size);
+}
+
+/* 열기 함수: fd 발급, list에 삽입 */
+int 
+open (const char *file){
+	check_address(file);
+	/* 현재 스레드 구하고 여기에 fd 넣음 */
+	struct thread *curr = thread_current();
+	int fd = filesys_open(file);
+	/* 예외 처리 */
+	if(fd == NULL) return -1;
+
+	list_push_back(&curr->file_fd_list, &curr->ff_elem);
+	return fd;
+}
+
+/* 여기서부턴 헬퍼 함수 기술 */
 /* 유효성 검사 */
 void check_address(void *addr){
+	struct thread *curr = thread_current();
 	/* 애초에 없다면? */
 	if(addr == NULL){
 		exit(-1);
@@ -144,6 +182,11 @@ void check_address(void *addr){
 	
 	/* 커널 영역 침범 여부 */
 	if(!is_user_vaddr(addr)){
+		exit(-1);
+	}
+
+	/* 해당 값이 해당 메모리 주소에 쓰여져 있는지 확인 */
+	if(pml4_get_page(curr->pml4, addr) == NULL){
 		exit(-1);
 	}
 }
