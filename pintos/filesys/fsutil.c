@@ -11,7 +11,7 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
 
-/* @lock
+/*
  * 루트 디렉터리의 파일 목록을 출력한다.
  */
 void
@@ -28,7 +28,7 @@ fsutil_ls (char **argv UNUSED) {
 	printf ("End of listing.\n");
 }
 
-/* @lock
+/*
  * ARGV[1] 파일의 내용을 시스템 콘솔에 16진수와 ASCII 형태로 출력한다.
  */
 void
@@ -55,7 +55,7 @@ fsutil_cat (char **argv) {
 	file_close (file);
 }
 
-/* @lock
+/*
  * ARGV[1] 파일을 삭제한다.
  */
 void
@@ -67,7 +67,7 @@ fsutil_rm (char **argv) {
 		PANIC ("%s: delete failed\n", file_name);
 }
 
-/* @lock
+/*
  * "scratch" 디스크, 즉 hdc 또는 hd1:0에서 파일 시스템의
  * ARGV[1] 파일로 복사한다.
  *
@@ -92,21 +92,21 @@ fsutil_put (char **argv) {
 
 	printf ("Putting '%s' into the file system...\n", file_name);
 
-	/* @lock
+	/*
 	 * 버퍼를 할당한다.
 	 */
 	buffer = malloc (DISK_SECTOR_SIZE);
 	if (buffer == NULL)
 		PANIC ("couldn't allocate buffer");
 
-	/* @lock
+	/*
 	 * 원본 디스크를 열고 파일 크기를 읽을 준비를 한다.
 	 */
 	src = disk_get (1, 0);
 	if (src == NULL)
 		PANIC ("couldn't open source disk (hdc or hd1:0)");
 
-	/* @lock
+	/*
 	 * 파일 크기를 읽는다.
 	 */
 	disk_read (src, sector++, buffer);
@@ -116,7 +116,7 @@ fsutil_put (char **argv) {
 	if (size < 0)
 		PANIC ("%s: invalid file size %d", file_name, size);
 
-	/* @lock
+	/*
 	 * 대상 파일을 만든다.
 	 */
 	if (!filesys_create (file_name, size))
@@ -125,7 +125,7 @@ fsutil_put (char **argv) {
 	if (dst == NULL)
 		PANIC ("%s: open failed", file_name);
 
-	/* @lock
+	/*
 	 * 실제 복사를 수행한다.
 	 */
 	while (size > 0) {
@@ -137,14 +137,14 @@ fsutil_put (char **argv) {
 		size -= chunk_size;
 	}
 
-	/* @lock
+	/*
 	 * 마무리한다.
 	 */
 	file_close (dst);
 	free (buffer);
 }
 
-/* @lock
+/*
  * 파일 시스템의 FILE_NAME 파일을 scratch 디스크로 복사한다.
  *
  * scratch 디스크의 현재 섹터에는 "GET\0"이 기록되고,
@@ -168,14 +168,14 @@ fsutil_get (char **argv) {
 
 	printf ("Getting '%s' from the file system...\n", file_name);
 
-	/* @lock
+	/*
 	 * 버퍼를 할당한다.
 	 */
 	buffer = malloc (DISK_SECTOR_SIZE);
 	if (buffer == NULL)
 		PANIC ("couldn't allocate buffer");
 
-	/* @lock
+	/*
 	 * 원본 파일을 연다.
 	 */
 	src = filesys_open (file_name);
@@ -183,14 +183,14 @@ fsutil_get (char **argv) {
 		PANIC ("%s: open failed", file_name);
 	size = file_length (src);
 
-	/* @lock
+	/*
 	 * 대상 디스크를 연다.
 	 */
 	dst = disk_get (1, 0);
 	if (dst == NULL)
 		PANIC ("couldn't open target disk (hdc or hd1:0)");
 
-	/* @lock
+	/*
 	 * 섹터 0에 파일 크기를 기록한다.
 	 */
 	memset (buffer, 0, DISK_SECTOR_SIZE);
@@ -198,7 +198,7 @@ fsutil_get (char **argv) {
 	((int32_t *) buffer)[1] = size;
 	disk_write (dst, sector++, buffer);
 
-	/* @lock
+	/*
 	 * 실제 복사를 수행한다.
 	 */
 	while (size > 0) {
@@ -212,7 +212,7 @@ fsutil_get (char **argv) {
 		size -= chunk_size;
 	}
 
-	/* @lock
+	/*
 	 * 마무리한다.
 	 */
 	file_close (src);
