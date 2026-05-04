@@ -11,61 +11,60 @@
 #include "vm/vm.h"
 #endif
 
-
-/* @lock
+/*
  * 스레드 생애 주기의 상태들.
  */
 enum thread_status {
-	/* @lock
+	/*
 	 * 실행 중인 스레드.
 	 */
 	THREAD_RUNNING,
-	/* @lock
+	/*
 	 * 실행 중은 아니지만 실행될 준비가 된 상태.
 	 */
 	THREAD_READY,
-	/* @lock
+	/*
 	 * 어떤 이벤트가 발생하기를 기다리는 상태.
 	 */
 	THREAD_BLOCKED,
-	/* @lock
+	/*
 	 * 곧 파괴될 상태.
 	 */
 	THREAD_DYING
 };
 
-/* @lock
+/*
  * 스레드 식별자 타입.
  * 원하는 타입으로 다시 정의할 수 있다.
  */
 typedef int tid_t;
 
-/* @note
+/*
  * 스레드 이름 버퍼의 최대 크기.
  */
 #define THREAD_NAME_MAX 16
-/* @lock
+/*
  * tid_t의 오류 값.
  */
-#define TID_ERROR ((tid_t) -1)
+#define TID_ERROR ((tid_t) - 1)
 
-/* @lock
+/*
  * 스레드 우선순위.
  */
-/* @lock
+/*
  * 가장 낮은 우선순위.
  */
 #define PRI_MIN 0
-/* @lock
+/*
  * 기본 우선순위.
  */
 #define PRI_DEFAULT 31
-/* @lock
+/*
  * 가장 높은 우선순위.
  */
 #define PRI_MAX 63
 
-/* @lock
+/*
  * 커널 스레드 또는 유저 프로세스.
  *
  * 각 스레드 구조체는 자기 전용 4 kB 페이지에 저장된다. `struct thread`
@@ -114,7 +113,7 @@ typedef int tid_t;
  * 일반적으로 스택 오버플로우가 발생하면 이 값이 바뀌고, 그 결과 assertion이
  * 발동한다.
  */
-/* @lock
+/*
  * `elem` 멤버는 두 가지 용도를 가진다. 하나는 run queue(thread.c)에서의
  * 원소이고, 다른 하나는 semaphore 대기 리스트(synch.c)에서의 원소이다.
  * 이렇게 두 가지로 사용할 수 있는 이유는 두 용도가 서로 배타적이기 때문이다.
@@ -122,22 +121,22 @@ typedef int tid_t;
  * semaphore 대기 리스트에 있기 때문이다.
  */
 struct thread {
-	/* @lock
+	/*
 	 * thread.c가 소유한다.
 	 */
-	/* @lock
+	/*
 	 * 스레드 식별자.
 	 */
 	tid_t tid;
-	/* @lock
+	/*
 	 * 스레드 상태.
 	 */
 	enum thread_status status;
-	/* @lock
+	/*
 	 * 이름(디버깅 목적).
 	 */
 	char name[THREAD_NAME_MAX];
-	/* @lock
+	/*
 	 * 우선순위.
 	 */
 	int priority;
@@ -146,9 +145,6 @@ struct thread {
 	/* 스레드를 언제 깨울지 나타내는 tick 값이다. */
 	int64_t wake_tick;
 
-	/* @bookmark [1] 임시 wait/exit 필드 선언 (주석 처리 상태)
-	 * 추가: synch.h 포함, wait_sema·exit_status 필드 (비활성)
-	 * 출처: 08db0db (args-none 테스트 통과) */
 	// struct semaphore wait_sema;
 	// int exit_status;
 
@@ -157,44 +153,50 @@ struct thread {
 	struct list_elem d_elem;
 	struct lock *locked_by;
 
-	/* @lock
+	/*
 	 * thread.c와 synch.c가 공유한다.
 	 */
-	/* @lock
+	/*
 	 * 리스트 원소.
 	 */
 	struct list_elem elem;
 
 #ifdef USERPROG
-	/* @lock
+	/*
 	 * userprog/process.c가 소유한다.
 	 */
-	/* @lock
+	/*
 	 * 페이지 맵 레벨 4.
 	 */
 	uint64_t *pml4;
+
+	/* 파일 디스크립터 테이블 (palloc 페이지, 최대 512개).
+	 * 인덱스 0 = stdin(예약), 1 = stdout(예약), 2부터 사용. */
+	struct file **fd_table;
+	/* 다음에 할당할 fd 번호. */
+	int next_fd;
 #endif
 #ifdef VM
-	/* @lock
+	/*
 	 * 스레드가 소유한 전체 가상 메모리를 위한 테이블.
 	 */
 	struct supplemental_page_table spt;
 #endif
 
-	/* @lock
+	/*
 	 * thread.c가 소유한다.
 	 */
-	/* @lock
+	/*
 	 * 문맥 전환에 필요한 정보.
 	 */
 	struct intr_frame tf;
-	/* @lock
+	/*
 	 * 스택 오버플로우를 감지한다.
 	 */
 	unsigned magic;
 };
 
-/* @lock
+/*
  * false(기본값)면 라운드 로빈 스케줄러를 사용한다.
  * true면 다단계 피드백 큐 스케줄러를 사용한다.
  * 커널 명령줄 옵션 "-o mlfqs"로 제어된다.
@@ -233,15 +235,15 @@ void do_iret (struct intr_frame *tf);
 /* phase 1 alarm clock을 위해 추가한 함수 선언이다. */
 void thread_sleep (int64_t wake_ticks);
 bool cmp_thread_ticks (const struct list_elem *a, const struct list_elem *b,
-		void *aux);
+                       void *aux);
 void thread_awake (int64_t global_ticks);
 
 /* phase 2 Priority Scheduling을 위해 추가한 함수 선언이다. */
 void check_preemption (void);
 void refresh_priority (struct thread *t);
 bool thread_priority (const struct list_elem *a, const struct list_elem *b,
-		void *aux);
+                      void *aux);
 bool thread_priority_d_elem (const struct list_elem *a,
-		const struct list_elem *b, void *aux);
+                             const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */

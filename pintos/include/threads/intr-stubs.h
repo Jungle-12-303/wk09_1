@@ -1,7 +1,7 @@
 #ifndef THREADS_INTR_STUBS_H
 #define THREADS_INTR_STUBS_H
 
-/* @lock
+/*
  * 인터럽트 스텁.
  *
  * 이는 intr-stubs.S 안에 있는 작은 코드 조각들로,

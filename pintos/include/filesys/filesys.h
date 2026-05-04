@@ -5,7 +5,7 @@
 #include "filesys/off_t.h"
 
 /* 시스템 파일 inode의 섹터들. */
-#define FREE_MAP_SECTOR 0       /* free map 파일 inode 섹터. */
+#define FREE_MAP_SECTOR 0       /* free map 파일의 inode 섹터. */
 #define ROOT_DIR_SECTOR 1       /* 루트 디렉터리 파일 inode 섹터. */
 
 /* 파일 시스템에 사용되는 디스크. */

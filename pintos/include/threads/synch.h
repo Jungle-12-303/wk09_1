@@ -4,15 +4,15 @@
 #include <list.h>
 #include <stdbool.h>
 
-/* @lock
+/*
  * 카운팅 세마포어.
  */
 struct semaphore {
-	/* @lock
+	/*
 	 * 현재 값.
 	 */
 	unsigned value;
-	/* @lock
+	/*
 	 * 기다리는 스레드들의 리스트.
 	 */
 	struct list waiters;
@@ -24,15 +24,15 @@ bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
-/* @lock
+/*
  * 락.
  */
 struct lock {
-	/* @lock
+	/*
 	 * 락을 들고 있는 스레드(디버깅 목적).
 	 */
 	struct thread *holder;
-	/* @lock
+	/*
 	 * 접근을 제어하는 이진 세마포어.
 	 */
 	struct semaphore semaphore;
@@ -44,11 +44,11 @@ bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
 bool lock_held_by_current_thread (const struct lock *);
 
-/* @lock
+/*
  * 조건 변수.
  */
 struct condition {
-	/* @lock
+	/*
 	 * 기다리는 스레드들의 리스트.
 	 */
 	struct list waiters;
@@ -59,7 +59,7 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-/* @lock
+/*
  * 최적화 배리어.
  *
  * 컴파일러는 최적화 배리어를 가로질러 연산 순서를 재배치하지 않는다.

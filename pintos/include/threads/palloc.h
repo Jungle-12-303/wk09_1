@@ -4,25 +4,25 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* @lock
+/*
  * 페이지를 어떻게 할당할지 나타내는 플래그.
  */
 enum palloc_flags {
-	/* @lock
+	/*
 	 * 실패 시 패닉을 일으킨다.
 	 */
 	PAL_ASSERT = 001,
-	/* @lock
+	/*
 	 * 페이지 내용을 0으로 채운다.
 	 */
 	PAL_ZERO = 002,
-	/* @lock
+	/*
 	 * 유저 페이지이다.
 	 */
 	PAL_USER = 004
 };
 
-/* @lock
+/*
  * 유저 풀에 넣을 최대 페이지 수.
  */
 extern size_t user_page_limit;
