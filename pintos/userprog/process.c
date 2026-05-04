@@ -210,6 +210,10 @@ process_exec (void *f_name) {
 	 */
 	process_cleanup ();
 
+	/* 여기서 fd_table 공간 할당 실행 */
+	struct thread *curr = thread_current();
+	curr->fd_table = palloc_get_page(PAL_ZERO);
+
 	/*
 	 * 그리고 바이너리를 로드한다.
 	 */
@@ -262,9 +266,8 @@ void
 process_exit (void) {
 	struct thread *curr = thread_current ();
 
-
-
-
+	/* 할당된 fb_table을 해제한다 */
+	palloc_free_page(curr->fd_table);
 
 	process_cleanup ();
 }

@@ -364,6 +364,7 @@ thread_exit (void) {
 	 * 상태만 dying으로 바꾸고 다른 프로세스를 스케줄한다.
 	 * 실제 파괴는 schedule_tail() 호출 중에 이루어진다.
 	 */
+
 	intr_disable ();
 	do_schedule (THREAD_DYING);
 	NOT_REACHED ();
@@ -517,9 +518,6 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init (&t->donation_list);
 	t->priority = priority;
 	t->locked_by = NULL;
-
-	/* user prog: 파일 fd 관리를 위한 변수 초기화 */
-	list_init(&t->file_fd_list);
 }
 
 /*
