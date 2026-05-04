@@ -519,7 +519,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->locked_by = NULL;
 
 #ifdef USERPROG
-	t->fd_table = palloc_get_page (PAL_ZERO);
+	// t->fd_table = palloc_get_page (PAL_ZERO);
+	t->fd_table = NULL;
 	t->next_fd = 2;
 #endif
 }
