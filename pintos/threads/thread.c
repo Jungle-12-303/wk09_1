@@ -515,24 +515,19 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->base_priority = priority;
 	t->priority = priority;
-	t->exit_status = -1;
 	t->magic = THREAD_MAGIC;
-	sema_init (&t->wait_sema, 0);
-	sema_init (&t->exit_sema, 0);
-	list_init (&t->children);
 
 	/* phase 3: priority donation 추가 구현 변수 초기화 */
 	list_init (&t->donation_list);
 	t->waiting_lock = NULL;
 
 #ifdef USERPROG
-	/* @todo
-	 * fd_table: palloc으로 1페이지(4KB) 할당하여 512개 슬롯 확보.
-	 * memset으로 전부 NULL 초기화.
-	 * next_fd = 2 (0=stdin, 1=stdout 예약). */
-	t->fd_table = palloc_get_page (PAL_ZERO);
-	t->next_fd = 2;
+	t->fd_table = palloc_get_page (PAL_ZERO); // fd 테이블용 페이지 할당 및 0 초기화
+	t->next_fd = 2;                           // 0, 1은 stdin/stdout 예약
+	list_init (&t->child_status_list);        // 자식 상태 레코드 리스트 초기화
+	t->self_status = NULL;                    // 아직 연결된 child_status 없음
 #endif
+
 }
 
 /*

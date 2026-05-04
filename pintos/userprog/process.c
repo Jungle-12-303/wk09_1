@@ -69,6 +69,7 @@ process_create_initd (const char *file_name) {
 	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
 	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
 	 */
+
 	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (file_name_copy);
