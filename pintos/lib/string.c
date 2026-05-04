@@ -1,7 +1,7 @@
 #include <string.h>
 #include <debug.h>
 
-/* @lock
+/* @note
  * 겹치지 않는 SRC의 SIZE바이트를 DST로 복사한다.
  * DST를 반환한다.
  */
@@ -19,7 +19,7 @@ memcpy (void *dst_, const void *src_, size_t size) {
 	return dst_;
 }
 
-/* @lock
+/* @note
  * 겹쳐도 되는 SRC의 SIZE바이트를 DST로 복사한다.
  * DST를 반환한다.
  */
@@ -44,7 +44,7 @@ memmove (void *dst_, const void *src_, size_t size) {
 	return dst;
 }
 
-/* @lock
+/* @note
  * A와 B의 SIZE바이트 블록을 비교해 처음으로 다른 바이트를 찾는다.
  * A의 바이트가 더 크면 양수를, B의 바이트가 더 크면 음수를,
  * 두 블록이 같으면 0을 반환한다.
@@ -63,7 +63,7 @@ memcmp (const void *a_, const void *b_, size_t size) {
 	return 0;
 }
 
-/* @lock
+/* @note
  * 문자열 A와 B에서 처음으로 다른 문자를 찾는다.
  * A의 문자(unsigned char 기준)가 더 크면 양수를,
  * B의 문자가 더 크면 음수를, 두 문자열이 같으면 0을 반환한다.
@@ -84,7 +84,7 @@ strcmp (const char *a_, const char *b_) {
 	return *a < *b ? -1 : *a > *b;
 }
 
-/* @lock
+/* @note
  * BLOCK부터 시작하는 처음 SIZE바이트에서 CH가 처음 나타나는 위치를
  * 가리키는 포인터를 반환한다.
  * BLOCK 안에 CH가 없으면 널 포인터를 반환한다.
@@ -103,7 +103,7 @@ memchr (const void *block_, int ch_, size_t size) {
 	return NULL;
 }
 
-/* @lock
+/* @note
  * STRING에서 C가 처음 나타나는 위치를 찾아 반환한다.
  * C가 STRING에 없으면 널 포인터를 반환한다.
  * C == '\0'이면 STRING 끝의 널 종료 문자를 가리키는 포인터를 반환한다.
@@ -123,7 +123,7 @@ strchr (const char *string, int c_) {
 			string++;
 }
 
-/* @lock
+/* @note
  * STRING의 앞부분에서 STOP에 포함되지 않은 문자들로만 이루어진
  * 초기 부분 문자열의 길이를 반환한다.
  */
@@ -137,7 +137,7 @@ strcspn (const char *string, const char *stop) {
 	return length;
 }
 
-/* @lock
+/* @note
  * STRING에서 STOP에도 포함된 첫 문자를 가리키는 포인터를 반환한다.
  * STRING의 어떤 문자도 STOP에 없으면 널 포인터를 반환한다.
  */
@@ -149,7 +149,7 @@ strpbrk (const char *string, const char *stop) {
 	return NULL;
 }
 
-/* @lock
+/* @note
  * STRING에서 C가 마지막으로 나타나는 위치를 가리키는 포인터를 반환한다.
  * C가 STRING에 없으면 널 포인터를 반환한다.
  */
@@ -164,7 +164,7 @@ strrchr (const char *string, int c_) {
 	return (char *) p;
 }
 
-/* @lock
+/* @note
  * STRING의 앞부분에서 SKIP에 포함된 문자들로만 이루어진
  * 초기 부분 문자열의 길이를 반환한다.
  */
@@ -178,7 +178,7 @@ strspn (const char *string, const char *skip) {
 	return length;
 }
 
-/* @lock
+/* @note
  * HAYSTACK 안에서 NEEDLE이 처음 나타나는 위치를 가리키는 포인터를
  * 반환한다.
  * HAYSTACK 안에 NEEDLE이 없으면 널 포인터를 반환한다.
@@ -199,7 +199,7 @@ strstr (const char *haystack, const char *needle) {
 	return NULL;
 }
 
-/* @lock
+/* @note
  * DELIMITERS로 구분된 토큰들로 문자열을 나눈다.
  * 이 함수를 처음 호출할 때는 S에 토큰화할 문자열을 넘겨야 하고,
  * 그 이후 호출에서는 S가 널 포인터여야 한다.
@@ -238,18 +238,18 @@ strtok_r (char *s, const char *delimiters, char **save_ptr) {
 	ASSERT (delimiters != NULL);
 	ASSERT (save_ptr != NULL);
 
-	/* @lock
+	/* @note
 	 * S가 널이 아니면 S부터 시작하고, 널이면 저장된 위치부터 시작한다.
 	 */
 	if (s == NULL)
 		s = *save_ptr;
 	ASSERT (s != NULL);
 
-	/* @lock
+	/* @note
 	 * 현재 위치에서 DELIMITERS에 포함된 문자를 모두 건너뛴다.
 	 */
 	while (strchr (delimiters, *s) != NULL) {
-		/* @lock
+		/* @note
 		 * 문자열은 끝에 항상 널 바이트를 가지므로,
 		 * 널 바이트를 찾을 때 strchr()는 항상 널이 아닌 값을 반환한다.
 		 */
@@ -261,7 +261,7 @@ strtok_r (char *s, const char *delimiters, char **save_ptr) {
 		s++;
 	}
 
-	/* @lock
+	/* @note
 	 * 문자열 끝까지 DELIMITERS에 포함되지 않은 문자를 건너뛴다.
 	 */
 	token = s;
@@ -275,7 +275,7 @@ strtok_r (char *s, const char *delimiters, char **save_ptr) {
 	return token;
 }
 
-/* @lock
+/* @note
  * DST의 SIZE바이트를 VALUE로 채운다.
  */
 void *
@@ -290,7 +290,7 @@ memset (void *dst_, int value, size_t size) {
 	return dst_;
 }
 
-/* @lock
+/* @note
  * STRING의 길이를 반환한다.
  */
 size_t
@@ -304,7 +304,7 @@ strlen (const char *string) {
 	return p - string;
 }
 
-/* @lock
+/* @note
  * STRING의 길이가 MAXLEN보다 짧으면 실제 길이를 반환한다.
  * 그렇지 않으면 MAXLEN을 반환한다.
  */
@@ -317,7 +317,7 @@ strnlen (const char *string, size_t maxlen) {
 	return length;
 }
 
-/* @lock
+/* @note
  * 문자열 SRC를 DST로 복사한다.
  * SRC가 SIZE - 1보다 길면 앞의 SIZE - 1글자만 복사한다.
  * SIZE가 0이 아닌 한, DST에는 항상 널 종료 문자가 기록된다.
@@ -346,7 +346,7 @@ strlcpy (char *dst, const char *src, size_t size) {
 	return src_len;
 }
 
-/* @lock
+/* @note
  * 문자열 SRC를 DST 뒤에 이어 붙인다.
  * 이어 붙인 결과 문자열은 최대 SIZE - 1글자로 제한된다.
  * SIZE가 0이 아닌 한, DST에는 항상 널 종료 문자가 기록된다.
