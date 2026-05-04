@@ -64,9 +64,6 @@ syscall_init (void) {
 	write_msr (MSR_SYSCALL_MASK,
 	           FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
-	/* @bookmark [6] filesys_lock 초기화
-	 * 추가: syscall_init에서 lock_init(&filesys_lock) 호출
-	 * 출처: 08db0db (args-none 테스트 통과) */
 	lock_init (&filesys_lock);
 }
 
@@ -92,28 +89,18 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	}
 }
 
-/* @bookmark [11] halt: power_off로 시스템 종료
- * 추가: power_off() 호출
- * 출처: 08db0db (args-none 테스트 통과) */
 void
 halt (void) {
 	power_off ();
 }
 
-/* @bookmark [10] exit: 종료 메시지 출력 후 thread_exit
- * 추가: printf("%s: exit(%d)") → thread_exit() (process_exit와 역할 분담 필요)
- * 출처: 08db0db (args-none 테스트 통과) */
 void
 exit (int status) {
 	printf ("%s: exit(%d)\n", thread_current ()->name, status);
 	thread_exit ();
 }
 
-/* @note dfdfdfdfdddfdfdfd */
 
-/* @bookmark [9] write: stdout 출력 (fd==1), filesys_lock으로 동기화
- * 추가: check_address → lock_acquire → putbuf → lock_release
- * 출처: 08db0db (args-none 테스트 통과) */
 int
 write (int fd, const void *buffer, unsigned size) {
 	int write_result;
@@ -141,9 +128,6 @@ write (int fd, const void *buffer, unsigned size) {
 	return write_result;
 }
 
-/* @bookmark [8] check_address: 유저 포인터 유효성 검사
- * 추가: NULL 검사 + is_user_vaddr 커널 영역 침범 검사
- * 출처: 08db0db (args-none 테스트 통과) */
 void
 check_address (void *addr) {
 	/* 애초에 없다면? */

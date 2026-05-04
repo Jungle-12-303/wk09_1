@@ -34,17 +34,11 @@ static void __do_fork (void *);
 /*
  * initd와 다른 프로세스를 위한 일반적인 프로세스 초기화 함수.
  */
-/* @todo
- * 프로세스를 위한 초기화 함수 (미구현)
- */
 static void
 process_init (void) {
 	struct thread *current = thread_current ();
 }
 
-/* @bookmark
- * process_create_initd - 프로세스 시작
- */
 tid_t
 process_create_initd (const char *file_name) {
 	char *file_name_copy;
@@ -77,9 +71,6 @@ process_create_initd (const char *file_name) {
 
 /*
  * 첫 번째 유저 프로세스를 시작하는 스레드 함수.
- */
-/* @bookmark
- * initd - 유저 프로세스를 시작
  */
 static void
 initd (void *f_name) {
@@ -126,26 +117,14 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	void *newpage;
 	bool writable;
 
-	/* @todo 1. 커널 페이지 필터링:
-	 * is_kernel_vaddr(va)이면 return true로 건너뛴다.
-	 * 커널 영역은 모든 프로세스가 공유하므로 복제 대상이 아니다. */
 
 	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
-	/* @todo 3. 자식용 새 페이지 할당:
-	 * palloc_get_page(PAL_USER)로 유저 영역 페이지 1개를 할당한다.
-	 * 실패하면 return false (메모리 부족 → __do_fork의 error로 점프). */
 
-	/* @todo 4. 부모 페이지 복사 + 쓰기 권한 확인:
-	 * memcpy(newpage, parent_page, PGSIZE)로 4KB 전체를 복사한다.
-	 * writable = is_writable(pte)로 부모 PTE의 쓰기 비트를 읽는다.
-	 * (include/threads/mmu.h에 매크로 정의됨) */
 
 	/* 5. 자식 페이지 테이블에 매핑 추가. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
-		/* @todo 6. 실패 시 방금 할당한 newpage를 palloc_free_page로 해제하고
-		 * return false 한다. */
 	}
 	return true;
 }
@@ -156,26 +135,27 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  * 힌트) parent->tf에는 프로세스의 유저랜드 문맥이 들어 있지 않다.
  * 즉, process_fork의 두 번째 인자를 이 함수에 전달해야 한다.
  */
+/* __do_fork - 자식 스레드의 진입점. 부모의 실행 문맥을 복제한다.
+ *
+ * 핵심 순서:
+ *   1. 부모의 인터럽트 프레임(레지스터) 복사
+ *   2. 부모의 페이지 테이블 복제 (duplicate_pte)
+ *   3. 부모의 fd_table 복제 (file_duplicate)
+ *   4. 자식의 fork 반환값을 0으로 설정
+ *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
 static void
 __do_fork (void *aux) {
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
-	/*
-	 * TODO: 어떻게든 parent_if를 전달하라.
-	 * TODO: 즉 process_fork()의 if_를 전달해야 한다.
-	 */
+
 	struct intr_frame *parent_if;
 	bool succ = true;
 
-	/*
-	 * 1. CPU 문맥을 로컬 스택으로 읽어 온다.
-	 */
+	/* 1. CPU 문맥(레지스터)을 로컬 스택으로 복사한다. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
-	/*
-	 * 2. 페이지 테이블을 복제한다.
-	 */
+	/* 2. 페이지 테이블을 복제한다. */
 	current->pml4 = pml4_create ();
 	if (current->pml4 == NULL)
 		goto error;
@@ -190,19 +170,13 @@ __do_fork (void *aux) {
 		goto error;
 #endif
 
-	/*
-	 * TODO: 여기에 코드를 작성하라.
-	 * TODO: 힌트) 파일 객체를 복제하려면 include/filesys/file.h의
-	 * TODO: `file_duplicate`를 사용하라. 이 함수가 부모의 자원을 성공적으로
-	 * TODO: 복제하기 전까지 부모는 fork()에서 반환되면 안 된다는 점에
-	 * 주의하라.
-	 */
+
+
+
 
 	process_init ();
 
-	/*
-	 * 마지막으로 새로 생성된 프로세스로 전환한다.
-	 */
+	/* 새로 생성된 프로세스로 전환한다. */
 	if (succ)
 		do_iret (&if_);
 error:
@@ -212,9 +186,6 @@ error:
 /*
  * 현재 실행 문맥을 f_name으로 전환한다.
  * 실패하면 -1을 반환한다.
- */
-/* @bookmark
- * process_exec - 바이너리 로드 후 유저 모드 전환
  */
 int
 process_exec (void *f_name) {
@@ -236,9 +207,6 @@ process_exec (void *f_name) {
 
 	/*
 	 * 먼저 현재 문맥을 제거한다.
-	 */
-	/* @todo
-	 * 이전 주소 공간 초기화 (미구현)
 	 */
 	process_cleanup ();
 
@@ -272,9 +240,6 @@ process_exec (void *f_name) {
  *
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
-/* @bookmark
- * process_wait: timer_sleep 임시 대기
- */
 int
 process_wait (tid_t child_tid UNUSED) {
 	/*
@@ -290,9 +255,6 @@ process_wait (tid_t child_tid UNUSED) {
 	return -1;
 }
 
-/* @bookmark [13] process_exit: TODO 상태 (종료 메시지·자원 해제 미구현)
- * 변경 없음: process_cleanup()만 호출, printf·sema 동기화 미구현
- * 출처: 08db0db (args-none 테스트 통과) */
 /*
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
@@ -300,36 +262,13 @@ void
 process_exit (void) {
 	struct thread *curr = thread_current ();
 
-	/* @todo 열린 파일 전부 닫기:
-	 * fd_table을 2번부터 FD_MAX까지 순회하며
-	 * NULL이 아닌 슬롯은 file_close() 호출 후 NULL로 비운다. */
 
-	/* @todo fd_table 페이지 해제:
-	 * palloc_free_page(curr->fd_table)로 반환한다. */
 
-	/* @todo 고아 해방 루프:
-	 * child_list를 순회하며 wait하지 않은 자식들의
-	 * exit_sema를 sema_up해서 소멸을 허가한다. */
 
-	/* @todo 부모에게 종료 알림 (유저 프로세스만):
-	 * if (curr->pml4 != NULL)
-	 *   sema_up(&curr->wait_sema) → 부모 깨우기
-	 *   sema_down(&curr->exit_sema) → 부모 수거 대기 */
 
 	process_cleanup ();
 }
 
-/* @todo process_add_file - 파일을 fd_table에 등록하고 fd 번호를 반환한다.
- *
- * 구현해야 할 것:
- * 1. curr->next_fd가 FD_MAX 이상이면 -1 반환 (테이블 꽉 참).
- * 2. curr->fd_table[curr->next_fd] = f 로 저장.
- * 3. curr->next_fd를 반환값으로 쓰고, next_fd++ 증가.
- * 4. 반환한 fd 번호를 돌려준다.
- *
- * 주의: 중간에 close로 빈 슬롯이 생기면 next_fd 방식은
- * 그 빈 자리를 재활용하지 못한다. 단순 구현에서는 괜찮지만,
- * multi-oom 테스트를 통과하려면 빈 슬롯 탐색이 필요할 수 있다. */
 int
 process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
@@ -338,11 +277,6 @@ process_add_file (struct file *f) {
 	return -1;
 }
 
-/* @todo process_get_file - fd 번호로 파일 포인터를 반환한다.
- *
- * 구현해야 할 것:
- * 1. fd가 범위 밖이면 (fd < 0 || fd >= FD_MAX) NULL 반환.
- * 2. curr->fd_table[fd]를 반환한다 (NULL이면 열리지 않은 fd). */
 struct file *
 process_get_file (int fd) {
 	struct thread *curr = thread_current ();
@@ -351,13 +285,6 @@ process_get_file (int fd) {
 	return NULL;
 }
 
-/* @todo process_close_file - fd를 닫고 fd_table에서 제거한다.
- *
- * 구현해야 할 것:
- * 1. fd가 범위 밖이면 (fd < 2 || fd >= FD_MAX) 무시 (0,1은 예약).
- * 2. curr->fd_table[fd]가 NULL이면 무시.
- * 3. file_close(curr->fd_table[fd]) 호출.
- * 4. curr->fd_table[fd] = NULL로 비운다. */
 void
 process_close_file (int fd) {
 	struct thread *curr = thread_current ();
@@ -547,9 +474,6 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * 초기 스택 포인터를 *RSP에 저장한다.
  * 성공하면 true, 그렇지 않으면 false를 반환한다.
  */
-/* @bookmark
- * load - 실행 파일의 진입점
- */
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
@@ -581,9 +505,6 @@ load (const char *file_name, struct intr_frame *if_) {
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return false;
-	/* @breakpoint
-	 * (cahr *) file_name
-	 */
 	memcpy (fn_copy, file_name, CSTR_SIZE (file_name));
 
 	/*
@@ -612,7 +533,6 @@ load (const char *file_name, struct intr_frame *if_) {
 	/*
 	 * 실행 파일 헤더를 읽고 검증한다.
 	 */
-	/* @region ELF 헤더 검사 - 실행 가능한 ELF 파일 형식 확인 */
 	/*
 	 * e_ident    : ELF 파일 여부, 64비트 여부, 엔디안 정보
 	 *              \177ELF = ELF 매직 값
@@ -633,12 +553,10 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
-	/* @endregion */
 
 	/*
 	 * 프로그램 헤더들을 읽는다.
 	 */
-	/* @region 프로그램 헤더 표 순회 - 메모리에 올릴 파일 구역 설명서 읽기 */
 	/*
 	 * e_phoff : 파일 시작 기준 프로그램 헤더 표 시작 위치
 	 * e_phnum : 프로그램 헤더 개수
@@ -650,7 +568,6 @@ load (const char *file_name, struct intr_frame *if_) {
 	for (i = 0; i < ehdr.e_phnum; i++) {
 		struct Phdr phdr;
 
-		/* @region 헤더 읽기 위치 이동 - 현재 설명서가 있는 파일 위치로 이동 */
 		/*
 		 * file_ofs 범위 검사
 		 * file_seek 이후의 file_read는 file_ofs 위치부터 읽는다.
@@ -658,15 +575,11 @@ load (const char *file_name, struct intr_frame *if_) {
 		if (file_ofs < 0 || file_ofs > file_length (file))
 			goto done;
 		file_seek (file, file_ofs);
-		/* @endregion */
 
-		/* @region 프로그램 헤더 읽기 - 설명서 1개를 읽고 다음 위치로 이동 */
 		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
 		file_ofs += sizeof phdr;
-		/* @endregion */
 
-		/* @region 적재 종류 분기 - 메모리에 올릴 구역인지 확인 */
 		/*
 		 * PT_LOAD   : 실제 메모리에 올릴 파일 구역
 		 * PT_NULL   : 비어 있는 항목
@@ -690,7 +603,6 @@ load (const char *file_name, struct intr_frame *if_) {
 		case PT_SHLIB:
 			goto done;
 		case PT_LOAD:
-			/* @region PT_LOAD 처리 - 파일 구역을 메모리에 올릴 준비 */
 			/*
 			 * validate_segment : 이 구역을 실제로 적재 가능한지 검사
 			 * p_flags          : 쓰기 가능 여부 확인
@@ -708,8 +620,6 @@ load (const char *file_name, struct intr_frame *if_) {
 				uint64_t page_offset = phdr.p_vaddr & PGMASK;
 				uint32_t read_bytes, zero_bytes;
 
-				/* @region 읽을 바이트 계산 - 파일 데이터와 0으로 채울 영역
-				 * 분리 */
 				/*
 				 * p_filesz > 0
 				 * 파일에 실제 데이터가 있는 구역
@@ -737,10 +647,7 @@ load (const char *file_name, struct intr_frame *if_) {
 					read_bytes = 0;
 					zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 				}
-				/* @endregion */
 
-				/* @region 실제 적재 - 계산한 범위를 페이지 단위로 메모리에
-				 * 배치 */
 				/*
 				 * file_page부터 read_bytes만큼 읽고
 				 * 나머지 zero_bytes는 0으로 채운 페이지를 매핑
@@ -748,35 +655,25 @@ load (const char *file_name, struct intr_frame *if_) {
 				if (!load_segment (file, file_page, (void *) mem_page,
 				                   read_bytes, zero_bytes, writable))
 					goto done;
-				/* @endregion */
 			} else
 				goto done;
-			/* @endregion */
 			break;
 		}
-		/* @endregion */
 	}
-	/* @endregion */
 
 	/*
 	 * 스택을 설정한다.
 	 */
-	/* @region 유저 스택 준비 - 인자 문자열과 argv 배열 적재용 빈 스택 페이지
-	 */
 	if (!setup_stack (if_))
 		goto done;
-	/* @endregion */
 
 	char *stack_p = (char *) if_->rsp;
 
 	/*
 	 * 시작 주소.
 	 */
-	/* @region 시작 주소 설정 - ELF 헤더의 첫 실행 위치 */
 	if_->rip = ehdr.e_entry;
-	/* @endregion */
 
-	/* @region 문자열 복사 - 각 인자 문자열의 유저 스택 적재와 새 주소 갱신 */
 	/*
 	 * 스택의 아래 방향 성장
 	 * 마지막 인자부터 역순 복사
@@ -800,18 +697,14 @@ load (const char *file_name, struct intr_frame *if_) {
 		memcpy (stack_p, argv[argi], size);
 		argv[argi] = stack_p;
 	}
-	/* @endregion */
 
-	/* @region 포인터 정렬 - argv 포인터 배열 적재 전 8바이트 경계 정렬 */
 	/*
 	 * 예:
 	 * stack_p = 0x...f7 -> 0x...f0
 	 * 이후 적재 값의 8바이트 포인터 단위
 	 */
 	stack_p = (char *) ((uintptr_t) stack_p & -8);
-	/* @endregion */
 
-	/* @region argv 끝 표시 - argv[argc] = NULL 자리 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
 	/*
@@ -823,9 +716,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	 * argv[2] = "y"
 	 * argv[3] = NULL
 	 */
-	/* @endregion */
 
-	/* @region argv 배열 생성 - 문자열 주소들의 char *argv[] 형태 구성 */
 	/*
 	 * 앞 단계의 argv[i] = 유저 스택 안 문자열 주소
 	 * 해당 주소값들의 8바이트 단위 재적재
@@ -842,25 +733,20 @@ load (const char *file_name, struct intr_frame *if_) {
 		stack_p -= 8;
 		*(uintptr_t *) stack_p = (uintptr_t) argv[n];
 	}
-	/* @endregion */
 
-	/* @region 레지스터 연결 - main(argc, argv) 전달값 */
 	/*
 	 * rdi : argc
 	 * rsi : argv 배열 시작 주소
 	 */
 	if_->R.rsi = stack_p;
 	if_->R.rdi = argc;
-	/* @endregion */
 
-	/* @region 최종 rsp 설정 - 유저 프로그램 시작 시점의 스택 포인터 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
 	if_->rsp = stack_p;
 	/*
 	 * if_->rsp = 유저 프로그램 시작 시 사용할 스택 포인터
 	 */
-	/* @endregion */
 
 	// hex_dump(if_->rsp, if_->rsp, USER_STACK - (uint64_t)if_->rsp, true);
 	success = true;
