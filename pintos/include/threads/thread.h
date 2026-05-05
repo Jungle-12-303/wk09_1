@@ -1,17 +1,10 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
-// @warn [C/C++] #include 오류가 검색되었습니다. includePath를 업데이트하세요.
-// 이 변환 단위(/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W
-// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "debug.h"
 #include <debug.h>
-// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "list.h"
 #include <list.h>
 #include <stdint.h>
-// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "threads/interrupt.h"
 #include "threads/interrupt.h"
-/* 임시 해결용 */
-// @warn [C/C++] 파일 소스을(를) 열 수 없습니다. "threads/synch.h"
 #include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -127,8 +120,8 @@ struct thread {
 	tid_t tid;                      // 스레드 식별자
 	enum thread_status status;      // 현재 스케줄링 상태
 	int priority;                   // 현재 유효 우선순위
-	int base_priority               // 우선순위 기부 전 원래 우선순위
-	        int64_t wake_tick;      // 깨워야 할 절대 tick
+	int base_priority;              // 우선순위 기부 전 원래 우선순위
+	int64_t wake_tick;              // 깨워야 할 절대 tick
 	char name[THREAD_NAME_MAX];     // 디버깅용 이름
 	struct list donation_list;      // 나에게 우선순위를 기부한 스레드 목록
 	struct list_elem donation_elem; // 다른 스레드 donation_list의 원소
