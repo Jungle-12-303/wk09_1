@@ -91,7 +91,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = process_wait ((tid_t) f->R.rdi);
 		break;
 	case SYS_EXEC:
-		f->R.rax = process_exec ((tid_t) f->R.rdi);
+		check_address ((void *) f->R.rdi);
+		f->R.rax = process_exec ((void *) f->R.rdi);
 		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
@@ -231,7 +232,4 @@ check_address (const void *addr) {
 	if (pml4_get_page (curr->pml4, addr) == NULL) {
 		exit (-1);
 	}
-
-	if (curr->pml4 != NULL && pml4_get_page (curr->pml4, addr) == NULL)
-		exit (-1);
 }
