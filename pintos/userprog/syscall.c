@@ -87,6 +87,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_FORK:
 		f->R.rax = fork ((const char *) f->R.rdi, f);
 		break;
+	case SYS_WAIT:
+		f->R.rax = process_wait ((tid_t) f->R.rdi);
+		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
 		f->R.rax = write (f->R.rdi, (const void *) f->R.rsi, f->R.rdx);
@@ -116,13 +119,11 @@ halt (void) {
 	power_off ();
 }
 
+// @bookmark fork
 tid_t
-fork (const char *thread_name, struct intr_frame *f) {
-	// check_address (thread_name);
-	// return process_fork (thread_name, f);
-	(void) thread_name;
-	(void) f;
-	return TID_ERROR;
+fork (const char *thread_name, struct intr_frame *if_) {
+	check_address (thread_name);
+	return process_fork (thread_name, if_);
 }
 
 void
@@ -208,6 +209,7 @@ close (int fd) {
 
 /* 여기서부턴 헬퍼 함수 기술 */
 /* 유효성 검사 */
+// @bookmark check_address
 void
 check_address (const void *addr) {
 	struct thread *curr = thread_current ();
