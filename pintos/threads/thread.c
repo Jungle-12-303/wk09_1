@@ -257,9 +257,6 @@ thread_create (const char *name, int priority, thread_func *function,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	/* @breakpoint
-	* (void *) t->tf.R.rip, (void *) t->tf.R.rdi, (char *) t->tf.R.rsi
-	*/
 	/*
 	 * 새 스레드를 스케줄러 ready_list 추가
 	 */
@@ -546,9 +543,6 @@ next_thread_to_run (void) {
 
 /*
  * iretq를 사용해 스레드를 시작한다.
- */
-/* @bookmark
- * do_iret - 스레드를 시작
  */
 void
 do_iret (struct intr_frame *tf) {
