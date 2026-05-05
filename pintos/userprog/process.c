@@ -312,7 +312,7 @@ process_wait (tid_t child_tid UNUSED) {
 	 * XXX: 권장한다.
 	 */
 	// struct thread *child = thread_current ();
-	timer_sleep (300);
+	// timer_sleep (300);
 	// sema_down(&child->wait_sema);
 	// int status = child->exit_status;
 	return -1;
