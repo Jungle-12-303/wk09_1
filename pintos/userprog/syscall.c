@@ -23,6 +23,7 @@ void syscall_handler (struct intr_frame *);
 /* 추가 함수들 */
 void halt (void);
 void exit (int status);
+tid_t fork (const char *thread_name, struct intr_frame *f);
 int write (int fd, const void *buffer, unsigned size);
 bool create (const char *file, unsigned initial_size);
 int open (const char *file);
@@ -81,6 +82,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_HALT:
 		halt ();
 		break;
+	case SYS_FORK:
+		f->R.rax = fork ((const char *) f->R.rdi, f);
+		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
 		f->R.rax = write (f->R.rdi, (const void *) f->R.rsi, f->R.rdx);
@@ -106,6 +110,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 void
 halt (void) {
 	power_off ();
+}
+
+tid_t
+fork (const char *thread_name, struct intr_frame *f) {
+	check_address (thread_name);
+	return process_fork (thread_name, f);
 }
 
 void
