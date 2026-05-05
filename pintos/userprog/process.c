@@ -393,6 +393,9 @@ process_wait (tid_t child_tid) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
+	if (curr == NULL)
+		return;
+
 	int fd;
 
 	for (fd = 2; fd < FD_MAX; fd++)
