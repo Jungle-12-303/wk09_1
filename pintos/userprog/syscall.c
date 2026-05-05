@@ -33,7 +33,7 @@ void check_address (const void *addr);
 /* 추가 변수들 */
 struct lock filesys_lock;
 
-/* @lock
+/*
  * 시스템 콜.
  *
  * 이전에는 시스템 콜 서비스가 인터럽트 핸들러
@@ -44,15 +44,15 @@ struct lock filesys_lock;
  * 자세한 내용은 매뉴얼을 참고하라.
  */
 
-/* @lock
+/*
  * 세그먼트 셀렉터 MSR.
  */
 #define MSR_STAR 0xc0000081
-/* @lock
+/*
  * Long mode SYSCALL 대상.
  */
 #define MSR_LSTAR 0xc0000082
-/* @lock
+/*
  * eflags용 마스크.
  */
 #define MSR_SYSCALL_MASK 0xc0000084
@@ -63,7 +63,7 @@ syscall_init (void) {
 	                             ((uint64_t) SEL_KCSEG) << 32);
 	write_msr (MSR_LSTAR, (uint64_t) syscall_entry);
 
-	/* @lock
+	/*
 	 * 인터럽트 서비스 루틴은 syscall_entry가 유저랜드 스택을 커널 모드
 	 * 스택으로 교체하기 전까지 어떤 인터럽트도 처리해서는 안 된다. 따라서
 	 * FLAG_FL을 마스킹했다.
@@ -75,7 +75,7 @@ syscall_init (void) {
 	lock_init (&filesys_lock);
 }
 
-/* @lock
+/*
  * 메인 시스템 콜 인터페이스.
  */
 void
