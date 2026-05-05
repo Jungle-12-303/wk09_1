@@ -87,6 +87,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_FORK:
 		f->R.rax = fork ((const char *) f->R.rdi, f);
 		break;
+	case SYS_WAIT:
+		f->R.rax = process_wait ((tid_t) f->R.rdi);
+		break;
+	case SYS_EXEC:
+		f->R.rax = process_exec ((tid_t) f->R.rdi);
+		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
 		f->R.rax = write (f->R.rdi, (const void *) f->R.rsi, f->R.rdx);
@@ -117,15 +123,22 @@ halt (void) {
 }
 
 tid_t
-fork (const char *thread_name, struct intr_frame *f) {
-	return process_fork (thread_name, f);
+
+fork (const char *thread_name, struct intr_frame *if_) {
+	check_address (thread_name);
+	return process_fork (thread_name, if_);
 }
 
 void
 exit (int status) {
-	printf ("%s: exit(%d)\n", thread_current ()->name, status);
-	if (thread_current ()->self_status != NULL)
-		thread_current ()->self_status->exit_status = status;
+	struct thread *curr = thread_current ();
+
+	if (curr == NULL)
+		thread_exit ();
+
+	printf ("%s: exit(%d)\n", curr->name, status);
+	if (curr->self_status != NULL)
+		curr->self_status->exit_status = status;
 	thread_exit ();
 }
 
@@ -206,6 +219,9 @@ check_address (const void *addr) {
 	if (addr == NULL) {
 		exit (-1);
 	}
+
+	if (curr == NULL || curr->pml4 == NULL)
+		exit (-1);
 
 	/* 커널 영역 침범 여부 */
 	if (!is_user_vaddr (addr)) {
