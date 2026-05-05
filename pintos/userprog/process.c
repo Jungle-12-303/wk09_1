@@ -28,17 +28,29 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+struct fork_args {
+	struct thread *parent;   // fork를 호출한 부모 스레드
+	struct intr_frame if_;   // 부모의 유저 레지스터 스냅샷
+	struct child_status *cs; // 부모가 만든 자식 상태 레코드
+};
+
 /* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
 #define FD_MAX (PGSIZE / sizeof (struct file *))
 
 /*
  * initd와 다른 프로세스를 위한 일반적인 프로세스 초기화 함수.
  */
+/* @todo
+ * 프로세스를 위한 초기화 함수 (미구현)
+ */
 static void
 process_init (void) {
 	struct thread *current = thread_current ();
 }
 
+/* @bookmark
+ * process_create_initd - 프로세스 시작
+ */
 tid_t
 process_create_initd (const char *file_name) {
 	char *file_name_copy;
@@ -63,6 +75,7 @@ process_create_initd (const char *file_name) {
 	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
 	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
 	 */
+
 	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (file_name_copy);
@@ -71,6 +84,9 @@ process_create_initd (const char *file_name) {
 
 /*
  * 첫 번째 유저 프로세스를 시작하는 스레드 함수.
+ */
+/* @bookmark
+ * initd - 유저 프로세스를 시작
  */
 static void
 initd (void *f_name) {
@@ -85,17 +101,62 @@ initd (void *f_name) {
 	NOT_REACHED ();
 }
 
+/* @bookmark
+ * process_fork - 스레드 포크
+ */
 /*
  * 현재 프로세스를 `name`이라는 이름으로 복제한다.
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
  * TID_ERROR를 반환한다.
  */
 tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED) {
-	/*
-	 * 현재 스레드를 새 스레드로 복제한다.
+process_fork (const char *name, struct intr_frame *if_) {
+	struct thread *curr = thread_current ();
+	struct child_status *cs;
+	struct fork_args *args;
+	tid_t tid;
+
+	/* @note
+	 * 자식 스레드를 기다리기 위한 구조체
 	 */
-	return thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
+	cs = malloc (sizeof *cs);
+	if (cs == NULL)
+		return TID_ERROR;
+
+	cs->tid = TID_ERROR;
+	cs->exit_status = -1;
+	cs->waited = false;
+	cs->exited = false;
+	sema_init (&cs->wait_sema, 0);
+
+	list_push_back (&curr->child_status_list, &cs->elem);
+
+	/* @note
+	 * 스레드 포크를 위한 정보 구조체
+	 */
+	args = malloc (sizeof *args);
+	if (args == NULL) {
+		list_remove (&cs->elem);
+		free (cs);
+		return TID_ERROR;
+	}
+
+	args->parent = curr;
+	args->if_ = *if_;
+	args->cs = cs;
+
+	tid = thread_create (name, PRI_DEFAULT, __do_fork, args);
+	if (tid == TID_ERROR) {
+		list_remove (&cs->elem);
+		free (cs);
+		free (args);
+		return TID_ERROR;
+	}
+
+	sema_down (&cs->wait_sema);
+
+	cs->tid = tid;
+	return tid;
 }
 
 #ifndef VM
@@ -117,14 +178,30 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	void *newpage;
 	bool writable;
 
+	/* @todo
+	 * 1. 커널 페이지 필터링:
+	 * is_kernel_vaddr(va)이면 return true로 건너뛴다.
+	 * 커널 영역은 모든 프로세스가 공유하므로 복제 대상이 아니다. */
 
 	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
+	/* @todo
+	 * 3. 자식용 새 페이지 할당:
+	 * palloc_get_page(PAL_USER)로 유저 영역 페이지 1개를 할당한다.
+	 * 실패하면 return false (메모리 부족, __do_fork의 error로 점프). */
 
+	/* @todo
+	 * 4. 부모 페이지 복사 + 쓰기 권한 확인:
+	 * memcpy(newpage, parent_page, PGSIZE)로 4KB 전체를 복사한다.
+	 * writable = is_writable(pte)로 부모 PTE의 쓰기 비트를 읽는다.
+	 * (include/threads/mmu.h에 매크로 정의됨) */
 
 	/* 5. 자식 페이지 테이블에 매핑 추가. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
+		/* @todo
+		 * 6. 실패 시 방금 할당한 newpage를 palloc_free_page로 해제하고
+		 * return false 한다. */
 	}
 	return true;
 }
@@ -145,47 +222,51 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
 static void
 __do_fork (void *aux) {
+	struct fork_args *args = aux;
+	struct thread *curr = thread_current ();
+	struct thread *parent = args->parent;
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
 
-	struct intr_frame *parent_if;
-	bool succ = true;
+	curr->self_status = args->cs;
+	memcpy (&if_, &args->if_, sizeof if_);
+	free (args);
 
-	/* 1. CPU 문맥(레지스터)을 로컬 스택으로 복사한다. */
-	memcpy (&if_, parent_if, sizeof (struct intr_frame));
-
-	/* 2. 페이지 테이블을 복제한다. */
-	current->pml4 = pml4_create ();
-	if (current->pml4 == NULL)
+	curr->pml4 = pml4_create ();
+	if (curr->pml4 == NULL)
 		goto error;
 
-	process_activate (current);
+	process_activate (curr);
 #ifdef VM
-	supplemental_page_table_init (&current->spt);
-	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
+	supplemental_page_table_init (&curr->spt);
+	if (!supplemental_page_table_copy (&curr->spt, &parent->spt))
 		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
-
-
-
+	/* 자식 프로세스에서 fork()의 반환값은 0이다. */
+	if_.R.rax = 0;
 
 	process_init ();
 
 	/* 새로 생성된 프로세스로 전환한다. */
-	if (succ)
-		do_iret (&if_);
+	do_iret (&if_);
 error:
+	if (curr->self_status != NULL) {
+		curr->self_status->exit_status = -1;
+		curr->self_status->exited = true;
+		sema_up (&curr->self_status->wait_sema);
+	}
 	thread_exit ();
 }
 
 /*
  * 현재 실행 문맥을 f_name으로 전환한다.
  * 실패하면 -1을 반환한다.
+ */
+/* @bookmark
+ * process_exec - 바이너리 로드 후 유저 모드 전환
  */
 int
 process_exec (void *f_name) {
@@ -207,6 +288,9 @@ process_exec (void *f_name) {
 
 	/*
 	 * 먼저 현재 문맥을 제거한다.
+	 */
+	/* @todo
+	 * 이전 주소 공간 초기화 (미구현)
 	 */
 	process_cleanup ();
 
@@ -240,6 +324,9 @@ process_exec (void *f_name) {
  *
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
+/* @bookmark
+ * process_wait: 자식 프로세스 대기
+ */
 int
 process_wait (tid_t child_tid UNUSED) {
 	/*
@@ -262,13 +349,41 @@ void
 process_exit (void) {
 	struct thread *curr = thread_current ();
 
+	/* @todo
+	 * 열린 파일 전부 닫기:
+	 * fd_table을 2번부터 FD_MAX까지 순회하며
+	 * NULL이 아닌 슬롯은 file_close() 호출 후 NULL로 비운다. */
 
+	/* @todo
+	 * fd_table 페이지 해제:
+	 * palloc_free_page(curr->fd_table)로 반환한다. */
 
+	/* @todo
+	 * 고아 해방 루프:
+	 * child_list를 순회하며 wait하지 않은 자식들의
+	 * exit_sema를 sema_up해서 소멸을 허가한다. */
 
+	/* @todo
+	 * 부모에게 종료 알림 (유저 프로세스만):
+	 * if (curr->pml4 != NULL)
+	 *   sema_up(&curr->wait_sema) -- 부모 깨우기
+	 *   sema_down(&curr->exit_sema) -- 부모 수거 대기 */
 
 	process_cleanup ();
 }
 
+/* @todo
+ * process_add_file - 파일을 fd_table에 등록하고 fd 번호를 반환한다.
+ *
+ * 구현해야 할 것:
+ * 1. curr->next_fd가 FD_MAX 이상이면 -1 반환 (테이블 꽉 참).
+ * 2. curr->fd_table[curr->next_fd] = f 로 저장.
+ * 3. curr->next_fd를 반환값으로 쓰고, next_fd++ 증가.
+ * 4. 반환한 fd 번호를 돌려준다.
+ *
+ * 주의: 중간에 close로 빈 슬롯이 생기면 next_fd 방식은
+ * 그 빈 자리를 재활용하지 못한다. 단순 구현에서는 괜찮지만,
+ * multi-oom 테스트를 통과하려면 빈 슬롯 탐색이 필요할 수 있다. */
 int
 process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
@@ -277,6 +392,12 @@ process_add_file (struct file *f) {
 	return -1;
 }
 
+/* @todo
+ * process_get_file - fd 번호로 파일 포인터를 반환한다.
+ *
+ * 구현해야 할 것:
+ * 1. fd가 범위 밖이면 (fd < 0 || fd >= FD_MAX) NULL 반환.
+ * 2. curr->fd_table[fd]를 반환한다 (NULL이면 열리지 않은 fd). */
 struct file *
 process_get_file (int fd) {
 	struct thread *curr = thread_current ();
@@ -285,6 +406,14 @@ process_get_file (int fd) {
 	return NULL;
 }
 
+/* @todo
+ * process_close_file - fd를 닫고 fd_table에서 제거한다.
+ *
+ * 구현해야 할 것:
+ * 1. fd가 범위 밖이면 (fd < 2 || fd >= FD_MAX) 무시 (0,1은 예약).
+ * 2. curr->fd_table[fd]가 NULL이면 무시.
+ * 3. file_close(curr->fd_table[fd]) 호출.
+ * 4. curr->fd_table[fd] = NULL로 비운다. */
 void
 process_close_file (int fd) {
 	struct thread *curr = thread_current ();
@@ -474,6 +603,9 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * 초기 스택 포인터를 *RSP에 저장한다.
  * 성공하면 true, 그렇지 않으면 false를 반환한다.
  */
+/* @bookmark
+ * load - 실행 파일의 진입점
+ */
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
@@ -505,6 +637,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return false;
+	/* @breakpoint
+	 * (cahr *) file_name
+	 */
 	memcpy (fn_copy, file_name, CSTR_SIZE (file_name));
 
 	/*
@@ -533,6 +668,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/*
 	 * 실행 파일 헤더를 읽고 검증한다.
 	 */
+	/* @region ELF 헤더 검사 - 실행 가능한 ELF 파일 형식 확인 */
 	/*
 	 * e_ident    : ELF 파일 여부, 64비트 여부, 엔디안 정보
 	 *              \177ELF = ELF 매직 값
@@ -553,10 +689,12 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
+	/* @endregion */
 
 	/*
 	 * 프로그램 헤더들을 읽는다.
 	 */
+	/* @region 프로그램 헤더 표 순회 - 메모리에 올릴 파일 구역 설명서 읽기 */
 	/*
 	 * e_phoff : 파일 시작 기준 프로그램 헤더 표 시작 위치
 	 * e_phnum : 프로그램 헤더 개수
@@ -576,6 +714,9 @@ load (const char *file_name, struct intr_frame *if_) {
 			goto done;
 		file_seek (file, file_ofs);
 
+		/*
+		 * 현재 프로그램 헤더 1개를 읽고 다음 헤더 위치로 이동
+		 */
 		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
 		file_ofs += sizeof phdr;
@@ -660,10 +801,12 @@ load (const char *file_name, struct intr_frame *if_) {
 			break;
 		}
 	}
+	/* @endregion */
 
 	/*
 	 * 스택을 설정한다.
 	 */
+	/* @region 유저 스택 구성 - 인자 문자열, argv 배열, 시작 레지스터 준비 */
 	if (!setup_stack (if_))
 		goto done;
 
@@ -705,6 +848,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	 */
 	stack_p = (char *) ((uintptr_t) stack_p & -8);
 
+	/*
+	 * argv[argc] = NULL 자리
+	 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
 	/*
@@ -747,6 +893,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/*
 	 * if_->rsp = 유저 프로그램 시작 시 사용할 스택 포인터
 	 */
+	/* @endregion */
 
 	// hex_dump(if_->rsp, if_->rsp, USER_STACK - (uint64_t)if_->rsp, true);
 	success = true;
