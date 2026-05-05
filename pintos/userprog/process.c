@@ -292,6 +292,23 @@ __do_fork (void *aux) {
 		goto error;
 #endif
 
+	/* 부모 fd_table 복제 */
+	curr->fd_table = palloc_get_page (PAL_ZERO);
+	if (curr->fd_table == NULL) {
+		goto error;
+	}
+
+	for (int fd = 2; fd < FD_MAX; fd++) {
+		if (parent->fd_table[fd] == NULL) {
+			continue;
+		}
+		curr->fd_table[fd] = file_duplicate (parent->fd_table[fd]);
+		if (curr->fd_table[fd] == NULL) {
+			goto error;
+		}
+	}
+	curr->next_fd = parent->next_fd;
+
 	/* 자식 프로세스에서 fork()의 반환값은 0이다. */
 	if_.R.rax = 0;
 
