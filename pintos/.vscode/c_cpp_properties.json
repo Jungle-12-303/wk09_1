@@ -4,9 +4,6 @@
             "name": "PintOS (DevContainer)",
             "includePath": [
                 "${workspaceFolder}",
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/include/lib",
-                "${workspaceFolder}/include/lib/kernel",
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/lib/**"
             ],
