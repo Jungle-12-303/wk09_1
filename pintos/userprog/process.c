@@ -14,10 +14,12 @@
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #include "intrinsic.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -28,6 +30,12 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+struct fork_args {
+	struct thread *parent;   // fork를 호출한 부모 스레드
+	struct intr_frame if_;   // 부모의 유저 레지스터 스냅샷
+	struct child_status *cs; // 부모가 만든 자식 상태 레코드
+};
+
 /* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
 #define FD_MAX (PGSIZE / sizeof (struct file *))
 
@@ -36,7 +44,7 @@ static void __do_fork (void *);
  */
 static void
 process_init (void) {
-	struct thread *current = thread_current ();
+	struct thread *current UNUSED = thread_current ();
 }
 
 tid_t
@@ -63,6 +71,7 @@ process_create_initd (const char *file_name) {
 	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
 	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
 	 */
+
 	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (file_name_copy);
@@ -91,11 +100,50 @@ initd (void *f_name) {
  * TID_ERROR를 반환한다.
  */
 tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED) {
-	/*
-	 * 현재 스레드를 새 스레드로 복제한다.
-	 */
-	return thread_create (name, PRI_DEFAULT, __do_fork, thread_current ());
+process_fork (const char *name, struct intr_frame *if_) {
+	struct thread *curr = thread_current ();
+	struct child_status *cs;
+	struct fork_args *args;
+	tid_t tid;
+
+	cs = malloc (sizeof *cs);
+	if (cs == NULL)
+		return TID_ERROR;
+
+	cs->tid = TID_ERROR;
+	cs->exit_status = -1;
+	cs->waited = false;
+	cs->exited = false;
+	cs->fork_success = false;
+	sema_init (&cs->fork_sema, 0);
+	sema_init (&cs->wait_sema, 0);
+
+	list_push_back (&curr->child_status_list, &cs->elem);
+
+	args = malloc (sizeof *args);
+	if (args == NULL) {
+		list_remove (&cs->elem);
+		free (cs);
+		return TID_ERROR;
+	}
+
+	args->parent = curr;
+	args->if_ = *if_;
+	args->cs = cs;
+
+	tid = thread_create (name, PRI_DEFAULT, __do_fork, args);
+	if (tid == TID_ERROR) {
+		list_remove (&cs->elem);
+		free (cs);
+		free (args);
+		return TID_ERROR;
+	}
+
+	cs->tid = tid;
+	sema_down (&cs->fork_sema);
+	if (!cs->fork_success)
+		return TID_ERROR;
+	return tid;
 }
 
 #ifndef VM
@@ -117,14 +165,25 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	void *newpage;
 	bool writable;
 
+	if (is_kernel_vaddr (va))
+		return true;
 
 	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다. */
 	parent_page = pml4_get_page (parent->pml4, va);
+	if (parent_page == NULL)
+		return false;
 
+	newpage = palloc_get_page (PAL_USER);
+	if (newpage == NULL)
+		return false;
 
+	memcpy (newpage, parent_page, PGSIZE);
+	writable = is_writable (pte);
 
 	/* 5. 자식 페이지 테이블에 매핑 추가. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
+		palloc_free_page (newpage);
+		return false;
 	}
 	return true;
 }
@@ -145,41 +204,45 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
 static void
 __do_fork (void *aux) {
+	struct fork_args *args = aux;
+	struct thread *curr = thread_current ();
+	struct thread *parent = args->parent;
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
 
-	struct intr_frame *parent_if;
-	bool succ = true;
+	curr->self_status = args->cs;
+	memcpy (&if_, &args->if_, sizeof if_);
+	free (args);
 
-	/* 1. CPU 문맥(레지스터)을 로컬 스택으로 복사한다. */
-	memcpy (&if_, parent_if, sizeof (struct intr_frame));
-
-	/* 2. 페이지 테이블을 복제한다. */
-	current->pml4 = pml4_create ();
-	if (current->pml4 == NULL)
+	curr->pml4 = pml4_create ();
+	if (curr->pml4 == NULL)
 		goto error;
 
-	process_activate (current);
+	process_activate (curr);
 #ifdef VM
-	supplemental_page_table_init (&current->spt);
-	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
+	supplemental_page_table_init (&curr->spt);
+	if (!supplemental_page_table_copy (&curr->spt, &parent->spt))
 		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
-
-
-
+	/* 자식 프로세스에서 fork()의 반환값은 0이다. */
+	if_.R.rax = 0;
 
 	process_init ();
+	curr->self_status->fork_success = true;
+	sema_up (&curr->self_status->fork_sema);
 
 	/* 새로 생성된 프로세스로 전환한다. */
-	if (succ)
-		do_iret (&if_);
+	do_iret (&if_);
 error:
+	if (curr->self_status != NULL) {
+		curr->self_status->exit_status = -1;
+		curr->self_status->exited = true;
+		curr->self_status->fork_success = false;
+		sema_up (&curr->self_status->fork_sema);
+	}
 	thread_exit ();
 }
 
@@ -211,8 +274,8 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* 여기서 fd_table 공간 할당 실행 */
-	struct thread *curr = thread_current();
-	curr->fd_table = palloc_get_page(PAL_ZERO);
+	struct thread *curr = thread_current ();
+	curr->fd_table = palloc_get_page (PAL_ZERO);
 
 	/*
 	 * 그리고 바이너리를 로드한다.
@@ -265,9 +328,20 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
+	int fd;
 
-	/* 할당된 fb_table을 해제한다 */
-	palloc_free_page(curr->fd_table);
+	for (fd = 2; fd < FD_MAX; fd++)
+		process_close_file (fd);
+
+	if (curr->fd_table != NULL) {
+		palloc_free_page (curr->fd_table);
+		curr->fd_table = NULL;
+	}
+
+	if (curr->self_status != NULL && !curr->self_status->exited) {
+		curr->self_status->exited = true;
+		sema_up (&curr->self_status->wait_sema);
+	}
 
 	process_cleanup ();
 }
@@ -275,24 +349,48 @@ process_exit (void) {
 int
 process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
-	(void) curr;
-	(void) f;
+	int fd;
+
+	if (f == NULL || curr->fd_table == NULL)
+		return -1;
+
+	for (fd = 2; fd < FD_MAX; fd++) {
+		if (curr->fd_table[fd] != NULL)
+			continue;
+
+		curr->fd_table[fd] = f;
+		if (fd >= curr->next_fd)
+			curr->next_fd = fd + 1;
+		return fd;
+	}
+
 	return -1;
 }
 
 struct file *
 process_get_file (int fd) {
 	struct thread *curr = thread_current ();
-	(void) curr;
-	(void) fd;
-	return NULL;
+
+	if (fd < 0 || fd >= FD_MAX || curr->fd_table == NULL)
+		return NULL;
+
+	return curr->fd_table[fd];
 }
 
 void
 process_close_file (int fd) {
 	struct thread *curr = thread_current ();
-	(void) curr;
-	(void) fd;
+
+	if (fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
+		return;
+
+	if (curr->fd_table[fd] == NULL)
+		return;
+
+	file_close (curr->fd_table[fd]);
+	curr->fd_table[fd] = NULL;
+	if (fd < curr->next_fd)
+		curr->next_fd = fd;
 }
 
 /*
@@ -579,6 +677,9 @@ load (const char *file_name, struct intr_frame *if_) {
 			goto done;
 		file_seek (file, file_ofs);
 
+		/*
+		 * 현재 프로그램 헤더 1개를 읽고 다음 헤더 위치로 이동
+		 */
 		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
 		file_ofs += sizeof phdr;
@@ -708,6 +809,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	 */
 	stack_p = (char *) ((uintptr_t) stack_p & -8);
 
+	/*
+	 * argv[argc] = NULL 자리
+	 */
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
 	/*
@@ -741,12 +845,12 @@ load (const char *file_name, struct intr_frame *if_) {
 	 * rdi : argc
 	 * rsi : argv 배열 시작 주소
 	 */
-	if_->R.rsi = stack_p;
+	if_->R.rsi = (uint64_t) stack_p;
 	if_->R.rdi = argc;
 
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
-	if_->rsp = stack_p;
+	if_->rsp = (uintptr_t) stack_p;
 	/*
 	 * if_->rsp = 유저 프로그램 시작 시 사용할 스택 포인터
 	 */
