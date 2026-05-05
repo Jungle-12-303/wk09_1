@@ -102,13 +102,16 @@ initd (void *f_name) {
 tid_t
 process_fork (const char *name, struct intr_frame *if_) {
 	struct thread *curr = thread_current ();
-	struct child_status *cs;
-	struct fork_args *args;
-	tid_t tid;
+	struct child_status *cs = NULL;
+	struct fork_args *args = NULL;
+	tid_t tid = TID_ERROR;
+
+	if (curr == NULL)
+		return TID_ERROR;
 
 	cs = malloc (sizeof *cs);
 	if (cs == NULL)
-		return TID_ERROR;
+		goto done;
 
 	cs->tid = TID_ERROR;
 	cs->exit_status = -1;
@@ -121,29 +124,35 @@ process_fork (const char *name, struct intr_frame *if_) {
 	list_push_back (&curr->child_status_list, &cs->elem);
 
 	args = malloc (sizeof *args);
-	if (args == NULL) {
-		list_remove (&cs->elem);
-		free (cs);
-		return TID_ERROR;
-	}
+	if (args == NULL)
+		goto done;
 
 	args->parent = curr;
 	args->if_ = *if_;
 	args->cs = cs;
 
 	tid = thread_create (name, PRI_DEFAULT, __do_fork, args);
-	if (tid == TID_ERROR) {
-		list_remove (&cs->elem);
-		free (cs);
-		free (args);
-		return TID_ERROR;
-	}
+	if (tid == TID_ERROR)
+		goto done;
 
+	args = NULL;
 	cs->tid = tid;
 	sema_down (&cs->fork_sema);
-	if (!cs->fork_success)
-		return TID_ERROR;
+	if (!cs->fork_success) {
+		tid = TID_ERROR;
+		goto done;
+	}
+
 	return tid;
+
+done:
+	if (args != NULL)
+		free (args);
+	if (cs != NULL) {
+		list_remove (&cs->elem);
+		free (cs);
+	}
+	return TID_ERROR;
 }
 
 #ifndef VM
@@ -206,8 +215,17 @@ static void
 __do_fork (void *aux) {
 	struct fork_args *args = aux;
 	struct thread *curr = thread_current ();
-	struct thread *parent = args->parent;
+	struct thread *parent;
 	struct intr_frame if_;
+
+	if (curr == NULL || args == NULL)
+		thread_exit ();
+
+	parent = args->parent;
+	if (parent == NULL) {
+		free (args);
+		thread_exit ();
+	}
 
 	curr->self_status = args->cs;
 	memcpy (&if_, &args->if_, sizeof if_);

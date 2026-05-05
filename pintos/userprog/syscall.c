@@ -118,11 +118,7 @@ halt (void) {
 
 tid_t
 fork (const char *thread_name, struct intr_frame *f) {
-	// check_address (thread_name);
-	// return process_fork (thread_name, f);
-	(void) thread_name;
-	(void) f;
-	return TID_ERROR;
+	return process_fork (thread_name, f);
 }
 
 void
