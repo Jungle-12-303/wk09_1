@@ -36,6 +36,11 @@ struct fork_args {
 	struct child_status *cs; // 부모가 만든 자식 상태 레코드
 };
 
+struct initd_args {
+	char *file_name;         // 실행할 프로그램 이름 복사본
+	struct child_status *cs; // 부모가 만든 자식 상태 레코드
+};
+
 /* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
 #define FD_MAX (PGSIZE / sizeof (struct file *))
 
@@ -49,10 +54,16 @@ process_init (void) {
 
 tid_t
 process_create_initd (const char *file_name) {
+	struct thread *curr = thread_current ();
 	char *file_name_copy;
 	char program_name[THREAD_NAME_MAX];
 	char *arg_start;
-	tid_t tid;
+	struct child_status *cs = NULL;
+	struct initd_args *args = NULL;
+	tid_t tid = TID_ERROR;
+
+	if (curr == NULL)
+		return TID_ERROR;
 
 	/*
 	 * 커널 풀에서 페이지 메모리 할당, 0 = 커널 영역(유저 옵션 없음)
@@ -67,48 +78,9 @@ process_create_initd (const char *file_name) {
 	if (arg_start != NULL)
 		*arg_start = '\0';
 
-	/*
-	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
-	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
-	 */
-
-	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
-	if (tid == TID_ERROR)
-		palloc_free_page (file_name_copy);
-	return tid;
-}
-
-/*
- * 첫 번째 유저 프로세스를 시작하는 스레드 함수.
- */
-static void
-initd (void *f_name) {
-#ifdef VM
-	supplemental_page_table_init (&thread_current ()->spt);
-#endif
-
-	process_init ();
-
-	if (process_exec (f_name) < 0)
-		PANIC ("Fail to launch initd\n");
-	NOT_REACHED ();
-}
-
-/*
- * 현재 프로세스를 `name`이라는 이름으로 복제한다.
- * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
- * TID_ERROR를 반환한다.
- */
-tid_t
-process_fork (const char *name, struct intr_frame *if_) {
-	struct thread *curr = thread_current ();
-	struct child_status *cs;
-	struct fork_args *args;
-	tid_t tid;
-
 	cs = malloc (sizeof *cs);
 	if (cs == NULL)
-		return TID_ERROR;
+		goto done;
 
 	cs->tid = TID_ERROR;
 	cs->exit_status = -1;
@@ -121,29 +93,113 @@ process_fork (const char *name, struct intr_frame *if_) {
 	list_push_back (&curr->child_status_list, &cs->elem);
 
 	args = malloc (sizeof *args);
-	if (args == NULL) {
+	if (args == NULL)
+		goto done;
+
+	args->file_name = file_name_copy;
+	args->cs = cs;
+
+	tid = thread_create (program_name, PRI_DEFAULT, initd, args);
+	if (tid == TID_ERROR)
+		goto done;
+
+	cs->tid = tid;
+	return tid;
+done:
+	if (args != NULL)
+		free (args);
+	if (tid == TID_ERROR)
+		palloc_free_page (file_name_copy);
+	if (cs != NULL) {
 		list_remove (&cs->elem);
 		free (cs);
-		return TID_ERROR;
 	}
+	return TID_ERROR;
+}
+
+/*
+ * 첫 번째 유저 프로세스를 시작하는 스레드 함수.
+ */
+static void
+initd (void *f_name) {
+	struct initd_args *args = f_name;
+	struct thread *curr = thread_current ();
+
+	if (curr == NULL || args == NULL)
+		thread_exit ();
+
+#ifdef VM
+	supplemental_page_table_init (&curr->spt);
+#endif
+
+	curr->self_status = args->cs;
+	process_init ();
+	f_name = args->file_name;
+	free (args);
+
+	if (process_exec (f_name) < 0)
+		thread_exit ();
+	NOT_REACHED ();
+}
+/*
+ * 현재 프로세스를 `name`이라는 이름으로 복제한다.
+ * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
+ * TID_ERROR를 반환한다.
+ */
+tid_t
+process_fork (const char *name, struct intr_frame *if_) {
+	struct thread *curr = thread_current ();
+	struct child_status *cs = NULL;
+	struct fork_args *args = NULL;
+	tid_t tid = TID_ERROR;
+
+	if (curr == NULL)
+		return TID_ERROR;
+
+	cs = malloc (sizeof *cs);
+	if (cs == NULL)
+		goto done;
+
+	cs->tid = TID_ERROR;
+	cs->exit_status = -1;
+	cs->waited = false;
+	cs->exited = false;
+	cs->fork_success = false;
+	sema_init (&cs->fork_sema, 0);
+	sema_init (&cs->wait_sema, 0);
+
+	list_push_back (&curr->child_status_list, &cs->elem);
+
+	args = malloc (sizeof *args);
+	if (args == NULL)
+		goto done;
 
 	args->parent = curr;
 	args->if_ = *if_;
 	args->cs = cs;
 
 	tid = thread_create (name, PRI_DEFAULT, __do_fork, args);
-	if (tid == TID_ERROR) {
-		list_remove (&cs->elem);
-		free (cs);
-		free (args);
-		return TID_ERROR;
-	}
+	if (tid == TID_ERROR)
+		goto done;
 
+	args = NULL;
 	cs->tid = tid;
 	sema_down (&cs->fork_sema);
-	if (!cs->fork_success)
-		return TID_ERROR;
+	if (!cs->fork_success) {
+		tid = TID_ERROR;
+		goto done;
+	}
+
 	return tid;
+
+done:
+	if (args != NULL)
+		free (args);
+	if (cs != NULL) {
+		list_remove (&cs->elem);
+		free (cs);
+	}
+	return TID_ERROR;
 }
 
 #ifndef VM
@@ -206,8 +262,17 @@ static void
 __do_fork (void *aux) {
 	struct fork_args *args = aux;
 	struct thread *curr = thread_current ();
-	struct thread *parent = args->parent;
+	struct thread *parent;
 	struct intr_frame if_;
+
+	if (curr == NULL || args == NULL)
+		thread_exit ();
+
+	parent = args->parent;
+	if (parent == NULL) {
+		free (args);
+		thread_exit ();
+	}
 
 	curr->self_status = args->cs;
 	memcpy (&if_, &args->if_, sizeof if_);
@@ -238,10 +303,13 @@ __do_fork (void *aux) {
 	do_iret (&if_);
 error:
 	if (curr->self_status != NULL) {
-		curr->self_status->exit_status = -1;
-		curr->self_status->exited = true;
-		curr->self_status->fork_success = false;
-		sema_up (&curr->self_status->fork_sema);
+		struct child_status *cs = curr->self_status;
+
+		cs->exit_status = -1;
+		cs->exited = true;
+		cs->fork_success = false;
+		curr->self_status = NULL;
+		sema_up (&cs->fork_sema);
 	}
 	thread_exit ();
 }
@@ -254,6 +322,10 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
+	struct thread *curr = thread_current ();
+
+	if (curr == NULL)
+		return -1;
 
 	/*
 	 * thread 구조체에 있는 intr_frame은 사용할 수 없다.
@@ -274,7 +346,6 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* 여기서 fd_table 공간 할당 실행 */
-	struct thread *curr = thread_current ();
 	curr->fd_table = palloc_get_page (PAL_ZERO);
 
 	/*
@@ -308,17 +379,35 @@ process_exec (void *f_name) {
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
 int
-process_wait (tid_t child_tid UNUSED) {
-	/*
-	 * XXX: 힌트) process_wait(initd)를 호출하면 pintos가 종료된다.
-	 * XXX: 따라서 process_wait를 구현하기 전에 여기에 무한 루프를 추가하는
-	 * 것을
-	 * XXX: 권장한다.
-	 */
-	// struct thread *child = thread_current ();
-	timer_sleep (300);
-	// sema_down(&child->wait_sema);
-	// int status = child->exit_status;
+process_wait (tid_t child_tid) {
+	struct thread *curr = thread_current ();
+	int status;
+
+	if (curr == NULL)
+		return -1;
+
+	struct list *childs = &curr->child_status_list;
+	struct list_elem *e;
+	struct child_status *cs;
+	for (e = list_begin (childs); e != list_end (childs); e = list_next (e)) {
+		cs = list_entry (e, struct child_status, elem);
+
+		if (cs->tid != child_tid)
+			continue;
+
+		if (cs->waited)
+			return -1;
+
+		cs->waited = true;
+
+		if (!cs->exited)
+			sema_down (&cs->wait_sema);
+
+		status = cs->exit_status;
+		list_remove (&cs->elem);
+		free (cs);
+		return status;
+	}
 	return -1;
 }
 
@@ -328,6 +417,9 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
+	if (curr == NULL)
+		return;
+
 	int fd;
 
 	for (fd = 2; fd < FD_MAX; fd++)
@@ -351,7 +443,7 @@ process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
 	int fd;
 
-	if (f == NULL || curr->fd_table == NULL)
+	if (curr == NULL || f == NULL || curr->fd_table == NULL)
 		return -1;
 
 	for (fd = 2; fd < FD_MAX; fd++) {
@@ -371,7 +463,7 @@ struct file *
 process_get_file (int fd) {
 	struct thread *curr = thread_current ();
 
-	if (fd < 0 || fd >= FD_MAX || curr->fd_table == NULL)
+	if (curr == NULL || fd < 0 || fd >= FD_MAX || curr->fd_table == NULL)
 		return NULL;
 
 	return curr->fd_table[fd];
@@ -381,7 +473,7 @@ void
 process_close_file (int fd) {
 	struct thread *curr = thread_current ();
 
-	if (fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
+	if (curr == NULL || fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
 		return;
 
 	if (curr->fd_table[fd] == NULL)
