@@ -36,6 +36,11 @@ struct fork_args {
 	struct child_status *cs; // 부모가 만든 자식 상태 레코드
 };
 
+struct initd_args {
+	char *file_name;         // 실행할 프로그램 이름 복사본
+	struct child_status *cs; // 부모가 만든 자식 상태 레코드
+};
+
 /* fd_table 최대 슬롯 수 (4KB 페이지 / 포인터 크기). */
 #define FD_MAX (PGSIZE / sizeof (struct file *))
 
@@ -49,10 +54,13 @@ process_init (void) {
 
 tid_t
 process_create_initd (const char *file_name) {
+	struct thread *curr = thread_current ();
 	char *file_name_copy;
 	char program_name[THREAD_NAME_MAX];
 	char *arg_start;
-	tid_t tid;
+	struct child_status *cs = NULL;
+	struct initd_args *args = NULL;
+	tid_t tid = TID_ERROR;
 
 	/*
 	 * 커널 풀에서 페이지 메모리 할당, 0 = 커널 영역(유저 옵션 없음)
@@ -67,15 +75,43 @@ process_create_initd (const char *file_name) {
 	if (arg_start != NULL)
 		*arg_start = '\0';
 
-	/*
-	 * 메모리 첫번째 공백까지의 문자열을 스레드 이름으로 사용, 위에서 할당한
-	 * 커널 페이지 주소(새 스레드 시작 함수 인자) 전달
-	 */
+	cs = malloc (sizeof *cs);
+	if (cs == NULL)
+		goto done;
 
-	tid = thread_create (program_name, PRI_DEFAULT, initd, file_name_copy);
+	cs->tid = TID_ERROR;
+	cs->exit_status = -1;
+	cs->waited = false;
+	cs->exited = false;
+	cs->fork_success = false;
+	sema_init (&cs->fork_sema, 0);
+	sema_init (&cs->wait_sema, 0);
+
+	list_push_back (&curr->child_status_list, &cs->elem);
+
+	args = malloc (sizeof *args);
+	if (args == NULL)
+		goto done;
+
+	args->file_name = file_name_copy;
+	args->cs = cs;
+
+	tid = thread_create (program_name, PRI_DEFAULT, initd, args);
+	if (tid == TID_ERROR)
+		goto done;
+
+	cs->tid = tid;
+	return tid;
+done:
+	if (args != NULL)
+		free (args);
 	if (tid == TID_ERROR)
 		palloc_free_page (file_name_copy);
-	return tid;
+	if (cs != NULL) {
+		list_remove (&cs->elem);
+		free (cs);
+	}
+	return TID_ERROR;
 }
 
 /*
@@ -83,14 +119,20 @@ process_create_initd (const char *file_name) {
  */
 static void
 initd (void *f_name) {
+	struct initd_args *args = f_name;
+	struct thread *curr = thread_current ();
+
 #ifdef VM
-	supplemental_page_table_init (&thread_current ()->spt);
+	supplemental_page_table_init (&curr->spt);
 #endif
 
+	curr->self_status = args->cs;
 	process_init ();
+	f_name = args->file_name;
+	free (args);
 
 	if (process_exec (f_name) < 0)
-		PANIC ("Fail to launch initd\n");
+		thread_exit ();
 	NOT_REACHED ();
 }
 /*
