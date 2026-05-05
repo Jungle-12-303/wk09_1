@@ -257,6 +257,9 @@ thread_create (const char *name, int priority, thread_func *function,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	/* @breakpoint
+	* (void *) t->tf.R.rip, (void *) t->tf.R.rdi, (char *) t->tf.R.rsi
+	*/
 	/*
 	 * 새 스레드를 스케줄러 ready_list 추가
 	 */
@@ -511,17 +514,20 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->base_priority = priority;
+	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 
 	/* phase 3: priority donation 추가 구현 변수 초기화 */
 	list_init (&t->donation_list);
-	t->priority = priority;
-	t->locked_by = NULL;
+	t->waiting_lock = NULL;
 
 #ifdef USERPROG
-	t->fd_table = palloc_get_page (PAL_ZERO);
-	t->next_fd = 2;
+	t->fd_table = palloc_get_page (PAL_ZERO); // fd 테이블용 페이지 할당 및 0 초기화
+	t->next_fd = 2;                           // 0, 1은 stdin/stdout 예약
+	list_init (&t->child_status_list);        // 자식 상태 레코드 리스트 초기화
+	t->self_status = NULL;                    // 아직 연결된 child_status 없음
 #endif
+
 }
 
 /*
@@ -540,6 +546,9 @@ next_thread_to_run (void) {
 
 /*
  * iretq를 사용해 스레드를 시작한다.
+ */
+/* @bookmark
+ * do_iret - 스레드를 시작
  */
 void
 do_iret (struct intr_frame *tf) {
@@ -787,9 +796,9 @@ refresh_priority (struct thread *t) {
 	t->priority = t->base_priority;
 
 	if (!list_empty (&t->donation_list)) {
-		list_sort (&t->donation_list, thread_priority_d_elem, NULL);
+		list_sort (&t->donation_list, thread_priority_donation_elem, NULL);
 		struct thread *top = list_entry (list_front (&t->donation_list),
-		                                 struct thread, d_elem);
+		                                 struct thread, donation_elem);
 		if (top->priority > t->priority)
 			t->priority = top->priority;
 	}

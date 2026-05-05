@@ -100,7 +100,6 @@ exit (int status) {
 	thread_exit ();
 }
 
-
 int
 write (int fd, const void *buffer, unsigned size) {
 	int write_result;
