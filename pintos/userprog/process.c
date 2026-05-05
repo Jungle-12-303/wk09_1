@@ -355,17 +355,35 @@ process_exec (void *f_name) {
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
 int
-process_wait (tid_t child_tid UNUSED) {
-	/*
-	 * XXX: 힌트) process_wait(initd)를 호출하면 pintos가 종료된다.
-	 * XXX: 따라서 process_wait를 구현하기 전에 여기에 무한 루프를 추가하는
-	 * 것을
-	 * XXX: 권장한다.
-	 */
-	// struct thread *child = thread_current ();
-	timer_sleep (300);
-	// sema_down(&child->wait_sema);
-	// int status = child->exit_status;
+process_wait (tid_t child_tid) {
+	struct thread *curr = thread_current ();
+	int status;
+
+	if (curr == NULL)
+		return -1;
+
+	struct list *childs = &curr->child_status_list;
+	struct list_elem *e;
+	struct child_status *cs;
+	for (e = list_begin (childs); e != list_end (childs); e = list_next (e)) {
+		cs = list_entry (e, struct child_status, elem);
+
+		if (cs->tid != child_tid)
+			continue;
+
+		if (cs->waited)
+			return -1;
+
+		cs->waited = true;
+
+		if (!cs->exited)
+			sema_down (&cs->wait_sema);
+
+		status = cs->exit_status;
+		list_remove (&cs->elem);
+		free (cs);
+		return status;
+	}
 	return -1;
 }
 
