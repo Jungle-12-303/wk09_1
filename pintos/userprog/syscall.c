@@ -119,7 +119,6 @@ halt (void) {
 	power_off ();
 }
 
-// @bookmark fork
 tid_t
 fork (const char *thread_name, struct intr_frame *if_) {
 	check_address (thread_name);
@@ -209,7 +208,6 @@ close (int fd) {
 
 /* 여기서부턴 헬퍼 함수 기술 */
 /* 유효성 검사 */
-// @bookmark check_address
 void
 check_address (const void *addr) {
 	struct thread *curr = thread_current ();

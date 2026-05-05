@@ -146,7 +146,6 @@ initd (void *f_name) {
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
  * TID_ERROR를 반환한다.
  */
-// @bookmark process_fork
 tid_t
 process_fork (const char *name, struct intr_frame *if_) {
 	struct thread *curr = thread_current ();
@@ -259,7 +258,6 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *   3. 부모의 fd_table 복제 (file_duplicate)
  *   4. 자식의 fork 반환값을 0으로 설정
  *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
-// @bookmark __do_fork
 static void
 __do_fork (void *aux) {
 	struct fork_args *args = aux;

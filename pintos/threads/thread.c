@@ -520,7 +520,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->waiting_lock = NULL;
 
 #ifdef USERPROG
-	// t->fd_table = palloc_get_page (PAL_ZERO); // fd 테이블용 페이지 할당 및 0 초기화
+	t->fd_table = palloc_get_page (PAL_ZERO); // fd 테이블용 페이지 할당 및 0 초기화
 	t->next_fd = 2;                           // 0, 1은 stdin/stdout 예약
 	list_init (&t->child_status_list);        // 자식 상태 레코드 리스트 초기화
 	t->self_status = NULL;                    // 아직 연결된 child_status 없음
