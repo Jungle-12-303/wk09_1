@@ -62,6 +62,9 @@ process_create_initd (const char *file_name) {
 	struct initd_args *args = NULL;
 	tid_t tid = TID_ERROR;
 
+	if (curr == NULL)
+		return TID_ERROR;
+
 	/*
 	 * 커널 풀에서 페이지 메모리 할당, 0 = 커널 영역(유저 옵션 없음)
 	 */
@@ -122,6 +125,9 @@ initd (void *f_name) {
 	struct initd_args *args = f_name;
 	struct thread *curr = thread_current ();
 
+	if (curr == NULL || args == NULL)
+		thread_exit ();
+
 #ifdef VM
 	supplemental_page_table_init (&curr->spt);
 #endif
@@ -146,6 +152,9 @@ process_fork (const char *name, struct intr_frame *if_) {
 	struct child_status *cs = NULL;
 	struct fork_args *args = NULL;
 	tid_t tid = TID_ERROR;
+
+	if (curr == NULL)
+		return TID_ERROR;
 
 	cs = malloc (sizeof *cs);
 	if (cs == NULL)
@@ -253,8 +262,17 @@ static void
 __do_fork (void *aux) {
 	struct fork_args *args = aux;
 	struct thread *curr = thread_current ();
-	struct thread *parent = args->parent;
+	struct thread *parent;
 	struct intr_frame if_;
+
+	if (curr == NULL || args == NULL)
+		thread_exit ();
+
+	parent = args->parent;
+	if (parent == NULL) {
+		free (args);
+		thread_exit ();
+	}
 
 	curr->self_status = args->cs;
 	memcpy (&if_, &args->if_, sizeof if_);
@@ -301,6 +319,10 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
+	struct thread *curr = thread_current ();
+
+	if (curr == NULL)
+		return -1;
 
 	/*
 	 * thread 구조체에 있는 intr_frame은 사용할 수 없다.
@@ -321,7 +343,6 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* 여기서 fd_table 공간 할당 실행 */
-	struct thread *curr = thread_current ();
 	curr->fd_table = palloc_get_page (PAL_ZERO);
 
 	/*
@@ -419,7 +440,7 @@ process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
 	int fd;
 
-	if (f == NULL || curr->fd_table == NULL)
+	if (curr == NULL || f == NULL || curr->fd_table == NULL)
 		return -1;
 
 	for (fd = 2; fd < FD_MAX; fd++) {
@@ -439,7 +460,7 @@ struct file *
 process_get_file (int fd) {
 	struct thread *curr = thread_current ();
 
-	if (fd < 0 || fd >= FD_MAX || curr->fd_table == NULL)
+	if (curr == NULL || fd < 0 || fd >= FD_MAX || curr->fd_table == NULL)
 		return NULL;
 
 	return curr->fd_table[fd];
@@ -449,7 +470,7 @@ void
 process_close_file (int fd) {
 	struct thread *curr = thread_current ();
 
-	if (fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
+	if (curr == NULL || fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
 		return;
 
 	if (curr->fd_table[fd] == NULL)
