@@ -93,7 +93,6 @@ initd (void *f_name) {
 		PANIC ("Fail to launch initd\n");
 	NOT_REACHED ();
 }
-// @bookmark process_fork
 /*
  * 현재 프로세스를 `name`이라는 이름으로 복제한다.
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
