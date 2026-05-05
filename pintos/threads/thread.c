@@ -493,7 +493,7 @@ kernel_thread (thread_func *function, void *aux) {
 	/* 스케줄러는 인터럽트가 꺼진 상태에서 실행된다. */
 	intr_enable ();
 	/* 스레드 함수를 실행한다. */
-function (aux);
+	function (aux);
 	/* function()이 반환하면 스레드를 종료한다. */
 	thread_exit ();
 }
@@ -520,12 +520,11 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->waiting_lock = NULL;
 
 #ifdef USERPROG
-	t->fd_table = palloc_get_page (PAL_ZERO); // fd 테이블용 페이지 할당 및 0 초기화
-	t->next_fd = 2;                           // 0, 1은 stdin/stdout 예약
-	list_init (&t->child_status_list);        // 자식 상태 레코드 리스트 초기화
-	t->self_status = NULL;                    // 아직 연결된 child_status 없음
+	t->fd_table = NULL;                    // fd 테이블은 프로세스 로드 시점에 할당
+	t->next_fd = 2;                        // 0, 1은 stdin/stdout 예약
+	list_init (&t->child_status_list);     // 자식 상태 레코드 리스트 초기화
+	t->self_status = NULL;                 // 아직 연결된 child_status 없음
 #endif
-
 }
 
 /*

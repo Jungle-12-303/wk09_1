@@ -90,6 +90,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_WAIT:
 		f->R.rax = process_wait ((tid_t) f->R.rdi);
 		break;
+	case SYS_EXEC:
+		f->R.rax = process_exec ((tid_t) f->R.rdi);
+		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
 		f->R.rax = write (f->R.rdi, (const void *) f->R.rsi, f->R.rdx);
