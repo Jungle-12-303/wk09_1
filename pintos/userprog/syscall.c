@@ -14,6 +14,8 @@
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
 #include "userprog/process.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -22,7 +24,10 @@ void syscall_handler (struct intr_frame *);
 void halt (void);
 void exit (int status);
 int write (int fd, const void *buffer, unsigned size);
-void check_address (void *addr);
+bool create (const char *file, unsigned initial_size);
+int open (const char *file);
+void close (int fd);
+void check_address (const void *addr);
 
 struct lock filesys_lock;
 
@@ -78,11 +83,20 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
-		f->R.rax = write (f->R.rdi, f->R.rsi, f->R.rdx);
+		f->R.rax = write (f->R.rdi, (const void *) f->R.rsi, f->R.rdx);
 		break;
 	case SYS_EXIT:
 		/* 종료 상태값 받음 */
 		exit (f->R.rdi);
+		break;
+	case SYS_CREATE:
+		f->R.rax = create ((const char *) f->R.rdi, f->R.rsi);
+		break;
+	case SYS_OPEN:
+		f->R.rax = open ((const char *) f->R.rdi);
+		break;
+	case SYS_CLOSE:
+		close (f->R.rdi);
 		break;
 	default:
 		break;
@@ -97,15 +111,20 @@ halt (void) {
 void
 exit (int status) {
 	printf ("%s: exit(%d)\n", thread_current ()->name, status);
+	if (thread_current ()->self_status != NULL)
+		thread_current ()->self_status->exit_status = status;
 	thread_exit ();
 }
 
 int
 write (int fd, const void *buffer, unsigned size) {
 	int write_result;
+	struct file *file;
 
 	/* 유효성 검사 로직 */
 	check_address (buffer);
+	if (size > 0)
+		check_address ((const char *) buffer + size - 1);
 
 	/* 락 획득: 동시에 읽어서 꼬임 방지*/
 	lock_acquire (&filesys_lock);
@@ -117,8 +136,8 @@ write (int fd, const void *buffer, unsigned size) {
 	}
 	/* 명령: 기타... */
 	else {
-		/* 임시로 실패 처리 */
-		write_result = -1;
+		file = process_get_file (fd);
+		write_result = file == NULL ? -1 : file_write (file, buffer, size);
 	}
 
 	/* 락 해제: 이제 읽을 필요 없음 */
@@ -127,8 +146,48 @@ write (int fd, const void *buffer, unsigned size) {
 	return write_result;
 }
 
+bool
+create (const char *file, unsigned initial_size) {
+	bool result;
+
+	check_address ((void *) file);
+	lock_acquire (&filesys_lock);
+	result = filesys_create (file, initial_size);
+	lock_release (&filesys_lock);
+	return result;
+}
+
+int
+open (const char *file) {
+	struct file *opened_file;
+	int fd;
+
+	check_address ((void *) file);
+	lock_acquire (&filesys_lock);
+	opened_file = filesys_open (file);
+	if (opened_file == NULL) {
+		lock_release (&filesys_lock);
+		return -1;
+	}
+
+	fd = process_add_file (opened_file);
+	if (fd == -1)
+		file_close (opened_file);
+	lock_release (&filesys_lock);
+	return fd;
+}
+
 void
-check_address (void *addr) {
+close (int fd) {
+	lock_acquire (&filesys_lock);
+	process_close_file (fd);
+	lock_release (&filesys_lock);
+}
+
+void
+check_address (const void *addr) {
+	struct thread *curr = thread_current ();
+
 	/* 애초에 없다면? */
 	if (addr == NULL) {
 		exit (-1);
@@ -138,4 +197,7 @@ check_address (void *addr) {
 	if (!is_user_vaddr (addr)) {
 		exit (-1);
 	}
+
+	if (curr->pml4 != NULL && pml4_get_page (curr->pml4, addr) == NULL)
+		exit (-1);
 }

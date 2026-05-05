@@ -14,10 +14,12 @@
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #include "intrinsic.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -45,7 +47,7 @@ struct fork_args {
  */
 static void
 process_init (void) {
-	struct thread *current = thread_current ();
+	struct thread *current UNUSED = thread_current ();
 }
 
 /* @bookmark
@@ -127,6 +129,8 @@ process_fork (const char *name, struct intr_frame *if_) {
 	cs->exit_status = -1;
 	cs->waited = false;
 	cs->exited = false;
+	cs->fork_success = false;
+	sema_init (&cs->fork_sema, 0);
 	sema_init (&cs->wait_sema, 0);
 
 	list_push_back (&curr->child_status_list, &cs->elem);
@@ -153,9 +157,10 @@ process_fork (const char *name, struct intr_frame *if_) {
 		return TID_ERROR;
 	}
 
-	sema_down (&cs->wait_sema);
-
 	cs->tid = tid;
+	sema_down (&cs->fork_sema);
+	if (!cs->fork_success)
+		return TID_ERROR;
 	return tid;
 }
 
@@ -178,30 +183,25 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	void *newpage;
 	bool writable;
 
-	/* @todo
-	 * 1. 커널 페이지 필터링:
-	 * is_kernel_vaddr(va)이면 return true로 건너뛴다.
-	 * 커널 영역은 모든 프로세스가 공유하므로 복제 대상이 아니다. */
+	if (is_kernel_vaddr (va))
+		return true;
 
 	/* 2. 부모의 페이지 맵 레벨 4에서 VA를 해석한다. */
 	parent_page = pml4_get_page (parent->pml4, va);
+	if (parent_page == NULL)
+		return false;
 
-	/* @todo
-	 * 3. 자식용 새 페이지 할당:
-	 * palloc_get_page(PAL_USER)로 유저 영역 페이지 1개를 할당한다.
-	 * 실패하면 return false (메모리 부족, __do_fork의 error로 점프). */
+	newpage = palloc_get_page (PAL_USER);
+	if (newpage == NULL)
+		return false;
 
-	/* @todo
-	 * 4. 부모 페이지 복사 + 쓰기 권한 확인:
-	 * memcpy(newpage, parent_page, PGSIZE)로 4KB 전체를 복사한다.
-	 * writable = is_writable(pte)로 부모 PTE의 쓰기 비트를 읽는다.
-	 * (include/threads/mmu.h에 매크로 정의됨) */
+	memcpy (newpage, parent_page, PGSIZE);
+	writable = is_writable (pte);
 
 	/* 5. 자식 페이지 테이블에 매핑 추가. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
-		/* @todo
-		 * 6. 실패 시 방금 할당한 newpage를 palloc_free_page로 해제하고
-		 * return false 한다. */
+		palloc_free_page (newpage);
+		return false;
 	}
 	return true;
 }
@@ -249,6 +249,8 @@ __do_fork (void *aux) {
 	if_.R.rax = 0;
 
 	process_init ();
+	curr->self_status->fork_success = true;
+	sema_up (&curr->self_status->fork_sema);
 
 	/* 새로 생성된 프로세스로 전환한다. */
 	do_iret (&if_);
@@ -256,7 +258,8 @@ error:
 	if (curr->self_status != NULL) {
 		curr->self_status->exit_status = -1;
 		curr->self_status->exited = true;
-		sema_up (&curr->self_status->wait_sema);
+		curr->self_status->fork_success = false;
+		sema_up (&curr->self_status->fork_sema);
 	}
 	thread_exit ();
 }
@@ -348,26 +351,20 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
+	int fd;
 
-	/* @todo
-	 * 열린 파일 전부 닫기:
-	 * fd_table을 2번부터 FD_MAX까지 순회하며
-	 * NULL이 아닌 슬롯은 file_close() 호출 후 NULL로 비운다. */
+	for (fd = 2; fd < FD_MAX; fd++)
+		process_close_file (fd);
 
-	/* @todo
-	 * fd_table 페이지 해제:
-	 * palloc_free_page(curr->fd_table)로 반환한다. */
+	if (curr->fd_table != NULL) {
+		palloc_free_page (curr->fd_table);
+		curr->fd_table = NULL;
+	}
 
-	/* @todo
-	 * 고아 해방 루프:
-	 * child_list를 순회하며 wait하지 않은 자식들의
-	 * exit_sema를 sema_up해서 소멸을 허가한다. */
-
-	/* @todo
-	 * 부모에게 종료 알림 (유저 프로세스만):
-	 * if (curr->pml4 != NULL)
-	 *   sema_up(&curr->wait_sema) -- 부모 깨우기
-	 *   sema_down(&curr->exit_sema) -- 부모 수거 대기 */
+	if (curr->self_status != NULL && !curr->self_status->exited) {
+		curr->self_status->exited = true;
+		sema_up (&curr->self_status->wait_sema);
+	}
 
 	process_cleanup ();
 }
@@ -387,8 +384,21 @@ process_exit (void) {
 int
 process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
-	(void) curr;
-	(void) f;
+	int fd;
+
+	if (f == NULL || curr->fd_table == NULL)
+		return -1;
+
+	for (fd = 2; fd < FD_MAX; fd++) {
+		if (curr->fd_table[fd] != NULL)
+			continue;
+
+		curr->fd_table[fd] = f;
+		if (fd >= curr->next_fd)
+			curr->next_fd = fd + 1;
+		return fd;
+	}
+
 	return -1;
 }
 
@@ -401,9 +411,11 @@ process_add_file (struct file *f) {
 struct file *
 process_get_file (int fd) {
 	struct thread *curr = thread_current ();
-	(void) curr;
-	(void) fd;
-	return NULL;
+
+	if (fd < 0 || fd >= FD_MAX || curr->fd_table == NULL)
+		return NULL;
+
+	return curr->fd_table[fd];
 }
 
 /* @todo
@@ -417,8 +429,17 @@ process_get_file (int fd) {
 void
 process_close_file (int fd) {
 	struct thread *curr = thread_current ();
-	(void) curr;
-	(void) fd;
+
+	if (fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
+		return;
+
+	if (curr->fd_table[fd] == NULL)
+		return;
+
+	file_close (curr->fd_table[fd]);
+	curr->fd_table[fd] = NULL;
+	if (fd < curr->next_fd)
+		curr->next_fd = fd;
 }
 
 /*
@@ -884,12 +905,12 @@ load (const char *file_name, struct intr_frame *if_) {
 	 * rdi : argc
 	 * rsi : argv 배열 시작 주소
 	 */
-	if_->R.rsi = stack_p;
+	if_->R.rsi = (uint64_t) stack_p;
 	if_->R.rdi = argc;
 
 	stack_p -= 8;
 	memset (stack_p, 0, 8);
-	if_->rsp = stack_p;
+	if_->rsp = (uintptr_t) stack_p;
 	/*
 	 * if_->rsp = 유저 프로그램 시작 시 사용할 스택 포인터
 	 */
