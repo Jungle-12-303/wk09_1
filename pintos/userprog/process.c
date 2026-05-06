@@ -134,6 +134,9 @@ initd (void *f_name) {
 #endif
 
 	curr->self_status = args->cs;
+	curr->fd_table = palloc_get_page (PAL_ZERO);
+	curr->next_fd = 2;
+
 	process_init ();
 	f_name = args->file_name;
 	free (args);
