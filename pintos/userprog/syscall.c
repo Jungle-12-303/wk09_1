@@ -150,6 +150,7 @@ halt (void) {
 }
 
 tid_t
+
 fork (const char *thread_name, struct intr_frame *if_) {
 	check_address (thread_name);
 	return process_fork (thread_name, if_);
