@@ -135,7 +135,9 @@ initd (void *f_name) {
 #endif
 
 	curr->self_status = args->cs;
-	init_fd_table (curr);
+	if (!init_fd_table (curr)) {
+		thread_exit ();
+	}
 
 	process_init ();
 	f_name = args->file_name;
@@ -253,7 +255,7 @@ static bool
 duplicate_fd_table (struct thread *curr, struct thread *parent) {
 	int fd;
 
-	if (parent == NULL) {
+	if (curr == NULL || parent == NULL) {
 		return false;
 	}
 
@@ -352,6 +354,7 @@ __do_fork (void *aux) {
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
+	ASSERT (curr->fd_table == NULL);
 	if (!duplicate_fd_table (curr, parent))
 		goto error;
 
