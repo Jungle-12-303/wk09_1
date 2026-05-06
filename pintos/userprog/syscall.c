@@ -10,12 +10,15 @@
 
 /* 추가 임포트 */
 #include "threads/init.h"
+#include "threads/palloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "devices/input.h"
+#include "lib/string.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -24,11 +27,15 @@ void syscall_handler (struct intr_frame *);
 void halt (void);
 void exit (int status);
 tid_t fork (const char *thread_name, struct intr_frame *f);
+int exec (const char *cmd_line);
 int write (int fd, const void *buffer, unsigned size);
+int read (int fd, void *buffer, unsigned size);
 bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
 void check_address (const void *addr);
+static void check_user_buffer (const void *buffer, unsigned size);
+static void check_user_string (const char *str);
 
 /* 추가 변수들 */
 struct lock filesys_lock;
@@ -91,7 +98,10 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = process_wait ((tid_t) f->R.rdi);
 		break;
 	case SYS_EXEC:
-		f->R.rax = process_exec ((tid_t) f->R.rdi);
+		f->R.rax = exec ((const char *) f->R.rdi);
+		break;
+	case SYS_READ:
+		f->R.rax = read (f->R.rdi, (void *) f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
@@ -128,6 +138,24 @@ fork (const char *thread_name, struct intr_frame *if_) {
 	return process_fork (thread_name, if_);
 }
 
+int
+exec (const char *cmd_line) {
+	char *cmd_copy;
+	int status;
+
+	check_user_string (cmd_line);
+
+	cmd_copy = palloc_get_page (0);
+	if (cmd_copy == NULL)
+		exit (-1);
+
+	strlcpy (cmd_copy, cmd_line, PGSIZE);
+	status = process_exec (cmd_copy);
+	if (status < 0)
+		exit (-1);
+	return status;
+}
+
 void
 exit (int status) {
 	struct thread *curr = thread_current ();
@@ -142,14 +170,40 @@ exit (int status) {
 }
 
 int
+read (int fd, void *buffer, unsigned size) {
+	int read_result;
+	struct file *file;
+
+	if (size == 0)
+		return 0;
+
+	check_user_buffer (buffer, size);
+
+	lock_acquire (&filesys_lock);
+
+	if (fd == 0) {
+		unsigned i;
+		char *dst = buffer;
+
+		for (i = 0; i < size; i++)
+			dst[i] = input_getc ();
+		read_result = (int) size;
+	} else {
+		file = process_get_file (fd);
+		read_result = file == NULL ? -1 : file_read (file, buffer, size);
+	}
+
+	lock_release (&filesys_lock);
+	return read_result;
+}
+
+int
 write (int fd, const void *buffer, unsigned size) {
 	int write_result;
 	struct file *file;
 
 	/* 유효성 검사 로직 */
-	check_address (buffer);
-	if (size > 0)
-		check_address ((const char *) buffer + size - 1);
+	check_user_buffer (buffer, size);
 
 	/* 락 획득: 동시에 읽어서 꼬임 방지*/
 	lock_acquire (&filesys_lock);
@@ -231,7 +285,32 @@ check_address (const void *addr) {
 	if (pml4_get_page (curr->pml4, addr) == NULL) {
 		exit (-1);
 	}
+}
 
-	if (curr->pml4 != NULL && pml4_get_page (curr->pml4, addr) == NULL)
-		exit (-1);
+static void
+check_user_buffer (const void *buffer, unsigned size) {
+	const char *addr = buffer;
+	uintptr_t start;
+	uintptr_t end;
+
+	if (size == 0)
+		return;
+
+	check_address (buffer);
+	check_address (addr + size - 1);
+
+	start = (uintptr_t) pg_round_down (addr);
+	end = (uintptr_t) pg_round_down (addr + size - 1);
+	for (; start <= end; start += PGSIZE)
+		check_address ((const void *) start);
+}
+
+static void
+check_user_string (const char *str) {
+	while (true) {
+		check_address (str);
+		if (*str == '\0')
+			return;
+		str++;
+	}
 }
