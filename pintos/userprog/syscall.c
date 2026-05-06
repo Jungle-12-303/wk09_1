@@ -17,6 +17,8 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "devices/input.h"
+#include "lib/string.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -337,7 +339,32 @@ check_address (const void *addr) {
 	if (pml4_get_page (curr->pml4, addr) == NULL) {
 		exit (-1);
 	}
+}
 
-	if (curr->pml4 != NULL && pml4_get_page (curr->pml4, addr) == NULL)
-		exit (-1);
+static void
+check_user_buffer (const void *buffer, unsigned size) {
+	const char *addr = buffer;
+	uintptr_t start;
+	uintptr_t end;
+
+	if (size == 0)
+		return;
+
+	check_address (buffer);
+	check_address (addr + size - 1);
+
+	start = (uintptr_t) pg_round_down (addr);
+	end = (uintptr_t) pg_round_down (addr + size - 1);
+	for (; start <= end; start += PGSIZE)
+		check_address ((const void *) start);
+}
+
+static void
+check_user_string (const char *str) {
+	while (true) {
+		check_address (str);
+		if (*str == '\0')
+			return;
+		str++;
+	}
 }
