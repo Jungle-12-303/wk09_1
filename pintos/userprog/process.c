@@ -29,6 +29,7 @@ static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
+static bool duplicate_fd_table (struct thread *curr, struct thread *parent);
 
 struct fork_args {
 	struct thread *parent;   // fork를 호출한 부모 스레드
@@ -245,6 +246,47 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 }
 #endif
 
+static bool
+duplicate_fd_table (struct thread *curr, struct thread *parent) {
+	int fd;
+
+	if (curr == NULL || parent == NULL)
+		return false;
+
+	curr->fd_table = palloc_get_page (PAL_ZERO);
+	if (curr->fd_table == NULL)
+		return false;
+
+	if (parent->fd_table == NULL) {
+		curr->next_fd = 2;
+		return true;
+	}
+
+	for (fd = 2; fd < parent->next_fd && fd < FD_MAX; fd++) {
+		if (parent->fd_table[fd] == NULL)
+			continue;
+
+		curr->fd_table[fd] = file_duplicate (parent->fd_table[fd]);
+		if (curr->fd_table[fd] == NULL)
+			goto error;
+	}
+
+	curr->next_fd = parent->next_fd;
+	return true;
+
+error:
+	for (fd = 2; fd < FD_MAX; fd++) {
+		if (curr->fd_table[fd] == NULL)
+			continue;
+		file_close (curr->fd_table[fd]);
+		curr->fd_table[fd] = NULL;
+	}
+	palloc_free_page (curr->fd_table);
+	curr->fd_table = NULL;
+	curr->next_fd = 2;
+	return false;
+}
+
 /*
  * 부모의 실행 문맥을 복사하는 스레드 함수.
  * 힌트) parent->tf에는 프로세스의 유저랜드 문맥이 들어 있지 않다.
@@ -291,6 +333,9 @@ __do_fork (void *aux) {
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
+
+	if (!duplicate_fd_table (curr, parent))
+		goto error;
 
 	/* 자식 프로세스에서 fork()의 반환값은 0이다. */
 	if_.R.rax = 0;
