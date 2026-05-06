@@ -17,8 +17,6 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
-#include "devices/input.h"
-#include "lib/string.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -33,6 +31,11 @@ int read (int fd, void *buffer, unsigned size);
 bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
+int read (int fd, void *buffer, unsigned size);
+bool remove (const char *file);
+void seek (int fd, unsigned position);
+unsigned tell (int fd);
+int filesize (int fd);
 void check_address (const void *addr);
 static void check_user_buffer (const void *buffer, unsigned size);
 static void check_user_string (const char *str);
@@ -120,6 +123,19 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_CLOSE:
 		close (f->R.rdi);
 		break;
+	case SYS_FILESIZE:
+		f->R.rax = filesize (f->R.rdi);
+		break;
+	//@todo 시스템콜 remove
+	case SYS_REMOVE:
+		f->R.rax = remove ((const char *) f->R.rdi);
+		break;
+	case SYS_SEEK:
+		seek (f->R.rdi, f->R.rsi);
+		break;
+	case SYS_TELL:
+		f->R.rax = tell (f->R.rdi);
+		break;
 	default:
 		break;
 	}
@@ -170,34 +186,6 @@ exit (int status) {
 }
 
 int
-read (int fd, void *buffer, unsigned size) {
-	int read_result;
-	struct file *file;
-
-	if (size == 0)
-		return 0;
-
-	check_user_buffer (buffer, size);
-
-	lock_acquire (&filesys_lock);
-
-	if (fd == 0) {
-		unsigned i;
-		char *dst = buffer;
-
-		for (i = 0; i < size; i++)
-			dst[i] = input_getc ();
-		read_result = (int) size;
-	} else {
-		file = process_get_file (fd);
-		read_result = file == NULL ? -1 : file_read (file, buffer, size);
-	}
-
-	lock_release (&filesys_lock);
-	return read_result;
-}
-
-int
 write (int fd, const void *buffer, unsigned size) {
 	int write_result;
 	struct file *file;
@@ -243,12 +231,16 @@ open (const char *file) {
 
 	check_address ((void *) file);
 	lock_acquire (&filesys_lock);
+
+	// 열린 파일 객체의 주소
 	opened_file = filesys_open (file);
+
 	if (opened_file == NULL) {
 		lock_release (&filesys_lock);
 		return -1;
 	}
 
+	// 열린 파일 f를 fd테이블 빈칸에 넣고, 그 칸 번호를 돌려준다
 	fd = process_add_file (opened_file);
 	if (fd == -1)
 		file_close (opened_file);
@@ -263,6 +255,65 @@ close (int fd) {
 	lock_release (&filesys_lock);
 }
 
+// @bookmark 시스템콜 read
+int
+read (int fd, void *buffer, unsigned size) {
+	int type_size = 0;
+	uint8_t *buf = (uint8_t *) buffer;
+
+	check_address (buffer);
+
+	lock_acquire (&filesys_lock);
+	struct file *f = process_get_file (fd);
+	if (f == NULL) {
+		lock_release (&filesys_lock);
+		return -1;
+	}
+
+	if (fd == 0) {
+		while (type_size < size) {
+			buf[type_size] = input_getc ();
+
+			if (buf[type_size] == '\n') {
+				break;
+			}
+			type_size++;
+		}
+
+		lock_release (&filesys_lock);
+		return type_size;
+	}
+
+	else {
+		off_t s = file_read (f, buffer, size);
+		lock_release (&filesys_lock);
+		return s;
+	}
+}
+
+// @bookmark 시스템콜 filesize
+int
+filesize (int fd) {
+	struct file *f = process_get_file (fd);
+	return file_length (f);
+}
+
+// @bookmark 시스템콜 remove
+bool
+remove (const char *file) {
+	return filesys_remove (file);
+}
+
+void
+seek (int fd, unsigned position) {
+	struct file *f = process_get_file (fd);
+	file_seek (f, position);
+}
+unsigned
+tell (int fd) {
+	struct file *f = process_get_file (fd);
+	return file_tell (f);
+}
 /* 여기서부턴 헬퍼 함수 기술 */
 /* 유효성 검사 */
 void
@@ -281,36 +332,12 @@ check_address (const void *addr) {
 		exit (-1);
 	}
 
-	/* 해당 값이 해당 메모리 주소에 쓰여져 있는지 확인 */
+	/* 현재 프로세스의 페이지 테이블에서 addr가 실제 물리 메모리에 매핑되어 있는지 확인하고,
+	없으면 프로세스를 종료한다. */
 	if (pml4_get_page (curr->pml4, addr) == NULL) {
 		exit (-1);
 	}
-}
 
-static void
-check_user_buffer (const void *buffer, unsigned size) {
-	const char *addr = buffer;
-	uintptr_t start;
-	uintptr_t end;
-
-	if (size == 0)
-		return;
-
-	check_address (buffer);
-	check_address (addr + size - 1);
-
-	start = (uintptr_t) pg_round_down (addr);
-	end = (uintptr_t) pg_round_down (addr + size - 1);
-	for (; start <= end; start += PGSIZE)
-		check_address ((const void *) start);
-}
-
-static void
-check_user_string (const char *str) {
-	while (true) {
-		check_address (str);
-		if (*str == '\0')
-			return;
-		str++;
-	}
+	if (curr->pml4 != NULL && pml4_get_page (curr->pml4, addr) == NULL)
+		exit (-1);
 }
