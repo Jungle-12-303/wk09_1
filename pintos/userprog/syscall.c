@@ -128,7 +128,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_FILESIZE:
 		f->R.rax = filesize (f->R.rdi);
 		break;
-	//@todo 시스템콜 remove
 	case SYS_REMOVE:
 		f->R.rax = remove ((const char *) f->R.rdi);
 		break;
@@ -151,6 +150,7 @@ halt (void) {
 }
 
 tid_t
+
 fork (const char *thread_name, struct intr_frame *if_) {
 	check_address (thread_name);
 	return process_fork (thread_name, if_);
@@ -257,7 +257,6 @@ close (int fd) {
 	lock_release (&filesys_lock);
 }
 
-// @bookmark 시스템콜 read
 int
 read (int fd, void *buffer, unsigned size) {
 	int type_size = 0;
@@ -293,14 +292,12 @@ read (int fd, void *buffer, unsigned size) {
 	}
 }
 
-// @bookmark 시스템콜 filesize
 int
 filesize (int fd) {
 	struct file *f = process_get_file (fd);
 	return file_length (f);
 }
 
-// @bookmark 시스템콜 remove
 bool
 remove (const char *file) {
 	return filesys_remove (file);
