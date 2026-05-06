@@ -16,6 +16,7 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "devices/input.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -28,6 +29,8 @@ int write (int fd, const void *buffer, unsigned size);
 bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
+int read (int fd, void *buffer, unsigned size);
+int filesize (int fd);
 void check_address (const void *addr);
 
 /* 추가 변수들 */
@@ -103,6 +106,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	case SYS_CLOSE:
 		close (f->R.rdi);
+		break;
+	case SYS_READ:
+		f->R.rax = read (f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+	case SYS_FILESIZE:
+		f->R.rax = filesize (f->R.rdi);
 		break;
 	default:
 		break;
@@ -196,6 +205,43 @@ close (int fd) {
 	lock_acquire (&filesys_lock);
 	process_close_file (fd);
 	lock_release (&filesys_lock);
+}
+
+int
+read (int fd, void *buffer, unsigned size) {
+	int type_size = 0;
+	uint8_t *buf = (uint8_t *) buffer;
+
+	check_address (buffer);
+	lock_acquire (&filesys_lock);
+	struct file *f = process_get_file (fd);
+	if (f == NULL) {
+		lock_release (&filesys_lock);
+		return -1;
+	}
+
+	if (fd == 0) {
+		while (type_size < size) {
+			buf[type_size] = input_getc ();
+
+			if (buf[type_size] == '\n')
+				break;
+			type_size++;
+		}
+
+		lock_release (&filesys_lock);
+		return type_size;
+	} else {
+		off_t s = file_read (f, buffer, size);
+		lock_release (&filesys_lock);
+		return s;
+	}
+}
+
+int
+filesize (int fd) {
+	struct file *f = process_get_file (fd);
+	return file_length (f);
 }
 
 /* 여기서부턴 헬퍼 함수 기술 */

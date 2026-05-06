@@ -14,5 +14,6 @@ void process_activate (struct thread *next);
 int process_add_file (struct file *f);
 struct file *process_get_file (int fd);
 void process_close_file (int fd);
+int process_read_file (struct file *f, void *buffer, unsigned size);
 
 #endif /* userprog/process.h */

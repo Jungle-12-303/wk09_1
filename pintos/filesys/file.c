@@ -5,9 +5,9 @@
 
 /* 열린 파일. */
 struct file {
-	struct inode *inode;        /* 파일의 inode. */
-	off_t pos;                  /* 현재 위치. */
-	bool deny_write;            /* file_deny_write()가 호출되었는가? */
+	struct inode *inode; /* 파일의 inode. */
+	off_t pos;           /* 현재 위치. */
+	bool deny_write;     /* file_deny_write()가 호출되었는가? */
 };
 
 /* 주어진 INODE에 대한 파일을 열고, 그 소유권을 넘겨받아
@@ -98,7 +98,8 @@ file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) {
  */
 off_t
 file_write (struct file *file, const void *buffer, off_t size) {
-	off_t bytes_written = inode_write_at (file->inode, buffer, size, file->pos);
+	off_t bytes_written =
+	        inode_write_at (file->inode, buffer, size, file->pos);
 	file->pos += bytes_written;
 	return bytes_written;
 }
@@ -111,7 +112,7 @@ file_write (struct file *file, const void *buffer, off_t size) {
  */
 off_t
 file_write_at (struct file *file, const void *buffer, off_t size,
-		off_t file_ofs) {
+               off_t file_ofs) {
 	return inode_write_at (file->inode, buffer, size, file_ofs);
 }
 
