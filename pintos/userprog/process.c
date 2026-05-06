@@ -371,7 +371,6 @@ error:
  * 현재 실행 문맥을 f_name으로 전환한다.
  * 실패하면 -1을 반환한다.
  */
-
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
@@ -398,15 +397,6 @@ process_exec (void *f_name) {
 	 * 먼저 현재 문맥을 제거한다.
 	 */
 	process_cleanup ();
-
-	/* 첫 exec일 때만 fd_table을 준비하고, 기존 열린 fd는 유지한다. */
-	if (curr->fd_table == NULL) {
-		curr->fd_table = palloc_get_page (PAL_ZERO);
-		if (curr->fd_table == NULL) {
-			palloc_free_page (file_name);
-			return -1;
-		}
-	}
 
 	/*
 	 * 그리고 바이너리를 로드한다.
@@ -481,7 +471,6 @@ process_exit (void) {
 	struct thread *curr = thread_current ();
 	struct thread *root;
 	struct list_elem *e;
-	bool is_root;
 
 	if (curr == NULL)
 		return;
@@ -496,9 +485,8 @@ process_exit (void) {
 		curr->fd_table = NULL;
 	}
 
-	is_root = thread_root () == curr;
-	root = is_root ? NULL : thread_root ();
-	if (root != NULL) {
+	root = thread_root ();
+	if (root != NULL && root != curr) {
 		e = list_begin (&curr->child_status_list);
 		while (e != list_end (&curr->child_status_list)) {
 			struct child_status *cs = list_entry (e, struct child_status, elem);
