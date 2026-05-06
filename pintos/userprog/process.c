@@ -153,6 +153,7 @@ initd (void *f_name) {
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
  * TID_ERROR를 반환한다.
  */
+
 tid_t
 process_fork (const char *name, struct intr_frame *if_) {
 	struct thread *curr = thread_current ();
@@ -306,6 +307,7 @@ error:
  *   3. 부모의 fd_table 복제 (file_duplicate)
  *   4. 자식의 fork 반환값을 0으로 설정
  *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
+
 static void
 __do_fork (void *aux) {
 	struct fork_args *args = aux;
@@ -369,6 +371,7 @@ error:
  * 현재 실행 문맥을 f_name으로 전환한다.
  * 실패하면 -1을 반환한다.
  */
+
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
@@ -435,6 +438,7 @@ process_exec (void *f_name) {
  *
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
+
 int
 process_wait (tid_t child_tid) {
 	struct thread *curr = thread_current ();
@@ -471,6 +475,7 @@ process_wait (tid_t child_tid) {
 /*
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
+
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
