@@ -411,15 +411,7 @@ process_exec (void *f_name) {
 	 */
 	process_cleanup ();
 
-	/* 첫 exec일 때만 fd_table을 준비하고, 기존 열린 fd는 유지한다. */
-	if (curr->fd_table == NULL) {
-		init_fd_table (curr);
-		if (curr->fd_table == NULL) {
-			palloc_free_page (file_name);
-			return -1;
-		}
-	}
-
+	ASSERT (curr->fd_table != NULL);
 	/*
 	 * 그리고 바이너리를 로드한다.
 	 */
