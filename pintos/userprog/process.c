@@ -351,19 +351,23 @@ process_add_file (struct file *f) {
 	struct thread *curr = thread_current ();
 	int fd;
 
+	// 파일이 없거나, fd 테이블이 없으면
 	if (f == NULL || curr->fd_table == NULL)
 		return -1;
 
+	// 빈 fd_table에 파일 f 넣는다
 	for (fd = 2; fd < FD_MAX; fd++) {
 		if (curr->fd_table[fd] != NULL)
 			continue;
 
 		curr->fd_table[fd] = f;
+
+		// fd 번호가 next_fd보다 크거나 같으면
 		if (fd >= curr->next_fd)
-			curr->next_fd = fd + 1;
+			curr->next_fd = fd + 1; // next_fd를 다음 번호로 바꿔라
 		return fd;
 	}
-
+	// 빈 fd칸 못찾았을 때
 	return -1;
 }
 
@@ -384,6 +388,7 @@ process_close_file (int fd) {
 	if (fd < 2 || fd >= FD_MAX || curr->fd_table == NULL)
 		return;
 
+	// fd 테이블에 파일이 없으면
 	if (curr->fd_table[fd] == NULL)
 		return;
 

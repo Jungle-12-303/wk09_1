@@ -16,6 +16,7 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "devices/input.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -28,6 +29,8 @@ int write (int fd, const void *buffer, unsigned size);
 bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
+int read (int fd, void *buffer, unsigned size);
+int filesize (int fd);
 void check_address (const void *addr);
 
 /* 추가 변수들 */
@@ -104,6 +107,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_CLOSE:
 		close (f->R.rdi);
 		break;
+	case SYS_READ:
+		f->R.rax = read (f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+	case SYS_FILESIZE:
+		f->R.rax = filesize (f->R.rdi);
+		break;
 	default:
 		break;
 	}
@@ -174,6 +183,16 @@ create (const char *file, unsigned initial_size) {
 	return result;
 }
 
+// int
+// open (const char *file) {
+// 	struct file *opened_file;
+// 	int fd;
+// 	check_address ((void *) file);
+
+// 	lock_acquire (&filesys_lock);
+// 	opened_file = filesys_open (file);
+// }
+
 int
 open (const char *file) {
 	struct file *opened_file;
@@ -181,12 +200,16 @@ open (const char *file) {
 
 	check_address ((void *) file);
 	lock_acquire (&filesys_lock);
+
+	// 열린 파일 객체의 주소
 	opened_file = filesys_open (file);
+
 	if (opened_file == NULL) {
 		lock_release (&filesys_lock);
 		return -1;
 	}
 
+	// 열린 파일 f를 fd테이블 빈칸에 넣고, 그 칸 번호를 돌려준다
 	fd = process_add_file (opened_file);
 	if (fd == -1)
 		file_close (opened_file);
@@ -201,6 +224,45 @@ close (int fd) {
 	lock_release (&filesys_lock);
 }
 
+int
+read (int fd, void *buffer, unsigned size) {
+	int type_size = 0;
+	uint8_t *buf = (uint8_t *) buffer;
+
+	check_address (buffer);
+
+	lock_acquire (&filesys_lock);
+	struct file *f = process_get_file (fd);
+	if (f == NULL) {
+		lock_release (&filesys_lock);
+		return -1;
+	}
+
+	if (fd == 0) {
+		while (type_size < size) {
+			buf[type_size] = input_getc ();
+
+			if (buf[type_size] == '\n') {
+				break;
+			}
+			type_size++;
+		}
+
+		lock_release (&filesys_lock);
+		return type_size;
+	}
+
+	else {
+		off_t s = file_read (f, buffer, size);
+		lock_release (&filesys_lock);
+		return s;
+	}
+}
+int
+filesize (int fd) {
+	struct file *f = process_get_file (fd);
+	return file_length (f);
+}
 /* 여기서부턴 헬퍼 함수 기술 */
 /* 유효성 검사 */
 void
@@ -216,11 +278,13 @@ check_address (const void *addr) {
 		exit (-1);
 	}
 
-	/* 해당 값이 해당 메모리 주소에 쓰여져 있는지 확인 */
+	/* 현재 프로세스의 페이지 테이블에서 addr가 실제 물리 메모리에 매핑되어 있는지 확인하고,
+	없으면 프로세스를 종료한다. */
 	if (pml4_get_page (curr->pml4, addr) == NULL) {
 		exit (-1);
 	}
 
+	// 현재 프로세스의 페이지 테이블 자체가 존재할 때만 주소 검사를 하겠다
 	if (curr->pml4 != NULL && pml4_get_page (curr->pml4, addr) == NULL)
 		exit (-1);
 }
