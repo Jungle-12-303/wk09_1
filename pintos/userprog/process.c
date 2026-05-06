@@ -30,6 +30,7 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 static bool duplicate_fd_table (struct thread *curr, struct thread *parent);
+static void reap_exited_orphans (struct thread *root);
 
 struct fork_args {
 	struct thread *parent;   // fork를 호출한 부모 스레드
@@ -87,6 +88,7 @@ process_create_initd (const char *file_name) {
 	cs->exit_status = -1;
 	cs->waited = false;
 	cs->exited = false;
+	cs->orphaned = false;
 	cs->fork_success = false;
 	sema_init (&cs->fork_sema, 0);
 	sema_init (&cs->wait_sema, 0);
@@ -172,6 +174,7 @@ process_fork (const char *name, struct intr_frame *if_) {
 	cs->exit_status = -1;
 	cs->waited = false;
 	cs->exited = false;
+	cs->orphaned = false;
 	cs->fork_success = false;
 	sema_init (&cs->fork_sema, 0);
 	sema_init (&cs->wait_sema, 0);
@@ -462,6 +465,26 @@ process_wait (tid_t child_tid) {
 	return -1;
 }
 
+static void
+reap_exited_orphans (struct thread *root) {
+	struct list_elem *e;
+
+	if (root == NULL)
+		return;
+
+	e = list_begin (&root->child_status_list);
+	while (e != list_end (&root->child_status_list)) {
+		struct child_status *cs = list_entry (e, struct child_status, elem);
+
+		e = list_next (e);
+		if (!cs->orphaned || !cs->exited || cs->waited)
+			continue;
+
+		list_remove (&cs->elem);
+		free (cs);
+	}
+}
+
 /*
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
@@ -492,6 +515,7 @@ process_exit (void) {
 			struct child_status *cs = list_entry (e, struct child_status, elem);
 
 			e = list_next (e);
+			cs->orphaned = true;
 			list_remove (&cs->elem);
 			list_push_back (&root->child_status_list, &cs->elem);
 		}
@@ -500,6 +524,11 @@ process_exit (void) {
 	if (curr->self_status != NULL && !curr->self_status->exited) {
 		curr->self_status->exited = true;
 		sema_up (&curr->self_status->wait_sema);
+	}
+	if (curr->self_status != NULL && curr->self_status->orphaned) {
+		root = thread_root ();
+		if (root != NULL)
+			reap_exited_orphans (root);
 	}
 	process_cleanup ();
 }
