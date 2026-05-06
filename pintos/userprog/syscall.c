@@ -29,6 +29,7 @@ bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
 void check_address (const void *addr);
+static void check_user_string (const char *str);
 
 /* 추가 변수들 */
 struct lock filesys_lock;
@@ -91,8 +92,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = process_wait ((tid_t) f->R.rdi);
 		break;
 	case SYS_EXEC:
-		check_address ((void *) f->R.rdi);
-		f->R.rax = process_exec ((void *) f->R.rdi);
+		f->R.rax = exec ((const char *) f->R.rdi);
 		break;
 	case SYS_WRITE:
 		/* fd, buffer, size를 전달받는다. */
@@ -127,6 +127,20 @@ tid_t
 fork (const char *thread_name, struct intr_frame *if_) {
 	check_address (thread_name);
 	return process_fork (thread_name, if_);
+}
+
+int
+exec (const char *cmd_line) {
+	char *cmd_copy;
+
+	check_user_string (cmd_line);
+
+	cmd_copy = palloc_get_page (0);
+	if (cmd_copy == NULL)
+		exit (-1);
+
+	strlcpy (cmd_copy, cmd_line, PGSIZE);
+	return process_exec (cmd_copy);
 }
 
 void
@@ -231,5 +245,15 @@ check_address (const void *addr) {
 	/* 해당 값이 해당 메모리 주소에 쓰여져 있는지 확인 */
 	if (pml4_get_page (curr->pml4, addr) == NULL) {
 		exit (-1);
+	}
+}
+
+static void
+check_user_string (const char *str) {
+	while (true) {
+		check_address (str);
+		if (*str == '\0')
+			return;
+		str++;
 	}
 }
