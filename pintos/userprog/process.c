@@ -30,7 +30,9 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 static bool duplicate_fd_table (struct thread *curr, struct thread *parent);
-static void reap_exited_orphans (struct thread *root);
+static void close_open_files (struct thread *curr);
+static void reparent_or_reap_children (struct thread *curr, struct thread *root);
+static void finish_self_status (struct thread *curr);
 
 struct fork_args {
 	struct thread *parent;   // fork를 호출한 부모 스레드
@@ -466,22 +468,62 @@ process_wait (tid_t child_tid) {
 }
 
 static void
-reap_exited_orphans (struct thread *root) {
-	struct list_elem *e;
+close_open_files (struct thread *curr) {
+	int fd;
 
-	if (root == NULL)
+	if (curr == NULL)
 		return;
 
-	e = list_begin (&root->child_status_list);
-	while (e != list_end (&root->child_status_list)) {
+	for (fd = 2; fd < FD_MAX; fd++)
+		process_close_file (fd);
+
+	if (curr->fd_table != NULL) {
+		palloc_free_page (curr->fd_table);
+		curr->fd_table = NULL;
+	}
+}
+
+static void
+reparent_or_reap_children (struct thread *curr, struct thread *root) {
+	struct list_elem *e;
+
+	if (curr == NULL || root == NULL || root == curr)
+		return;
+
+	e = list_begin (&curr->child_status_list);
+	while (e != list_end (&curr->child_status_list)) {
 		struct child_status *cs = list_entry (e, struct child_status, elem);
 
 		e = list_next (e);
-		if (!cs->orphaned || !cs->exited || cs->waited)
+		if (cs->exited && !cs->waited) {
+			list_remove (&cs->elem);
+			free (cs);
 			continue;
+		}
 
+		cs->orphaned = true;
+		list_remove (&cs->elem);
+		list_push_back (&root->child_status_list, &cs->elem);
+	}
+}
+
+static void
+finish_self_status (struct thread *curr) {
+	struct child_status *cs;
+
+	if (curr == NULL || curr->self_status == NULL)
+		return;
+
+	cs = curr->self_status;
+	if (!cs->exited) {
+		cs->exited = true;
+		sema_up (&cs->wait_sema);
+	}
+
+	if (cs->orphaned && !cs->waited) {
 		list_remove (&cs->elem);
 		free (cs);
+		curr->self_status = NULL;
 	}
 }
 
@@ -493,43 +535,14 @@ void
 process_exit (void) {
 	struct thread *curr = thread_current ();
 	struct thread *root;
-	struct list_elem *e;
 
 	if (curr == NULL)
 		return;
 
-	int fd;
-
-	for (fd = 2; fd < FD_MAX; fd++)
-		process_close_file (fd);
-
-	if (curr->fd_table != NULL) {
-		palloc_free_page (curr->fd_table);
-		curr->fd_table = NULL;
-	}
-
 	root = thread_root ();
-	if (root != NULL && root != curr) {
-		e = list_begin (&curr->child_status_list);
-		while (e != list_end (&curr->child_status_list)) {
-			struct child_status *cs = list_entry (e, struct child_status, elem);
-
-			e = list_next (e);
-			cs->orphaned = true;
-			list_remove (&cs->elem);
-			list_push_back (&root->child_status_list, &cs->elem);
-		}
-	}
-
-	if (curr->self_status != NULL && !curr->self_status->exited) {
-		curr->self_status->exited = true;
-		sema_up (&curr->self_status->wait_sema);
-	}
-	if (curr->self_status != NULL && curr->self_status->orphaned) {
-		root = thread_root ();
-		if (root != NULL)
-			reap_exited_orphans (root);
-	}
+	close_open_files (curr);
+	reparent_or_reap_children (curr, root);
+	finish_self_status (curr);
 	process_cleanup ();
 }
 
