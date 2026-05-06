@@ -18,6 +18,8 @@
 #include "filesys/file.h"
 #include "devices/input.h"
 
+#define FD_MAX (PGSIZE / sizeof (struct file *))
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
@@ -30,6 +32,9 @@ bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
 int read (int fd, void *buffer, unsigned size);
+bool remove (const char *file);
+void seek (int fd, unsigned position);
+unsigned tell (int fd);
 int filesize (int fd);
 void check_address (const void *addr);
 
@@ -113,6 +118,16 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_FILESIZE:
 		f->R.rax = filesize (f->R.rdi);
 		break;
+	//@todo 시스템콜 remove
+	case SYS_REMOVE:
+		f->R.rax = remove ((const char *) f->R.rdi);
+		break;
+	case SYS_SEEK:
+		seek (f->R.rdi, f->R.rsi);
+		break;
+	case SYS_TELL:
+		f->R.rax = tell (f->R.rdi);
+		break;
 	default:
 		break;
 	}
@@ -183,16 +198,6 @@ create (const char *file, unsigned initial_size) {
 	return result;
 }
 
-// int
-// open (const char *file) {
-// 	struct file *opened_file;
-// 	int fd;
-// 	check_address ((void *) file);
-
-// 	lock_acquire (&filesys_lock);
-// 	opened_file = filesys_open (file);
-// }
-
 int
 open (const char *file) {
 	struct file *opened_file;
@@ -224,6 +229,7 @@ close (int fd) {
 	lock_release (&filesys_lock);
 }
 
+// @bookmark 시스템콜 read
 int
 read (int fd, void *buffer, unsigned size) {
 	int type_size = 0;
@@ -258,10 +264,29 @@ read (int fd, void *buffer, unsigned size) {
 		return s;
 	}
 }
+
+// @bookmark 시스템콜 filesize
 int
 filesize (int fd) {
 	struct file *f = process_get_file (fd);
 	return file_length (f);
+}
+
+// @bookmark 시스템콜 remove
+bool
+remove (const char *file) {
+	return filesys_remove (file);
+}
+
+void
+seek (int fd, unsigned position) {
+	struct file *f = process_get_file (fd);
+	file_seek (f, position);
+}
+unsigned
+tell (int fd) {
+	struct file *f = process_get_file (fd);
+	return file_tell (f);
 }
 /* 여기서부턴 헬퍼 함수 기술 */
 /* 유효성 검사 */
