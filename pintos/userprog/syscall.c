@@ -123,9 +123,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_CLOSE:
 		close (f->R.rdi);
 		break;
-	case SYS_READ:
-		f->R.rax = read (f->R.rdi, f->R.rsi, f->R.rdx);
-		break;
 	case SYS_FILESIZE:
 		f->R.rax = filesize (f->R.rdi);
 		break;
@@ -186,34 +183,6 @@ exit (int status) {
 	if (curr->self_status != NULL)
 		curr->self_status->exit_status = status;
 	thread_exit ();
-}
-
-int
-read (int fd, void *buffer, unsigned size) {
-	int read_result;
-	struct file *file;
-
-	if (size == 0)
-		return 0;
-
-	check_user_buffer (buffer, size);
-
-	lock_acquire (&filesys_lock);
-
-	if (fd == 0) {
-		unsigned i;
-		char *dst = buffer;
-
-		for (i = 0; i < size; i++)
-			dst[i] = input_getc ();
-		read_result = (int) size;
-	} else {
-		file = process_get_file (fd);
-		read_result = file == NULL ? -1 : file_read (file, buffer, size);
-	}
-
-	lock_release (&filesys_lock);
-	return read_result;
 }
 
 int
