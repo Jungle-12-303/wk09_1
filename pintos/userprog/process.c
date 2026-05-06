@@ -393,7 +393,6 @@ process_close_file (int fd) {
 		curr->next_fd = fd;
 }
 
-
 /*
  * 현재 프로세스의 자원을 해제한다.
  */

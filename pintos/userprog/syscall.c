@@ -18,6 +18,8 @@
 #include "filesys/file.h"
 #include "devices/input.h"
 
+#define FD_MAX (PGSIZE / sizeof (struct file *))
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
@@ -30,6 +32,9 @@ bool create (const char *file, unsigned initial_size);
 int open (const char *file);
 void close (int fd);
 int read (int fd, void *buffer, unsigned size);
+void seek (int fd, off_t new_pos);
+unsigned tell (int fd);
+bool remove (const char *file);
 int filesize (int fd);
 void check_address (const void *addr);
 
@@ -112,6 +117,15 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	case SYS_FILESIZE:
 		f->R.rax = filesize (f->R.rdi);
+		break;
+	case SYS_REMOVE:
+		f->R.rax = remove (f->R.rdi);
+		break;
+	case SYS_SEEK:
+		seek (f->R.rdi, f->R.rsi);
+		break;
+	case SYS_TELL:
+		f->R.rax = tell (f->R.rdi);
 		break;
 	default:
 		break;
@@ -238,10 +252,27 @@ read (int fd, void *buffer, unsigned size) {
 	}
 }
 
+void
+seek (int fd, off_t new_pos) {
+	struct file *f = process_get_file (fd);
+	file_seek (f, new_pos);
+}
+
+unsigned
+tell (int fd) {
+	struct file *f = process_get_file (fd);
+	return file_tell (f);
+}
+
 int
 filesize (int fd) {
 	struct file *f = process_get_file (fd);
 	return file_length (f);
+}
+
+bool
+remove (const char *file) {
+	return filesys_remove (file);
 }
 
 /* 여기서부턴 헬퍼 함수 기술 */
