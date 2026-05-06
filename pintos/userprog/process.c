@@ -471,7 +471,6 @@ process_wait (tid_t child_tid) {
 /*
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
-// @bookmark process_exit
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
