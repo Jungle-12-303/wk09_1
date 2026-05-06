@@ -481,6 +481,7 @@ process_exit (void) {
 	struct thread *curr = thread_current ();
 	struct thread *root;
 	struct list_elem *e;
+	bool is_root;
 
 	if (curr == NULL)
 		return;
@@ -495,8 +496,9 @@ process_exit (void) {
 		curr->fd_table = NULL;
 	}
 
-	root = thread_root ();
-	if (root != NULL && root != curr) {
+	is_root = thread_root () == curr;
+	root = is_root ? NULL : thread_root ();
+	if (root != NULL) {
 		e = list_begin (&curr->child_status_list);
 		while (e != list_end (&curr->child_status_list)) {
 			struct child_status *cs = list_entry (e, struct child_status, elem);
