@@ -501,7 +501,6 @@ process_exit (void) {
 		curr->self_status->exited = true;
 		sema_up (&curr->self_status->wait_sema);
 	}
-
 	process_cleanup ();
 }
 
@@ -549,7 +548,6 @@ process_close_file (int fd) {
 	// fd 테이블에 파일이 없으면
 	if (curr->fd_table[fd] == NULL)
 		return;
-
 	file_close (curr->fd_table[fd]);
 	curr->fd_table[fd] = NULL;
 	if (fd < curr->next_fd)
