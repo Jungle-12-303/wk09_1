@@ -133,6 +133,9 @@ initd (void *f_name) {
 	supplemental_page_table_init (&curr->spt);
 #endif
 
+	if (thread_root () == NULL)
+		thread_set_root (curr);
+
 	curr->self_status = args->cs;
 	curr->fd_table = palloc_get_page (PAL_ZERO);
 	curr->next_fd = 2;
@@ -468,9 +471,13 @@ process_wait (tid_t child_tid) {
 /*
  * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
  */
+// @bookmark process_exit
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
+	struct thread *root;
+	struct list_elem *e;
+
 	if (curr == NULL)
 		return;
 
@@ -482,6 +489,18 @@ process_exit (void) {
 	if (curr->fd_table != NULL) {
 		palloc_free_page (curr->fd_table);
 		curr->fd_table = NULL;
+	}
+
+	root = thread_root ();
+	if (root != NULL && root != curr) {
+		e = list_begin (&curr->child_status_list);
+		while (e != list_end (&curr->child_status_list)) {
+			struct child_status *cs = list_entry (e, struct child_status, elem);
+
+			e = list_next (e);
+			list_remove (&cs->elem);
+			list_push_back (&root->child_status_list, &cs->elem);
+		}
 	}
 
 	if (curr->self_status != NULL && !curr->self_status->exited) {
