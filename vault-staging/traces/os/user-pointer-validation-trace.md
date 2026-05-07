@@ -15,216 +15,291 @@ tags:
   - week:user-programs
   - layer:user
   - layer:kernel
-  - layer:cpu
   - layer:memory
   - topic:syscall
   - topic:page-table
-  - topic:page-fault
+  - topic:gdb
 related_to:
   - "[[week-2-user-programs-map]]"
   - "[[syscall-end-to-end]]"
   - "[[address-translation-memory]]"
+  - "[[concept-to-code-map]]"
 ---
+
 # 유저 포인터 검증 (User Pointer Validation) Trace
 
 ## 작은 질문
 
-유저 프로그램이 `write(fd, buffer, size)`를 호출했을 때, 커널은 `buffer`가 가리키는 메모리를 “그냥 믿고” 읽어도 될까?
+유저 프로그램이 커널에 `buffer` 포인터를 넘기면(예: `write(fd, buffer, size)`), 커널은 그 포인터를 그냥 믿고 `memcpy`처럼 읽어도 될까?
 
-답은 **절대 안 된다**다.
+정답은 **안 된다**다. 유저가 넘긴 포인터는 “커널이 접근해도 안전한 메모리”라는 보장이 전혀 없다.
 
-유저 프로그램이 넘기는 포인터는:
+이 Trace는 아래 두 질문을 끝까지 내려가서 연결한다.
 
-- `NULL`일 수 있고
-- 커널 주소를 가리킬 수도 있고
-- 아직 매핑되지 않은(=페이지 테이블에 없는) 주소일 수도 있고
-- `buffer`는 정상인데 `buffer + size - 1`이 다른 페이지로 넘어가며 터질 수도 있다
-
-이 문서는 “유저 포인터 검증”이 정확히 어떤 문제를 막는지, 그리고 PintOS/QEMU 코드에서 그 흔적을 어디서 확인하는지 Trace로 정리한다.
+- “안전하지 않다”는 말은 구체적으로 무엇이 위험한가?
+- PintOS에서는 그 위험을 어떤 코드로 막고, QEMU는 어떤 하드웨어 효과(#PF)를 흉내 내는가?
 
 ## 왜 필요한가
 
-운영체제는 유저 프로그램을 “신뢰하지 않는다”.
+유저 포인터를 검증하지 않으면 커널은 두 가지를 잃는다.
 
-신뢰하면 생기는 문제:
+1) **안정성**: 매핑되지 않은 주소를 읽다 커널이 예외를 맞고 죽을 수 있다.
+2) **보안/격리**: 유저가 커널 주소(혹은 다른 프로세스의 메모리처럼 보이는 주소)를 넘겨 커널이 대신 읽게 만들 수 있다.
 
-- 보안: 유저가 커널 메모리를 읽거나 쓰게 된다(권한 붕괴).
-- 안정성: 유저가 잘못된 포인터를 넘기면 커널이 page fault로 죽는다(커널 패닉/전체 다운).
-- 일관성: 유저가 `size`를 크게 줘서 여러 페이지를 가로지르면 중간에만 터질 수 있다.
-
-즉, “시스템 콜은 커널의 출입문”이고, **포인터 검증은 출입문 앞의 신분 확인**이다.
+즉 “유저 포인터 검증”은 *예의 바른 입력 검증*이 아니라 **커널의 생존과 격리**를 위한 방어선이다.
 
 ## 핵심 모델 (머릿속에 넣을 최소 모델)
 
-유저 포인터 검증은 보통 다음 2단계를 분리해서 생각하면 된다.
+유저가 넘긴 포인터 `p`를 “안전하다”고 말하려면 최소 두 가지가 성립해야 한다.
 
-1) **범위 검사**: “이 주소가 유저 주소 범위인가?” (`is_user_vaddr`)
-2) **매핑 검사**: “현재 프로세스 페이지 테이블에서 이 주소가 실제 물리 프레임으로 매핑되는가?” (`pml4_get_page`)
+1) **범위(range)**: `p`가 유저 주소 공간에 속한다. (커널 영역 침범 금지)
+2) **매핑(mapping)**: 현재 프로세스의 페이지 테이블에서 `p`가 실제 물리 프레임으로 매핑되어 있다.
 
-여기서 주의:
+그리고 `size`가 붙으면 한 가지가 더 붙는다.
 
-- 범위가 유저라고 해서 매핑이 존재하는 건 아니다.
-- `buffer`만 검사하면 부족하다. `buffer + size - 1`과 “페이지 경계들”도 검사해야 한다.
+3) **구간(range length)**: `[p, p+size)`가 페이지 경계를 넘더라도, 구간 전체가 매핑되어 있다.
 
-## 예시 상황 (숫자 넣기)
+## 예시 상황 (실제로 어디서 터지나?)
 
-### 케이스 A: NULL 포인터
+### 예시 1) `NULL` 포인터
 
-```text
-buffer = 0x0
+```c
+write (1, NULL, 5);
 ```
 
-`NULL`은 커널이 그대로 역참조하면 즉시 터진다. 그래서 가장 먼저 `addr == NULL`을 막는다.
+- `NULL`은 “아무 것도 가리키지 않는다”.
+- 커널이 이 주소를 그대로 읽으려 하면 바로 실패해야 한다.
 
-### 케이스 B: 커널 주소 침범
+### 예시 2) 커널 주소를 넘기는 공격/실수
 
-PintOS KAIST 코드에서 커널 가상 주소 시작점은 `KERN_BASE = LOADER_KERN_BASE`다.
-
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/loader.h`
-  - `#define LOADER_KERN_BASE 0x8004000000`
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/vaddr.h`
-  - `#define KERN_BASE LOADER_KERN_BASE`
-  - `#define is_kernel_vaddr(vaddr) ((uint64_t)(vaddr) >= KERN_BASE)`
-  - `#define is_user_vaddr(vaddr) (!is_kernel_vaddr((vaddr)))`
-
-그래서 다음은 유저 주소가 아니다:
-
-```text
-addr = 0x8004000000  (커널 베이스)
+```c
+write (1, (void *) 0xffff800000000000, 5);
 ```
 
-### 케이스 C: 버퍼가 페이지 경계를 넘어감
+- 이 값이 의미하는 바는 “유저 코드가 커널 영역을 가리키는 포인터를 만들었다”는 것뿐이다.
+- 커널이 이것을 허용하면 “유저가 커널 메모리를 읽게 만들기” 같은 사고로 이어질 수 있다.
 
-페이지 크기 `PGSIZE = 0x1000`(4096)이라고 하자.
+### 예시 3) 버퍼가 페이지 경계를 넘는 경우
+
+`PGSIZE = 0x1000`일 때, 아래 버퍼는 2개의 페이지에 걸친다.
 
 ```text
-buffer = 0x473fffe0
-size   = 0x40 (64 bytes)
+buffer = 0x8048ff0
+size   = 0x30
 
-buffer + size - 1 = 0x4740001f
+[0x8048ff0, 0x8049020)  # 페이지 경계(0x8049000)를 넘는다
 ```
 
-이 경우 `buffer`는 0x473ff000 페이지인데, 끝 주소는 0x47400000 페이지로 넘어간다.
+이때 “첫 주소만 매핑되어 있으면 OK”가 아니다. **구간 전체가 매핑되어 있어야** 한다.
 
-그래서 “처음만 검사”하면 안 되고, **끝 주소**도 검사해야 한다.
+## Linux / Windows에서는 (현실 기준으로 잡기)
 
-## Linux / Windows에서는 (현실 기준)
+현실 OS는 보통 “커널이 유저 포인터를 직접 역참조하지 않게” 강제한다.
 
-현실 OS에서는 “검사”가 보통 더 정교하다.
+- Linux: 커널은 유저 메모리를 `copy_from_user()`/`copy_to_user()` 같은 경로로 복사하며, 접근 중 fault가 나도 커널이 죽지 않도록 예외 처리 경로를 가진다.
+- Windows: 커널/드라이버는 유저 버퍼를 직접 믿지 않고(필요 시 probe/예외 처리), 잘못된 유저 주소 접근을 오류로 처리한다.
 
-- Linux는 `copy_from_user()`, `copy_to_user()` 같은 “유저 메모리 복사 유틸리티”를 통해 커널이 안전하게 접근한다.
-  - 주소 범위만 보는 게 아니라, 실제로 복사하면서 fault를 처리하거나 에러로 되돌린다.
-  - 스펙(ABI, 보안, 성능, 동시성)이 커서 PintOS보다 훨씬 복잡하다.
-- Windows도 유저 주소 공간 접근은 별도의 안전한 경로로 다루며, 유저 포인터는 항상 “검증/예외 처리 대상”이다.
-
-핵심은 동일하다:
-
-> 커널은 유저 포인터를 “데이터”가 아니라 “공격 가능 입력”으로 취급한다.
+PintOS 과제는 이 복잡한 안전장치를 “학습 가능한 크기”로 축소해 직접 구현하게 만든다.
 
 ## PintOS에서는 (코드로 내려가기)
 
-### 1) 단일 주소 검사: `check_address()`
+### 1) syscall 인자(buffer)가 어디서 들어오나?
 
-PintOS(이 코드베이스)에서는 syscall 구현 안에서 유저 주소 검사를 직접 호출한다.
+PintOS KAIST에서는 syscall 핸들러가 레지스터에서 인자를 꺼낸다.
 
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
-  - `check_address(const void *addr)`
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
+  - `SYS_WRITE`에서 `write(f->R.rdi, (const void *) f->R.rsi, f->R.rdx)` 호출
 
-이 함수가 하는 일은 “2단계 모델” 그대로다.
+여기서 `f->R.rsi`가 **유저가 커널에 넘긴 가상 주소**다.
 
-1) `addr == NULL`이면 종료
-2) `is_user_vaddr(addr)`가 아니면 종료(커널 영역 침범 차단)
-3) `pml4_get_page(curr->pml4, addr)`가 NULL이면 종료(매핑이 없음)
+### 2) write()가 버퍼를 어떻게 검증하나?
 
-여기서 `pml4_get_page`는 페이지 테이블 워킹을 한다.
+같은 파일의 `write()`는 바로 `check_user_buffer(buffer, size)`를 호출한다.
 
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/threads/mmu.c`
-  - `pml4_get_page(uint64_t *pml4, const void *uaddr)`
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
 
-중요한 관찰:
+핵심 구조:
 
-- PintOS(프로젝트2)는 “매핑이 없으면 종료”로 단순하게 처리한다.
-- 프로젝트3(VM)에서는 lazy loading 같은 이유로 “지금은 매핑이 없어도 나중에 fault에서 처리”할 수 있어, 이 정책이 그대로면 오히려 과하게 죽을 수 있다.
-  - 즉, **PintOS의 포인터 검증은 과제 단계에 따라 의미가 달라진다.**
+```c
+check_user_buffer (buffer, size);
+...
+putbuf (buffer, size);
+```
 
-### 2) 버퍼 검사: `check_user_buffer()`
+즉 PintOS는 “검증 → 사용” 순서를 명시적으로 둔다.
 
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
-  - `check_user_buffer(const void *buffer, unsigned size)`
+### 3) check_address(): 무엇을 확인하나?
 
-이 함수는 다음을 확인한다.
+`check_address()`는 “이 주소가 유저 공간이고, 현재 프로세스의 페이지 테이블에서 매핑되어 있는가?”를 확인한다.
 
-- `buffer` 자체 검사
-- `buffer + size - 1` 검사
-- 그리고 `pg_round_down()`으로 페이지 경계를 따라가며 **해당 구간에 포함되는 모든 페이지 시작 주소**를 검사
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
 
-“페이지 경계 단위로 검사”가 핵심이다.
+핵심 조건:
 
-### 3) 문자열 검사: `check_user_string()`
+```c
+if (addr == NULL) exit (-1);
+if (!is_user_vaddr (addr)) exit (-1);
+if (pml4_get_page (curr->pml4, addr) == NULL) exit (-1);
+```
 
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
+여기서 `is_user_vaddr()`는 유저/커널 주소 범위를 나누는 매크로다.
+
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/vaddr.h`
+  - `#define is_user_vaddr(vaddr) (!is_kernel_vaddr((vaddr)))`
+
+범위 기준이 되는 커널 베이스 값은 다음처럼 잡힌다.
+
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/loader.h`
+  - `#define LOADER_KERN_BASE 0x8004000000`
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/vaddr.h`
+  - `#define KERN_BASE LOADER_KERN_BASE`
+
+즉, (이 코드베이스에서) 대략 이렇게 이해하면 된다.
+
+```text
+addr <  0x8004000000  -> 유저 주소 후보
+addr >= 0x8004000000  -> 커널 주소 (유저가 넘기면 즉시 종료해야 함)
+```
+
+그리고 `pml4_get_page()`는 “페이지 테이블을 걸어서 present한 매핑이 있는지”를 확인한다.
+
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/threads/mmu.c`
+  - `pml4_get_page(pml4, uaddr)`는 PTE가 present면 커널 VA(=해당 물리 프레임을 바라보는 주소)를 돌려준다.
+
+주의: 프로젝트 3(VM)로 가면, “지금 당장 present 매핑이 없다”가 “곧바로 exit(-1) 해야 한다”와 같지 않을 수 있다.
+
+- demand paging/lazy loading에서는, syscall이 유저 버퍼를 만지는 순간에 fault가 나고 그 fault를 커널이 처리해 페이지를 가져올 수도 있다.
+- 즉, project2의 단순한 `pml4_get_page == NULL -> exit(-1)` 정책은 project3에서는 재검토 대상이 된다.
+
+### 4) check_user_buffer(): “구간 전체”를 어떻게 다루나?
+
+`check_user_buffer()`는 버퍼가 페이지 경계를 넘을 수 있다는 전제를 깔고, 페이지 단위로 검증한다.
+
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
+
+핵심 아이디어:
+
+```c
+if (size == 0)
+    return;
+check_address (buffer);
+check_address (addr + size - 1);
+for (start = pg_round_down (addr); start <= pg_round_down (addr + size - 1); start += PGSIZE)
+    check_address ((const void *) start);
+```
+
+`size == 0`이면 검증할 바이트가 없으므로 바로 돌아간다. 이 분기가 없으면 `addr + size - 1`이 `addr - 1`처럼 계산되어, 빈 버퍼인데도 엉뚱한 주소를 검사할 수 있다.
+
+숫자를 넣으면 루프의 의미가 더 분명해진다.
+
+```text
+buffer = 0x8048ff0
+size   = 0x30
+last   = buffer + size - 1 = 0x804901f
+
+pg_round_down(buffer) = 0x8048000
+pg_round_down(last)   = 0x8049000
+```
+
+따라서 이 버퍼는 실제로 두 페이지를 건드린다.
+
+```text
+check_address(0x8048ff0)   # 시작 바이트
+check_address(0x804901f)   # 마지막 바이트
+check_address(0x8048000)   # 첫 번째 page base
+check_address(0x8049000)   # 두 번째 page base
+```
+
+이 루프는 “버퍼가 걸치는 모든 페이지”를 한 번씩 찍어 보며 매핑을 확인한다.
+
+### 5) check_user_string(): 길이를 모르는 문자열은 어떻게 검증하나?
+
+문자열(`char *`)은 `size`가 없다. 그래서 `'\0'`을 만날 때까지 한 글자씩 전진하며 “그 바이트를 읽어도 안전한가?”를 반복해서 확인하는 형태가 된다.
+
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/syscall.c`
   - `check_user_string(const char *str)`
 
-문자열은 길이를 모른다. 그래서 `'\0'`을 만날 때까지 1바이트씩 전진하며 매 바이트 주소를 검사한다.
+이 검증이 필요한 대표적인 syscall 인자는 “파일 이름”이나 “실행할 커맨드라인 문자열” 같은 것들이다.
 
-## QEMU에서는 (하드웨어 역할)
+## QEMU에서는 (하드웨어 효과: #PF를 어떻게 만들까?)
 
-QEMU는 “포인터가 유효한지”를 판단하지 않는다.
+QEMU는 “유저 포인터를 검증하는 정책”을 제공하지 않는다. 그건 guest OS(PintOS)의 책임이다.
 
-그 대신 QEMU는 CPU의 규칙을 흉내 낸다:
+하지만 **잘못된 주소 접근이 일으켜야 하는 CPU 예외(#PF)** 는 QEMU가 guest CPU의 동작처럼 재현해야 한다.
 
-- guest가 어떤 가상 주소(gva)에 접근한다
-- MMU 변환이 실패하면 CPU는 #PF(Page Fault)를 발생시키고
-- fault 주소는 CR2에 저장된다
+예를 들어 guest가 어떤 가상 주소 `gva`를 읽으려는데 주소 변환이 실패하면, QEMU는 페이지 폴트 예외를 일으킨다.
 
-QEMU 코드에서 이 패턴을 “증거로” 볼 수 있다.
+- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/emulate/x86_mmu.c`
 
-- QEMU: `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/emulate/x86_mmu.c`
-  - 변환 실패 시 `env->cr[2] = gva;`
-  - 그리고 page fault 예외(`EXCP0E_PAGE`)를 raise 한다
+핵심 코드(읽기 경로):
 
-PintOS에서 CR2를 읽는 코드와 정확히 맞물린다.
+```c
+translate_res = mmu_gva_to_gpa(cpu, gva, &gpa, translate_flags);
+if (translate_res) {
+    int error_code = translate_res_to_error_code(translate_res, false, is_user(cpu));
+    env->cr[2] = gva;
+    x86_emul_raise_exception(env, EXCP0E_PAGE, error_code);
+    return translate_res;
+}
+```
 
-- PintOS: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/exception.c`
-  - `fault_addr = (void *) rcr2();`
-  - `printf ("Page fault at %p: ...", fault_addr, ...)`
+이 코드가 말해주는 것:
 
-즉:
+- “가상 주소 → 물리 주소” 변환이 실패하면,
+- `CR2`에 fault 주소를 넣고,
+- `#PF(Page Fault)` 예외를 올린다.
 
-- “fault_addr가 어디서 오나?” → QEMU가 CPU의 CR2 동작을 재현해서 넣어준다.
-- “fault를 어떻게 처리하나?” → PintOS의 `page_fault()`가 결정한다.
+즉 PintOS가 `check_address()`를 빼먹고 커널에서 유저 포인터를 잘못 접근하면, 결국 이쪽 경로를 타서 guest는 #PF를 맞게 된다.
 
-## 차이점 (혼동 방지)
+## 차이점 (현실 vs 과제 vs 에뮬레이터)
 
 | 항목 | Linux / Windows | PintOS | QEMU |
 |---|---|---|---|
-| 유저 포인터 취급 | 커널 API로 안전하게 copy | 과제 코드에서 직접 검사/종료 | 포인터 의미 모름(하드웨어 동작만 재현) |
-| 매핑이 없을 때 | fault/에러 처리 + VM 정책 | project2: 보통 즉시 종료 | #PF 예외/CR2 세팅 |
-| “누가 죽나?” | 보통 유저 프로세스만 종료 | 과제 요구에 따라 exit(-1) | QEMU는 guest가 낸 예외를 전달 |
+| “유저 포인터 안전 접근” 방식 | 커널 내부 안전 복사 + 예외 처리 | syscall에서 직접 검사 후 종료(과제 구현) | 정책 없음. 주소 변환 실패 시 #PF를 에뮬레이션 |
+| 실패 시 결과 | 보통 `-EFAULT` 같은 오류/예외 | `exit(-1)`로 프로세스 종료(과제 요구에 맞춰 단순화될 수 있음) | guest에 `#PF` 전달 |
+| 핵심 자료구조 | 프로세스 page table + 권한 모델 | `pml4` + `pml4_get_page()` | guest CPU state + MMU 변환 코드 |
 
-## 직접 확인 (GDB / 테스트로 확인)
+## 직접 확인 (GDB로 “검증 → 사용”을 눈으로 보기)
 
-### 0) 테스트로 빠르게 확인
+### 1) 검증이 호출되는지
 
-PintOS userprog 테스트에는 “유저 포인터가 잘못됐을 때 커널이 죽지 않고 프로세스만 종료(exit(-1))해야 한다”를 확인하는 케이스들이 있다.
+- breakpoint: `check_user_buffer`, `check_address`
+- 확인: `p/x buffer`, `p size`
 
-- PintOS tests: `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/`
-  - `write-bad-ptr`, `read-bad-ptr`, `open-null`, `create-null`, `exec-bad-ptr`
-  - `*-boundary` 계열: 포인터가 페이지 경계를 넘을 때를 노린 케이스
+### 2) range 체크가 막는 커널 주소
 
-1) syscall에서 유저 포인터가 검사되는지
-   - breakpoint: `syscall_handler`, `check_address`, `check_user_buffer`, `check_user_string`
-   - `p/x f->R.rsi` (예: write의 buffer)
+- `check_address`에서 `p addr`
+- `p is_user_vaddr(addr)`가 false가 되는 케이스를 만들어 본다.
 
-2) 고의로 invalid pointer를 넘겨서 #PF가 나는지
-   - `Page fault at ...` 로그가 찍히는지 확인
-   - GDB에서 `info registers cr2`로 fault 주소가 같은지 확인
+### 3) mapping 체크가 막는 unmapped 주소
 
-3) “페이지 경계 넘어가는 케이스”를 만들기
-   - `buffer`를 페이지 끝 근처로 잡고 size를 늘려서 두 페이지를 건너게 만들기
+- `check_address`에서 `p curr->pml4`
+- `p pml4_get_page(curr->pml4, addr)`가 `0x0`인지 확인
+
+### 4) page fault와 연결하기
+
+검증을 일부러 빼거나(실험용 브랜치), 혹은 검증이 커버하지 못하는 케이스를 만들면 #PF가 발생한다.
+
+- breakpoint: `page_fault`
+  - `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/exception.c`
+- 확인: `p/x rcr2()` 또는 `p fault_addr` (코드에 따라)
+  - 추가 확인: GDB에서 `info registers cr2`로 fault 주소가 같은지 보기
+
+## PintOS에서 “검증이 필요한 테스트” 힌트
+
+PintOS 기본 테스트 중에도 유저 포인터 검증을 직접 때리는 케이스가 있다.
+
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/bad-read.c`
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/bad-write.c`
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/open-bad-ptr.c`
+- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/read-bad-ptr.c`
+- `*-boundary` 계열(`read-boundary`, `write-boundary`, `exec-boundary` 등): 페이지 경계를 넘는 포인터를 노린 케이스
+
+이 테스트들은 “유저가 일부러 이상한 포인터를 넘겼을 때 커널이 죽지 않고 프로세스를 종료/처리하는가?”를 확인한다.
 
 ## 다음으로 볼 문서
 
-- [[syscall-end-to-end]]: syscall 전체 흐름에서 이 검증이 어디에 끼는지
-- [[address-translation-memory]]: “가상 주소 → 물리 주소” 변환이 왜 실패하는지
-- (추가 예정) `page-fault-trace`: #PF를 “주소 변환 실패 → handler”로 끝까지 Trace
+- [[syscall-end-to-end]]: syscall 인자가 레지스터에서 들어오는 전체 흐름
+- [[file-descriptor-knowledge]]: `write(fd, buffer, size)`에서 fd가 무엇을 가리키는지
+- [[address-translation-memory]]: “매핑되어 있다”를 page table 관점으로 다시 보기
+- [[week-2-user-programs-map]]: 2주차 전체 링크 허브
