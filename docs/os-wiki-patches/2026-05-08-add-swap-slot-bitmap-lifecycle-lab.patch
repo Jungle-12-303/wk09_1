@@ -551,8 +551,7 @@ index 7861832..615dfd1 100644
    - "[[frame-eviction-trace]]"
    - "[[page-fault-trace]]"
    - "[[supplemental-page-table-knowledge]]"
-@@ -510,6 +511,7 @@ make -C build check TESTS=tests/vm/swap-anon
- 
+@@ -511,5 +512,6 @@ make -C build check TESTS=tests/vm/swap-anon
  - [[frame-eviction-trace]]: swap out이 호출되는 앞 단계
  - [[anonymous-page-swap-slot-knowledge]]: SPT와 `struct anon_page`가 swap slot을 기억해야 하는 이유
 +- [[swap-slot-bitmap-lifecycle-lab]]: slot bitmap을 언제 mark/reset해야 하는지 보는 후속 실험
@@ -642,9 +641,7 @@ index 7825ec5..1bc4d55 100644
    - "[[swap-disk-ide-qemu-trace]]"
    - "[[supplemental-page-table-knowledge]]"
    - "[[frame-eviction-trace]]"
-@@ -477,6 +478,7 @@ PintOS GDB stub은 guest register와 guest memory를 보여 준다. QEMU 내
- ## 다음 링크
- 
+@@ -479,4 +480,5 @@ PintOS GDB stub은 guest register와 guest memory를 보여 준다. QEMU 내
  - [[swap-lab]]: anonymous page 1장이 sector 8개로 나뉘는 실험
 +- [[swap-slot-bitmap-lifecycle-lab]]: slot 번호를 저장한 뒤 bitmap 소유권을 언제 해제해야 하는지 보는 실험
  - [[swap-disk-ide-qemu-trace]]: slot에서 QEMU IDE/block backend까지 내려가는 호출 흐름
@@ -677,8 +674,7 @@ index 8ab8c6a..2a8ef4b 100644
    - "[[swap-lab]]"
    - "[[frame-eviction-trace]]"
    - "[[guest-physical-memory-qemu-knowledge]]"
-@@ -502,6 +503,7 @@ sector 24의 block backend offset은 0x3000이다.
- 
+@@ -503,5 +504,6 @@ sector 24의 block backend offset은 0x3000이다.
  - [[swap-lab]]: anonymous page가 slot으로 나갔다 돌아오는 전체 실험
  - [[anonymous-page-swap-slot-knowledge]]: page fault 때 같은 slot을 다시 찾기 위한 metadata 기준
 +- [[swap-slot-bitmap-lifecycle-lab]]: slot이 언제 free로 돌아가도 안전한지 보는 lifecycle 실험
