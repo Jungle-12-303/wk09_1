@@ -332,8 +332,10 @@ related_to:
     - mmap은 file I/O와 memory access를 어떻게 연결하는가?
   - 핵심 개념
     - [[address-translation-memory]]
+    - [[supplemental-page-table-knowledge]]: fault address가 원래 어떤 backing 정보를 가진 페이지인지 찾는 표
   - 핵심 흐름
     - [[page-fault-trace]]: “fault를 살릴지/죽일지”가 갈리는 지점
+    - [[frame-eviction-trace]]: 빈 프레임이 없을 때 victim page를 내보내고 새 page를 올리는 흐름
   - 실험
     - [[바이트-버퍼와-캐스팅-실험|바이트 버퍼와 캐스팅 실험]]
   - PintOS 코드
@@ -351,8 +353,6 @@ related_to:
     - `include/exec/memory.h`
     - `target/i386/emulate/x86_mmu.c`
   - 앞으로 만들 문서
-    - `supplemental-page-table-knowledge`
-    - `frame-eviction-trace`
     - `swap-lab`
     - `mmap-file-backed-page-knowledge`
 
