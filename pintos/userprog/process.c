@@ -30,7 +30,9 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 static bool duplicate_fd_table (struct thread *curr, struct thread *parent);
-static bool init_fd_table (struct thread *t);
+static void close_open_files (struct thread *curr);
+static void reparent_or_reap_children (struct thread *curr, struct thread *root);
+static void finish_self_status (struct thread *curr);
 
 struct fork_args {
 	struct thread *parent;   // fork를 호출한 부모 스레드
@@ -88,6 +90,7 @@ process_create_initd (const char *file_name) {
 	cs->exit_status = -1;
 	cs->waited = false;
 	cs->exited = false;
+	cs->orphaned = false;
 	cs->fork_success = false;
 	sema_init (&cs->fork_sema, 0);
 	sema_init (&cs->wait_sema, 0);
@@ -134,10 +137,12 @@ initd (void *f_name) {
 	supplemental_page_table_init (&curr->spt);
 #endif
 
+	if (thread_root () == NULL)
+		thread_set_root (curr);
+
 	curr->self_status = args->cs;
-	if (!init_fd_table (curr)) {
-		thread_exit ();
-	}
+	curr->fd_table = palloc_get_page (PAL_ZERO);
+	curr->next_fd = 2;
 
 	process_init ();
 	f_name = args->file_name;
@@ -152,6 +157,7 @@ initd (void *f_name) {
  * 새 프로세스의 스레드 id를 반환하고, 스레드를 생성할 수 없으면
  * TID_ERROR를 반환한다.
  */
+
 tid_t
 process_fork (const char *name, struct intr_frame *if_) {
 	struct thread *curr = thread_current ();
@@ -170,6 +176,7 @@ process_fork (const char *name, struct intr_frame *if_) {
 	cs->exit_status = -1;
 	cs->waited = false;
 	cs->exited = false;
+	cs->orphaned = false;
 	cs->fork_success = false;
 	sema_init (&cs->fork_sema, 0);
 	sema_init (&cs->wait_sema, 0);
@@ -255,13 +262,12 @@ static bool
 duplicate_fd_table (struct thread *curr, struct thread *parent) {
 	int fd;
 
-	if (curr == NULL || parent == NULL) {
+	if (curr == NULL || parent == NULL)
 		return false;
-	}
 
-	if (!init_fd_table (curr)) {
+	curr->fd_table = palloc_get_page (PAL_ZERO);
+	if (curr->fd_table == NULL)
 		return false;
-	}
 
 	if (parent->fd_table == NULL) {
 		curr->next_fd = 2;
@@ -293,21 +299,6 @@ error:
 	return false;
 }
 
-static bool
-init_fd_table (struct thread *t) {
-	if (t == NULL)
-		return false;
-	if (t->fd_table != NULL)
-		return true;
-
-	t->fd_table = palloc_get_page (PAL_ZERO);
-	if (t->fd_table == NULL)
-		return false;
-
-	t->next_fd = 2;
-	return true;
-}
-
 /*
  * 부모의 실행 문맥을 복사하는 스레드 함수.
  * 힌트) parent->tf에는 프로세스의 유저랜드 문맥이 들어 있지 않다.
@@ -321,6 +312,7 @@ init_fd_table (struct thread *t) {
  *   3. 부모의 fd_table 복제 (file_duplicate)
  *   4. 자식의 fork 반환값을 0으로 설정
  *   5. 부모에게 "복제 완료" 알림, do_iret으로 유저 모드 진입 */
+
 static void
 __do_fork (void *aux) {
 	struct fork_args *args = aux;
@@ -354,7 +346,7 @@ __do_fork (void *aux) {
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
-	ASSERT (curr->fd_table == NULL);
+
 	if (!duplicate_fd_table (curr, parent))
 		goto error;
 
@@ -411,15 +403,6 @@ process_exec (void *f_name) {
 	 */
 	process_cleanup ();
 
-	/* 첫 exec일 때만 fd_table을 준비하고, 기존 열린 fd는 유지한다. */
-	if (curr->fd_table == NULL) {
-		init_fd_table (curr);
-		if (curr->fd_table == NULL) {
-			palloc_free_page (file_name);
-			return -1;
-		}
-	}
-
 	/*
 	 * 그리고 바이너리를 로드한다.
 	 */
@@ -450,6 +433,7 @@ process_exec (void *f_name) {
  *
  * 이 함수는 문제 2-2에서 구현될 것이다. 현재는 아무 일도 하지 않는다.
  */
+
 int
 process_wait (tid_t child_tid) {
 	struct thread *curr = thread_current ();
@@ -483,16 +467,12 @@ process_wait (tid_t child_tid) {
 	return -1;
 }
 
-/*
- * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
- */
-void
-process_exit (void) {
-	struct thread *curr = thread_current ();
+static void
+close_open_files (struct thread *curr) {
+	int fd;
+
 	if (curr == NULL)
 		return;
-
-	int fd;
 
 	for (fd = 2; fd < FD_MAX; fd++)
 		process_close_file (fd);
@@ -501,12 +481,68 @@ process_exit (void) {
 		palloc_free_page (curr->fd_table);
 		curr->fd_table = NULL;
 	}
+}
 
-	if (curr->self_status != NULL && !curr->self_status->exited) {
-		curr->self_status->exited = true;
-		sema_up (&curr->self_status->wait_sema);
+static void
+reparent_or_reap_children (struct thread *curr, struct thread *root) {
+	struct list_elem *e;
+
+	if (curr == NULL || root == NULL || root == curr)
+		return;
+
+	e = list_begin (&curr->child_status_list);
+	while (e != list_end (&curr->child_status_list)) {
+		struct child_status *cs = list_entry (e, struct child_status, elem);
+
+		e = list_next (e);
+		if (cs->exited && !cs->waited) {
+			list_remove (&cs->elem);
+			free (cs);
+			continue;
+		}
+
+		cs->orphaned = true;
+		list_remove (&cs->elem);
+		list_push_back (&root->child_status_list, &cs->elem);
+	}
+}
+
+static void
+finish_self_status (struct thread *curr) {
+	struct child_status *cs;
+
+	if (curr == NULL || curr->self_status == NULL)
+		return;
+
+	cs = curr->self_status;
+	if (!cs->exited) {
+		cs->exited = true;
+		sema_up (&cs->wait_sema);
 	}
 
+	if (cs->orphaned && !cs->waited) {
+		list_remove (&cs->elem);
+		free (cs);
+		curr->self_status = NULL;
+	}
+}
+
+/*
+ * 프로세스를 종료한다. 이 함수는 thread_exit()에 의해 호출된다.
+ */
+
+void
+process_exit (void) {
+	struct thread *curr = thread_current ();
+	struct thread *root;
+
+	if (curr == NULL)
+		return;
+
+	root = thread_root ();
+	close_open_files (curr);
+	reparent_or_reap_children (curr, root);
+	finish_self_status (curr);
 	process_cleanup ();
 }
 
@@ -554,7 +590,6 @@ process_close_file (int fd) {
 	// fd 테이블에 파일이 없으면
 	if (curr->fd_table[fd] == NULL)
 		return;
-
 	file_close (curr->fd_table[fd]);
 	curr->fd_table[fd] = NULL;
 	if (fd < curr->next_fd)

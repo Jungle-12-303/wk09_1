@@ -1,0 +1,348 @@
+diff --git a/labs/os/swap-lab.md b/labs/os/swap-lab.md
+index 025fada..3725b07 100644
+--- a/labs/os/swap-lab.md
++++ b/labs/os/swap-lab.md
+@@ -113,0 +114 @@ swap in:
++여기서 자연스럽게 다음 질문이 생긴다. "어차피 PTE가 not-present fault를 만들 수 있다면, swap slot 번호도 PTE에 넣으면 안 될까?" 이 판단은 [[why-swap-slot-is-not-pte]]에서 따로 다룬다.
+@@ -470,0 +473 @@ make -C build check TESTS=tests/vm/swap-anon
++- [[why-swap-slot-is-not-pte]]: swap slot 번호를 PTE가 아니라 SPT/anon metadata에 두는 이유
+diff --git a/maps/os/concept-to-code-map.md b/maps/os/concept-to-code-map.md
+index cfdbd9c..93d4cd6 100644
+--- a/maps/os/concept-to-code-map.md
++++ b/maps/os/concept-to-code-map.md
+@@ -93,0 +94 @@ related_to:
++  - [[why-swap-slot-is-not-pte]]
+@@ -270,0 +272 @@ related_to:
++    - [[why-swap-slot-is-not-pte]]
+diff --git a/maps/os/week-3-4-virtual-memory-map.md b/maps/os/week-3-4-virtual-memory-map.md
+index 05afa92..8db4a49 100644
+--- a/maps/os/week-3-4-virtual-memory-map.md
++++ b/maps/os/week-3-4-virtual-memory-map.md
+@@ -46,0 +47 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
++- [[why-swap-slot-is-not-pte]]
+@@ -64,0 +66 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
++- [[why-swap-slot-is-not-pte]]: swap slot 번호를 PTE가 아니라 SPT와 anonymous page metadata에 두는 이유
+@@ -80,0 +83,4 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
++
++## 질문
++
++- [[why-swap-slot-is-not-pte]]: non-present PTE, SPT, `struct anon_page` 중 어디에 swap 위치를 기억해야 하는지 판단하는 질문
+diff --git a/notes/os/page-table-entry-bits-knowledge.md b/notes/os/page-table-entry-bits-knowledge.md
+index 416e12e..e6d9853 100644
+--- a/notes/os/page-table-entry-bits-knowledge.md
++++ b/notes/os/page-table-entry-bits-knowledge.md
+@@ -24,0 +25 @@ related_to:
++  - "[[why-swap-slot-is-not-pte]]"
+@@ -168,0 +169 @@ PintOS에서 중요한 단순화는 두 가지다.
++이 구분은 swap에서도 중요하다. swap으로 나간 anonymous page는 PTE의 `PTE_P`가 꺼진 상태로 다시 fault를 내야 하지만, "몇 번 swap slot에 4096B가 있는가"는 하드웨어가 해석하는 PTE flag가 아니다. PintOS 과제에서는 그 위치 정보를 [[why-swap-slot-is-not-pte|SPT와 `struct anon_page` metadata에 두는 설계]]가 자연스럽다. 실제 OS는 non-present PTE의 비트를 소프트웨어 인코딩으로 활용할 수 있다. 그러나 CPU가 그 값을 swap slot으로 이해하는 것은 아니며, 최종 해석은 언제나 커널 VM 코드의 책임이다.
+@@ -421,0 +427 @@ p $rax
++- [[why-swap-slot-is-not-pte]]: swap slot 번호를 PTE에 넣고 싶어지는 이유와, PintOS에서는 metadata에 두는 판단 기준
+diff --git a/notes/os/supplemental-page-table-knowledge.md b/notes/os/supplemental-page-table-knowledge.md
+index ce56af9..dee0afe 100644
+--- a/notes/os/supplemental-page-table-knowledge.md
++++ b/notes/os/supplemental-page-table-knowledge.md
+@@ -50,0 +51 @@ page table만 있으면 resident page, 즉 지금 물리 프레임에 올라와
++- anonymous page가 swap으로 나가면 PTE는 not-present가 되지만, 어느 swap slot에 4096B가 있는지는 따로 기억해야 한다.
+@@ -444,0 +446 @@ PintOS에서는 이 장부를 직접 설계해야 한다. 핵심은 page-rounded
++- [[why-swap-slot-is-not-pte]]: swap slot 번호가 PTE가 아니라 anonymous page metadata에 있어야 하는 이유
+diff --git a/questions/os/why-swap-slot-is-not-pte.md b/questions/os/why-swap-slot-is-not-pte.md
+new file mode 100644
+index 0000000..96c4d9c
+--- /dev/null
++++ b/questions/os/why-swap-slot-is-not-pte.md
+@@ -0,0 +1,295 @@
++---
++type: Question
++status: Draft
++week:
++  - vm
++systems:
++  - Linux
++  - Windows
++  - PintOS
++  - QEMU
++tags:
++  - domain:os
++  - domain:pintos
++  - domain:qemu
++  - week:vm
++  - layer:memory
++  - layer:kernel
++  - layer:device
++  - layer:emulator
++  - topic:page-table
++  - topic:swap
++  - topic:frame
++  - topic:gdb
++related_to:
++  - "[[concept-to-code-map]]"
++  - "[[week-3-4-virtual-memory-map]]"
++  - "[[supplemental-page-table-knowledge]]"
++  - "[[page-table-entry-bits-knowledge]]"
++  - "[[swap-lab]]"
++  - "[[swap-disk-ide-qemu-trace]]"
++---
++
++# Swap slot은 왜 PTE가 아니라 SPT와 anon metadata에 둘까
++
++## 작은 질문
++
++anonymous page가 eviction되어 swap disk로 나가면 page table entry는 not-present가 된다.
++
++그렇다면 이런 생각이 든다.
++
++> 어차피 PTE를 보고 page fault가 나니까, swap slot 번호도 PTE 안에 넣으면 안 될까?
++
++이 질문은 좋다. 실제 OS는 non-present PTE를 소프트웨어 metadata처럼 활용하기도 한다. 하지만 PintOS 과제에서 바로 그 길로 가면 층이 섞이기 쉽다.
++
++이번 문서의 답은 다음 한 문장이다.
++
++> CPU가 이해하는 PTE는 "지금 번역 가능한가"를 위한 하드웨어 표이고, PintOS 구현자가 관리해야 할 swap slot은 "resident가 아닐 때 어디서 복원할까"를 위한 커널 VM metadata다.
++
++## 이번 질문 흐름
++
++- 왜 필요한가?
++- 실제 OS는 non-present PTE를 어떻게 활용할 수 있나?
++- PintOS는 어디서 단순화했나?
++- QEMU는 어떤 하드웨어 동작만 흉내 내나?
++- 숫자를 넣으면 slot 3은 어느 sector와 byte offset이 되나?
++- GDB로 어디를 보면 확인할 수 있나?
++
++## 왜 필요한가
++
++swap을 구현할 때는 두 가지 상태를 동시에 표현해야 한다.
++
++첫째, CPU에게는 이 VA가 지금 RAM에 없다고 알려야 한다. 그래야 다음 접근에서 page fault가 나고, 커널이 swap-in할 기회를 얻는다.
++
++둘째, 커널은 그 page의 4096B가 swap disk의 어디에 있는지 기억해야 한다. 이 정보를 잃으면 page fault는 나더라도 어디서 읽어 와야 할지 모른다.
++
++```text
++eviction 직후 필요한 상태
++
++CPU/MMU 관점:
++  이 VA page는 present가 아니다
++  다음 접근은 #PF를 내야 한다
++
++PintOS VM 관점:
++  이 VA page는 죽일 주소가 아니다
++  anonymous page였고, swap slot 3에 bytes가 있다
++```
++
++이 두 상태는 관련 있지만 같은 정보가 아니다.
++
++PTE의 `PTE_P`를 끄는 일은 "fault를 만들기 위한 하드웨어 상태"다. swap slot을 기억하는 일은 "fault가 난 뒤 복원하기 위한 OS 정책 상태"다.
++
++## 핵심 모델
++
++처음에는 세 층을 나눠서 보자.
++
++| 층 | 기억하는 것 | 대표 코드 |
++|---|---|---|
++| page table/PTE | 지금 VA가 frame으로 번역 가능한가 | `pml4_set_page()`, `pml4_clear_page()` |
++| SPT/`struct page` | 이 VA가 원래 합법한 page인가 | `spt_find_page()`, `struct page` |
++| anon metadata | anonymous page의 swap 위치는 어디인가 | `struct anon_page`, `anon_swap_in/out()` |
++
++흐름은 이렇게 이어진다.
++
++```text
++swap out:
++  victim page 선택
++  -> 빈 swap slot 할당
++  -> frame 4096B를 swap disk sector들에 씀
++  -> page->anon에 slot 번호 저장
++  -> page table PTE_P를 끔
++
++swap in:
++  같은 VA 접근
++  -> PTE_P가 꺼져 있어 #PF 발생
++  -> page_fault()가 fault_addr를 얻음
++  -> SPT에서 struct page를 찾음
++  -> page->anon의 slot 번호로 disk_read()
++  -> PTE를 다시 present mapping으로 설치
++```
++
++이 말은 즉, PTE는 page fault를 "일으키는" 쪽에 가깝고, SPT/anon metadata는 page fault를 "해석하고 복구하는" 쪽에 가깝다.
++
++## 예시 상황
++
++`swap-anon` 테스트처럼 20MB anonymous 배열을 page 단위로 건드린다고 하자.
++
++```text
++PAGE_SIZE  = 4096B
++CHUNK_SIZE = 20MB
++PAGE_COUNT = 20MB / 4096B = 5120 pages
++```
++
++RAM이 부족해 `big_chunks`의 한 page가 victim으로 골라졌다.
++
++```text
++victim VA        = 0x10003000
++victim frame kva = 0x800012340000
++swap slot        = 3
++```
++
++eviction 뒤 상태는 이렇게 나뉜다.
++
++```text
++page table:
++  VA 0x10003000 -> not present
++
++SPT:
++  key 0x10003000 -> struct page
++
++struct page:
++  type  = VM_ANON
++  frame = NULL 또는 재사용된 frame과 분리됨
++
++struct anon_page:
++  swap slot = 3
++```
++
++프로그램이 다시 `*(char *)0x10003000`을 읽으면 CPU는 PTE가 not-present인 것을 보고 page fault를 만든다. PintOS는 SPT에서 `0x10003000` page를 찾고, 그 page의 anonymous metadata를 보고 slot 3에서 bytes를 읽어 온다.
++
++## Linux / Windows에서는
++
++실제 OS도 큰 원칙은 같다. CPU는 swap slot을 이해하지 않는다. CPU가 이해하는 것은 present, writable, user, accessed, dirty 같은 page table bit와 주소 변환 규칙이다.
++
++다만 실제 OS는 PintOS보다 훨씬 공격적으로 page table entry를 활용할 수 있다.
++
++Linux는 non-present PTE에 swap entry를 인코딩하는 방식이 있다. PTE의 present bit가 꺼져 있으면 CPU는 그 값을 물리 frame 주소로 쓰지 않는다. 그러면 커널은 남는 비트 패턴을 보고 "이 page는 swap type/offset 몇 번에 있다"는 식으로 해석할 수 있다.
++
++Windows도 내부 구조와 이름은 다르지만, invalid/non-resident 상태의 PTE와 별도 memory manager metadata를 함께 써서 pagefile, section, prototype PTE, working set 같은 상태를 관리한다.
++
++중요한 결론은 이것이다.
++
++> 실제 OS가 non-present PTE를 활용하더라도, 하드웨어가 swap slot을 이해하는 것은 아니다. 그 비트 패턴을 해석하는 주체는 커널 VM 코드다.
++
++## PintOS에서는
++
++PintOS에서는 swap slot을 `struct anon_page`와 SPT 흐름에 두는 설계가 자연스럽다.
++
++관련 파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/vm/vm.h`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/vm/anon.h`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/vm/anon.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/threads/mmu.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/pte.h`
++
++현재 스켈레톤의 `struct anon_page`는 비어 있다.
++
++```c
++struct anon_page {
++};
++```
++
++이 빈 구조체는 "anonymous page에는 metadata가 필요 없다"는 뜻이 아니다. 구현자가 swap slot 번호, slot에 저장되어 있는지 여부 같은 정보를 채우라는 자리로 보는 것이 맞다.
++
++예를 들면 구현자는 이런 모양의 필드를 둘 수 있다.
++
++```c
++struct anon_page {
++    size_t slot_idx;
++    bool in_swap;
++};
++```
++
++이 코드는 예시다. 실제 필드명은 구현자가 정하면 된다.
++
++반대로 PTE 쪽 코드는 하드웨어 mapping 중심이다.
++
++`pml4_set_page()`는 frame 주소와 permission bit를 합쳐 present mapping을 만든다.
++
++```c
++*pte = vtop (kpage) | PTE_P | (rw ? PTE_W : 0) | PTE_U;
++```
++
++`pml4_clear_page()`는 present bit를 끄고 TLB를 무효화한다.
++
++```c
++*pte &= ~PTE_P;
++if (rcr3 () == vtop (pml4))
++    invlpg ((uint64_t) upage);
++```
++
++즉 PintOS의 page table helper는 "slot allocator"가 아니다. slot 번호를 page table에 숨기면 다음 문제가 생긴다.
++
++- `spt_find_page()`로 찾는 page 의미와 PTE에 숨긴 상태가 중복된다.
++- `struct page`의 타입별 `swap_in/swap_out` 함수 테이블과 어긋난다.
++- PTE helper가 하드웨어 mapping과 VM policy metadata를 동시에 맡게 된다.
++- `PTE_AVL` 같은 available bit는 매우 작아서 일반적인 slot 번호 저장소로 쓰기 어렵다.
++
++PintOS 과제의 의도는 더 단순하다.
++
++```text
++SPT:
++  VA -> struct page
++
++struct page:
++  operations = anon_ops
++  anon.slot_idx = 3
++
++PTE:
++  present bit off
++```
++
++## QEMU에서는
++
++QEMU는 PintOS의 swap slot을 모른다.
++
++QEMU가 x86 하드웨어처럼 재현하는 것은 이런 일이다.
++
++- guest page table을 walk한다.
++- PTE present bit가 꺼져 있으면 guest #PF를 만든다.
++- 접근이 성립하면 accessed bit를 세운다.
++- store 접근이면 dirty bit도 세운다.
++- PintOS가 disk sector를 쓰면 IDE/block backend I/O로 변환한다.
++
++QEMU의 x86 page walk 코드에서는 present 검사가 보인다.
++
++```c
++if (!(pte & PG_PRESENT_MASK)) {
++    goto do_fault;
++}
++```
++
++접근이 성립했을 때 accessed/dirty bit를 세우는 흐름도 있다.
++
++```c
++uint32_t set = PG_ACCESSED_MASK;
++if (access_type == MMU_DATA_STORE) {
++    set |= PG_DIRTY_MASK;
++}
++```
++
++하지만 여기에는 "slot 3"이라는 개념이 없다. slot 3이라는 의미는 PintOS VM 코드가 정하고, QEMU는 PintOS가 요청한 disk sector write/read만 처리한다.
++
++IDE PIO write가 내려가면 QEMU 쪽 block backend offset은 sector 번호로 계산된다.
++
++```c
++blk_aio_pwritev(s->blk, sector_num << BDRV_SECTOR_BITS, ...)
++```
++
++`BDRV_SECTOR_BITS = 9`이므로 sector 번호에 512를 곱하는 것과 같다.
++
++## 차이점
++
++| 항목 | Linux / Windows | PintOS | QEMU |
++|---|---|---|---|
++| PTE 역할 | 하드웨어 번역 + 커널이 소프트웨어 인코딩으로 활용 가능 | present mapping과 permission 중심 helper 제공 | guest PTE bit 효과를 에뮬레이션 |
++| swap slot 의미 | 커널 VM subsystem이 해석 | `struct anon_page`/SPT에 두는 구현이 자연스러움 | 의미를 모름 |
++| page fault 후 판단 | VMA/PTE/pagefile/section 등 복합 metadata | `vm_try_handle_fault()` -> `spt_find_page()` -> `swap_in()` | #PF를 guest에 전달 |
++| 단순화 | 매우 복잡한 reclaim/pagefile 정책 | 과제용 TODO로 직접 구현 | OS 정책 없음 |
++
++## 코드 증거
++
++### 1. PTE는 frame 주소와 하드웨어 flag를 담는다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/pte.h`
++
++핵심 값:
++
++```c
++#define PTE_ADDR(pte) ((uint64_t) (pte) & ~0xFFF)
++#define PTE_P 0x1
++#define PTE_W 0x2
++#define PTE_U 0x4

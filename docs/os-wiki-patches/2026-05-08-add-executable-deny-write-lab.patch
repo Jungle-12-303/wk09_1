@@ -1,0 +1,572 @@
+diff --git a/labs/os/executable-deny-write-lab.md b/labs/os/executable-deny-write-lab.md
+new file mode 100644
+index 0000000..166d369
+--- /dev/null
++++ b/labs/os/executable-deny-write-lab.md
+@@ -0,0 +1,477 @@
++---
++type: Lab
++status: Draft
++week:
++  - user-programs
++systems:
++  - Linux
++  - Windows
++  - PintOS
++  - QEMU
++tags:
++  - domain:os
++  - domain:pintos
++  - domain:qemu
++  - week:user-programs
++  - layer:user
++  - layer:kernel
++  - layer:device
++  - topic:elf
++  - topic:fd
++  - topic:process
++  - topic:gdb
++related_to:
++  - "[[concept-to-code-map]]"
++  - "[[week-2-user-programs-map]]"
++  - "[[elf-loader-knowledge]]"
++  - "[[file-descriptor-knowledge]]"
++  - "[[process-wait-exit-trace]]"
++---
++
++# 실행 중인 ELF 파일은 왜 쓰기 금지되어야 하는가
++
++## 작은 질문
++
++PintOS 테스트 `rox-simple`은 실행 중인 프로그램이 자기 실행 파일을 열고 다시 쓰려고 한다.
++
++겉으로는 이상해 보이지 않는다.
++
++```c
++handle = open ("rox-simple");
++read (handle, buffer, sizeof buffer);
++write (handle, buffer, sizeof buffer);
++```
++
++그런데 테스트의 기대값은 `write(...) == 0`이다.
++
++> 왜 자기 파일을 열 수는 있는데, 쓰기는 0바이트만 성공해야 할까?
++
++이 질문은 [[elf-loader-knowledge]]와 [[file-descriptor-knowledge]] 사이에 걸쳐 있다. 실행 파일은 파일 시스템의 inode이고, 동시에 현재 CPU가 실행 중인 code bytes의 원본이기 때문이다.
++
++## 꼬리 질문
++
++- 왜 실행 파일을 로드한 뒤에도 파일 객체를 계속 잡고 있어야 할까?
++- 실제 OS는 실행 중인 executable을 어떻게 보호할까?
++- PintOS의 `file_deny_write()`는 fd table의 특정 fd를 막는 걸까, inode 전체를 막는 걸까?
++- `rox-child`처럼 같은 실행 파일을 여러 프로세스가 실행하면 counter는 어떻게 변해야 할까?
++- 현재 코드에서는 `load()`가 실행 파일을 언제 닫고 있어서 어떤 빈틈이 생길까?
++- QEMU는 "이 파일은 실행 중이니 쓰면 안 된다"는 정책을 알까?
++
++## 목차
++
++- 왜 필요한가
++- 핵심 모델
++- 예시 상황
++- Linux / Windows에서는
++- PintOS에서는
++- QEMU에서는
++- 차이점
++- 코드 증거
++- 숫자와 메모리
++- 직접 확인
++- 정리
++- 다음 링크
++
++## 왜 필요한가
++
++실행 파일은 단순한 입력 파일이 아니다. 로더가 ELF program header를 읽고 code/data page를 만들면, 그 파일의 bytes는 실행 중인 프로세스의 의미가 된다.
++
++만약 실행 도중 다른 fd가 같은 inode를 덮어쓸 수 있다면 문제가 생긴다.
++
++| 문제 | 왜 위험한가 |
++|---|---|
++| code bytes 변경 | 아직 읽지 않은 executable page가 나중에 다른 내용으로 로드될 수 있다 |
++| 테스트 재현성 붕괴 | 같은 프로그램이 실행 중에 자기 파일 내용을 바꾸면 결과가 실행 순서에 따라 달라진다 |
++| file-backed lazy loading 혼동 | VM 이후에는 실행 파일 page를 처음부터 다 읽지 않고 fault 시점에 읽을 수 있다 |
++| 보안 경계 약화 | 실행 중인 image와 디스크 파일의 정합성을 커널이 보장하지 못한다 |
++
++이 말은 즉, 실행 파일을 읽어서 page table을 만들었다고 해서 파일과의 관계가 끝나는 것이 아니다. 적어도 그 프로세스가 살아 있는 동안에는 "이 inode는 실행 image의 원본이다"라는 소유권 표시가 필요하다.
++
++## 핵심 모델
++
++처음에는 두 파일 객체를 분리해서 보자.
++
++```text
++loader가 잡은 실행 파일 handle
++  -> struct file L
++  -> inode rox-simple
++  -> file_deny_write(L)
++
++유저가 open("rox-simple")로 받은 fd
++  -> fd_table[2]
++  -> struct file U
++  -> 같은 inode rox-simple
++  -> write(fd=2, ...)
++```
++
++핵심은 `L`과 `U`가 같은 `struct file *`일 필요는 없다는 점이다. 하지만 둘은 같은 inode를 가리킨다.
++
++PintOS의 쓰기 금지는 fd 하나가 아니라 inode의 `deny_write_cnt`에 걸린다.
++
++```text
++inode rox-simple
++  open_cnt        = 몇 개의 file object가 이 inode를 열었는가
++  deny_write_cnt  = 그중 몇 개가 "쓰기 금지"를 걸었는가
++```
++
++따라서 `file_deny_write(L)`를 호출하면 나중에 유저가 별도로 연 `U`로 쓰려고 해도 `inode_write_at()`이 0을 반환해야 한다.
++
++## 예시 상황
++
++`rox-simple`의 핵심 기대값은 작다.
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/rox-simple.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/rox-simple.ck`
++
++테스트 흐름:
++
++```text
++1. rox-simple이 실행된다.
++2. 커널 로더가 "rox-simple" 실행 파일을 연다.
++3. 커널은 그 inode에 deny_write를 걸고, 프로세스가 끝날 때까지 유지해야 한다.
++4. 유저 코드가 다시 open("rox-simple")를 호출한다.
++5. read는 가능해야 한다.
++6. write 16 bytes는 0 bytes written이어야 한다.
++```
++
++테스트의 C 코드는 `sizeof buffer == 16`을 쓴다.
++
++```text
++read(handle, buffer, 16)  -> 16
++write(handle, buffer, 16) -> 0
++```
++
++여기서 `0`은 "유저 포인터가 나쁘다"는 뜻이 아니다. 파일 시스템 정책상 이 inode에 쓰면 안 되므로 한 바이트도 기록하지 않았다는 뜻이다.
++
++## Linux / Windows에서는
++
++Linux와 Windows도 "실행 image"와 "디스크 파일" 관계를 그냥 방치하지 않는다. 다만 정책과 세부 동작은 PintOS보다 훨씬 복잡하다.
++
++Linux에서는 실행 중인 파일에 대한 쓰기 open이나 truncate가 `ETXTBSY` 같은 오류로 막힐 수 있다. 동시에 Unix 파일 시스템은 pathname과 inode를 분리하므로, 실행 중인 파일의 이름을 바꾸거나 unlink한 뒤 새 파일을 같은 이름으로 만들 수 있는 경우도 있다. 이때 이미 실행 중인 프로세스는 기존 inode/image를 계속 참조한다.
++
++Windows는 file object와 section object, sharing mode의 영향이 크다. 실행 image로 매핑된 파일은 일반적으로 덮어쓰기나 삭제가 더 강하게 막히는 경우가 많다. 사용자는 같은 이름을 다루는 것처럼 보아도, 커널 내부에서는 handle, section, reference count, sharing permission이 함께 판단된다.
++
++공통점은 이것이다.
++
++> 실제 OS는 "실행 중인 코드의 원본"과 "파일 쓰기" 사이에 정책을 둔다.
++
++PintOS는 이 복잡성을 `file_deny_write()`, `inode->deny_write_cnt`, `file_allow_write()`로 작게 줄여 보여준다.
++
++## PintOS에서는
++
++PintOS의 관련 파일은 세 층으로 나뉜다.
++
++| 층 | 파일 | 보는 함수 |
++|---|---|---|
++| ELF loader | `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/process.c` | `load()` |
++| 열린 파일 객체 | `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/file.c` | `file_deny_write()`, `file_allow_write()`, `file_write()` |
++| inode 쓰기 | `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/inode.c` | `inode_write_at()`, `inode_deny_write()` |
++
++의도한 흐름은 이렇게 읽으면 된다.
++
++```text
++load("rox-simple")
++  -> filesys_open("rox-simple")
++  -> file_deny_write(executable_file)
++  -> 실행 파일 handle을 현재 thread에 저장
++  -> ELF segment load
++  -> 성공하면 file_close()하지 않음
++
++process_exit()
++  -> 실행 파일 handle에 file_allow_write()
++  -> file_close()
++```
++
++하지만 현재 저장소 코드에는 중요한 빈틈이 있다.
++
++```text
++load()
++  -> file = filesys_open(argv[0])
++  -> ELF를 읽고 segment를 load
++  -> done:
++       if (file != NULL)
++           file_close(file)
++```
++
++현재 `load()`에는 `file_deny_write(file)` 호출이 보이지 않고, `struct thread`에도 실행 파일 handle을 오래 보관하는 필드가 보이지 않는다.
++
++이 말은 즉, 현재 상태에서는 `rox-simple`의 요구 조건을 만족하려면 구현 보강이 필요하다. 실행 파일을 로드하는 데 사용한 `struct file *`를 성공 직후 닫아 버리면, 프로세스가 살아 있는 동안 inode에 `deny_write_cnt`를 유지할 주체가 사라진다.
++
++## QEMU에서는
++
++QEMU는 "이 inode가 실행 파일인가?"를 모른다. 그 정책은 guest OS인 PintOS의 파일 시스템과 process layer가 결정한다.
++
++쓰기 허용 여부에 따라 QEMU까지 내려가는 경로가 갈린다.
++
++```text
++쓰기 금지가 제대로 걸린 경우:
++  write(fd, buffer, 16)
++    -> PintOS file_write()
++    -> PintOS inode_write_at()
++    -> deny_write_cnt > 0 이므로 return 0
++    -> disk_write() 호출 없음
++    -> QEMU IDE write 없음
++
++쓰기 금지가 빠진 경우:
++  write(fd, buffer, 16)
++    -> PintOS inode_write_at()
++    -> disk_write(filesys_disk, sector_idx, ...)
++    -> guest IDE port access
++    -> QEMU hw/ide/core.c: ide_sector_write()
++    -> QEMU block/block-backend.c: blk_aio_pwritev()
++```
++
++따라서 `rox-simple`에서 QEMU IDE write breakpoint가 잡힌다면, QEMU가 정책을 어긴 것이 아니다. PintOS가 위쪽에서 쓰기를 막지 못해 장치 요청까지 내려간 것이다.
++
++## 차이점
++
++| 구분 | Linux / Windows | PintOS | QEMU |
++|---|---|---|---|
++| 보호 대상 | 실행 image, file object, mapping, sharing 정책 | 실행 파일 inode의 write deny counter | 보호 정책을 알지 못함 |
++| 대표 자료구조 | VFS/file object/section object 등 | `struct file`, `struct inode` | `IDEState`, `BlockBackend` |
++| 쓰기 차단 위치 | 커널 파일 시스템과 image/mapping 정책 | `inode_write_at()` 시작부 | PintOS가 요청한 block write만 수행 |
++| 이름과 파일 | pathname과 실제 object를 구분 | 단순 파일 시스템의 inode 중심 | host backing file을 block device처럼 제공 |
++| 단순화 | 매우 복잡한 reference와 permission | `deny_write_cnt` 정수로 축소 | guest 정책을 해석하지 않음 |
++
++PintOS의 단순화는 학습에는 좋지만, 실제 OS 일반 규칙으로 확대하면 안 된다. Linux는 unlink와 inode lifetime 때문에 "이름이 같다"와 "같은 실행 image다"가 분리되고, Windows는 sharing mode와 section object 때문에 다른 방식으로 막힌다.
++
++## 코드 증거
++
++### 1. 테스트는 16바이트 쓰기가 0이기를 기대한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/rox-simple.c`
++
++핵심 흐름:
++
++```c
++CHECK ((handle = open ("rox-simple")) > 1, "open \"rox-simple\"");
++CHECK (read (handle, buffer, sizeof buffer) == (int) sizeof buffer,
++       "read \"rox-simple\"");
++CHECK (write (handle, buffer, sizeof buffer) == 0,
++       "try to write \"rox-simple\"");
++```
++
++`open`과 `read`는 성공해야 한다. 막아야 하는 것은 같은 inode에 대한 write다.
++
++### 2. `file_deny_write()`는 file 객체의 flag와 inode counter를 함께 바꾼다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/file.c`
++
++핵심 흐름:
++
++```c
++if (!file->deny_write) {
++    file->deny_write = true;
++    inode_deny_write (file->inode);
++}
++```
++
++`file->deny_write`는 같은 file 객체에서 중복 호출을 막는 flag다. 실제로 다른 file 객체의 write까지 막는 힘은 inode 쪽 `deny_write_cnt`에서 나온다.
++
++### 3. `inode_write_at()`은 counter가 있으면 즉시 0을 반환한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/inode.c`
++
++핵심 흐름:
++
++```c
++if (inode->deny_write_cnt)
++    return 0;
++```
++
++이 조건은 sector 계산보다 앞에 있다. 그래서 쓰기 금지가 제대로 걸리면 `disk_write()`까지 내려가지 않는다.
++
++### 4. 현재 `load()`는 실행 파일을 오래 잡고 있지 않다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/process.c`
++
++현재 흐름:
++
++```c
++file = filesys_open (argv[0]);
++...
++done:
++    if (file != NULL)
++        file_close (file);
++```
++
++학습 포인트는 이것이다.
++
++```text
++file_deny_write()는 "닫을 때까지" 유지된다.
++그런데 load 성공 직후 닫으면 실행 중 lifetime을 덮지 못한다.
++```
++
++따라서 rox 계열 테스트를 만족하려면 실행 파일 handle의 lifetime을 process lifetime과 맞춰야 한다.
++
++### 5. `rox-child`는 counter가 중첩되어도 유지되어야 함을 확인한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/rox-child.inc`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/userprog/child-rox.c`
++
++`child-rox`는 자기 실행 파일에 write를 시도하고, 다시 자식을 실행한다.
++
++```text
++child-rox 5
++  -> child-rox 4
++    -> child-rox 3
++      -> child-rox 2
++        -> child-rox 1
++```
++
++각 실행 중인 `child-rox` 프로세스는 같은 inode에 deny를 하나씩 걸어야 한다. 어떤 자식 하나가 끝나며 `file_allow_write()`를 호출해도, 조상 프로세스들이 아직 실행 중이면 `deny_write_cnt`는 0이 되면 안 된다.
++
++## 숫자와 메모리
++
++### rox-simple의 16바이트 write
++
++`rox-simple`의 buffer 크기는 16바이트다.
++
++```text
++size = 16
++expected write result = 0
++```
++
++쓰기 금지가 없다고 가정하면 `inode_write_at()`은 sector 단위로 내려간다.
++
++```text
++DISK_SECTOR_SIZE = 512
++offset           = 0 이라고 가정
++sector_ofs       = offset % 512 = 0
++chunk_size       = min(16, 512) = 16
++```
++
++16바이트는 sector 전체가 아니므로 PintOS는 보통 기존 sector를 읽고, 16바이트를 덮어쓴 뒤, sector 전체를 다시 쓴다.
++
++```text
++disk_read(sector_idx, bounce)
++memcpy(bounce + 0, buffer, 16)
++disk_write(sector_idx, bounce)
++```
++
++하지만 `deny_write_cnt > 0`이면 이 계산 자체가 시작되지 않는다.
++
++```text
++inode->deny_write_cnt = 1
++inode_write_at(...)
++  -> return 0
++```
++
++### recursive child의 counter 감각
++
++`child-rox 5`가 깊이 5까지 동시에 살아 있다고 하자.
++
++```text
++실행 중인 child-rox process 수 = 5
++각 process가 executable file handle 하나를 보관
++각 handle이 file_deny_write()를 한 번 호출
++```
++
++그러면 같은 inode의 counter는 개념적으로 이렇게 움직인다.
++
++```text
++start child-rox 5  -> deny_write_cnt = 1
++start child-rox 4  -> deny_write_cnt = 2
++start child-rox 3  -> deny_write_cnt = 3
++start child-rox 2  -> deny_write_cnt = 4
++start child-rox 1  -> deny_write_cnt = 5
++exit child-rox 1   -> deny_write_cnt = 4
++...
++exit child-rox 5   -> deny_write_cnt = 0
++```
++
++중간에 어느 프로세스가 `open("child-rox")`로 새 fd를 얻어도, 같은 inode의 counter가 0이 아니면 write는 0이어야 한다.
++
++## 직접 확인
++
++### 1. 테스트로 기대값 확인
++
++PintOS userprog build 디렉터리에서 rox 테스트 하나만 먼저 본다.
++
++```bash
++cd /Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/build
++make tests/userprog/rox-simple.result
++```
++
++연쇄 실행까지 보려면 다음 테스트가 이어진다.
++
++```bash
++make tests/userprog/rox-child.result
++make tests/userprog/rox-multichild.result
++```
++
++현재 코드가 실행 파일 lifetime을 보존하지 않는 상태라면, 이 테스트들은 실패하거나 기대 출력과 달라질 수 있다.
++
++### 2. GDB에서 loader lifetime 보기
++
++PintOS GDB에서:
++
++```gdb
++b load
++b file_deny_write
++b file_close
++b inode_write_at
++```
++
++확인할 질문:
++
++- `load()` 안에서 열린 `file`에 `file_deny_write()`가 호출되는가?
++- `load()` 성공 직후 `file_close(file)`로 닫히는가?
++- `rox-simple`의 유저 `write()`가 들어왔을 때 `inode->deny_write_cnt`는 몇인가?
++- `deny_write_cnt > 0`이면 `inode_write_at()`이 sector 계산 전에 0을 반환하는가?
++
++### 3. fd table과 loader handle 구분하기
++
++유저가 연 fd는 fd table에서 보인다.
++
++```gdb
++b process_add_file
++p fd
++p/x thread_current()->fd_table[fd]
++```
++
++하지만 loader가 잡은 실행 파일 handle은 fd table에 들어갈 필요가 없다. 그 handle은 유저에게 보이는 fd가 아니라, process lifetime 동안 커널이 보관해야 하는 내부 file pointer다.
++
++이 구분을 놓치면 "자기 실행 파일을 open하지 않으면 deny가 안 걸리는가?"처럼 잘못 이해하게 된다. deny는 유저 fd가 아니라 실행 image를 만든 loader handle에서 시작해야 한다.
++
++### 4. QEMU까지 내려가는지 확인하기
++
++정책이 위에서 막히면 QEMU disk write까지 가지 않는다. 그래도 장치 경로를 확인하고 싶다면 QEMU 쪽에서는 다음 지점을 본다.
++
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/hw/ide/core.c`
++  - `ide_sector_write()`
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/block/block-backend.c`
++  - `blk_aio_pwritev()`
++  - `blk_co_do_pwritev_part()`
++
++`rox-simple`의 write에서 이 경로가 보인다면, QEMU가 rox 정책을 아는 것이 아니라 PintOS가 disk write 요청을 내려보낸 것이다.
++
++## 정리
++
++- `rox-*` 테스트는 실행 중인 executable inode에 대한 쓰기를 막는지 확인한다.
++- PintOS의 핵심 도구는 `file_deny_write()`와 `inode->deny_write_cnt`다.
++- deny는 fd 하나가 아니라 같은 inode에 대한 write 전체에 영향을 준다.
++- `file_deny_write()`는 file이 닫히면 풀리므로, 실행 파일 handle을 process lifetime 동안 보관해야 한다.
++- 현재 저장소의 `load()`는 성공/실패와 관계없이 `file_close(file)`로 닫고 있어 rox 요구조건을 만족하려면 보강이 필요하다.
++- QEMU는 이 정책을 모른다. PintOS가 `inode_write_at()`에서 0을 반환하면 QEMU disk write는 발생하지 않는다.
++
++## 다음 링크
++
++- [[elf-loader-knowledge]]: 실행 파일이 유저 가상 page mapping으로 바뀌는 흐름
++- [[file-descriptor-knowledge]]: 유저 fd와 kernel `struct file`의 관계
++- [[fd-table-fork-duplication-knowledge]]: `file_duplicate()`가 `deny_write` 상태를 복제하는 이유
++- [[process-wait-exit-trace]]: process lifetime이 끝날 때 자원을 정리하는 흐름
++- [[disk-sector-qemu-block-backend-knowledge]]: PintOS sector write가 QEMU block backend offset으로 내려가는 경로
++- [[week-2-user-programs-map]]: User Programs 주차 전체 지도
+diff --git a/maps/os/concept-to-code-map.md b/maps/os/concept-to-code-map.md
+index 59216c6..47725a4 100644
+--- a/maps/os/concept-to-code-map.md
++++ b/maps/os/concept-to-code-map.md
+@@ -55,6 +55,8 @@ related_to:
+   - [[qemu-gdb-stub-guest-state-knowledge]]
+ - 1.5단계: 유저 프로그램 파일이 주소 공간에 올라가는 법
+   - [[elf-loader-knowledge]]
++- 1.5.1단계: 실행 중인 ELF inode를 쓰기 금지로 붙잡는 법
++  - [[executable-deny-write-lab]]
+ - 1.6단계: `argc/argv`가 초기 유저 스택에 놓이는 법
+   - [[argument-passing-lab]]
+ - 2단계: OS가 CPU 제어권을 얻는 법
+@@ -402,6 +404,7 @@ related_to:
+     - [[process-wait-exit-trace]]: `exit_status`가 부모의 `wait()` 결과로 돌아오는 지점
+   - 핵심 개념
+     - [[elf-loader-knowledge]]: 실행 파일이 `RIP/RSP`와 유저 가상 page mapping으로 바뀌는 지점
++    - [[executable-deny-write-lab]]: 실행 중인 ELF inode에 `deny_write_cnt`가 유지되어야 `rox-*` 쓰기 시도가 0바이트로 끝나는 이유
+     - [[cpu-register-execution]]
+     - [[address-translation-memory]]
+     - [[file-descriptor-knowledge]]: fd 숫자가 커널 객체로 해석되는 지점
+@@ -409,6 +412,7 @@ related_to:
+     - [[spt-copy-fork-trace]]: `fork()`가 present PTE뿐 아니라 SPT의 lazy/swap/file-backed page 의미를 복제하는 지점
+   - 실험
+     - [[argument-passing-lab]]: 초기 유저 스택의 `argc/argv` 주소와 바이트를 계산
++    - [[executable-deny-write-lab]]: `rox-simple`/`rox-child`가 실행 중인 executable write를 왜 막아야 하는지 확인
+     - [[fd-close-reuse-lab]]: `close(fd)` 뒤 fd table slot이 비고 다음 `open()`에서 재사용되는지 관찰
+     - [[fork-fd-table-gap-lab]]: `open 2,3,4 -> close 3 -> fork`에서 fd 4가 자식에게 복제되는지 확인
+     - [[바이트-버퍼와-캐스팅-실험|바이트 버퍼와 캐스팅 실험]]
+@@ -658,6 +662,7 @@ related_to:
+     - QEMU는 guest fd 의미를 해석하지 않고, 디스크 장치와 block backend를 에뮬레이션한다.
+   - 연결 문서
+     - [[file-descriptor-knowledge]]
++    - [[executable-deny-write-lab]]
+     - [[fd-close-reuse-lab]]
+     - [[fd-table-fork-duplication-knowledge]]
+ - interrupt / scheduling
+diff --git a/maps/os/week-2-user-programs-map.md b/maps/os/week-2-user-programs-map.md
+index 11d976c..3b80d57 100644
+--- a/maps/os/week-2-user-programs-map.md
++++ b/maps/os/week-2-user-programs-map.md
+@@ -32,6 +32,7 @@ PintOS 2주차 User Programs 학습에서 유저 모드, ELF 로딩, 시스템 
+ ## 먼저 볼 것
+ 
+ - [[elf-loader-knowledge]]
++- [[executable-deny-write-lab]]
+ - [[argument-passing-lab]]
+ - [[syscall-end-to-end]]: `write(1, buffer, size)`의 register, handler, stdout 반환값 흐름
+ - [[syscall-entry-stack-switch-trace]]
+@@ -42,6 +43,7 @@ PintOS 2주차 User Programs 학습에서 유저 모드, ELF 로딩, 시스템 
+ ## 핵심 개념
+ 
+ - [[elf-loader-knowledge]]: 실행 파일의 program header가 유저 가상 page mapping으로 바뀌는 지점
++- [[executable-deny-write-lab]]: 실행 중인 executable inode를 `file_deny_write()`로 붙잡아 `rox-*` 쓰기를 막는 기준
+ - [[cpu-register-execution]]: `RAX/RDI/RSI/RDX`가 syscall 요청서가 되고 `struct intr_frame`에 저장되는 방식
+ - [[syscall-entry-stack-switch-trace]]: `syscall` 명령 뒤 유저 스택에서 커널 스택으로 옮겨가고 register snapshot이 만들어지는 순간
+ - [[user-pointer-safe-copy-knowledge]]: 커널이 유저 포인터를 직접 믿지 않고 안전하게 복사/검증해야 하는 이유
+@@ -63,6 +65,7 @@ PintOS 2주차 User Programs 학습에서 유저 모드, ELF 로딩, 시스템 
+ ## 실험
+ 
+ - [[argument-passing-lab]]: `argc/argv`가 초기 유저 스택의 바이트와 포인터로 놓이는 방식
++- [[executable-deny-write-lab]]: `rox-simple`/`rox-child`에서 자기 실행 파일 write가 0바이트로 끝나야 하는 이유
+ - [[read-write-buffer-boundary-lab]]: `read-boundary`/`write-boundary` 테스트로 유저 버퍼 range 검증을 관찰
+ - [[fd-close-reuse-lab]]: `close(fd)` 뒤 같은 번호가 재사용되는 순간과 `remove(name)`이 열린 fd와 분리되는 이유
+ - [[fork-fd-table-gap-lab]]: `open 2,3,4 -> close 3 -> fork`에서 자식 fd table을 GDB로 관찰
+diff --git a/notes/os/elf-loader-knowledge.md b/notes/os/elf-loader-knowledge.md
+index f1b8ff1..413c65e 100644
+--- a/notes/os/elf-loader-knowledge.md
++++ b/notes/os/elf-loader-knowledge.md
+@@ -485,6 +485,7 @@ x/32xb upage
+ 
+ - [[week-2-user-programs-map]]: User Programs 주차 전체 링크 허브
+ - [[argument-passing-lab]]: `setup_stack()` 이후 `argc/argv`가 유저 스택 바이트로 놓이는 방식
++- [[executable-deny-write-lab]]: 로더가 연 실행 파일 handle을 process lifetime 동안 붙잡아 `rox-*` 쓰기를 막는 기준
+ - [[address-translation-memory]]: `upage -> kpage/frame` 매핑이 주소 변환으로 이어지는 방식
+ - [[syscall-end-to-end]]: 이렇게 올라간 유저 코드가 나중에 커널 기능을 요청하는 흐름
+ - [[user-pointer-validation-trace]]: 로더가 만든 유저 주소를 syscall에서 다시 검증해야 하는 이유
+diff --git a/notes/os/file-descriptor-knowledge.md b/notes/os/file-descriptor-knowledge.md
+index 7d763df..ab17010 100644
+--- a/notes/os/file-descriptor-knowledge.md
++++ b/notes/os/file-descriptor-knowledge.md
+@@ -485,6 +485,7 @@ p/x thread_current()->fd_table[fd]
+ ## 다음 링크
+ 
+ - [[fd-close-reuse-lab]]: `close(fd)` 뒤 같은 번호가 다시 쓰이는 순간과 `remove(name)`이 열린 fd와 분리되는 이유
++- [[executable-deny-write-lab]]: fd가 새 `struct file`을 얻어도 같은 inode의 실행 중 write deny가 유지되어야 하는 이유
+ - [[fd-table-fork-duplication-knowledge]]: `fork()` 뒤 부모와 자식 fd table이 어떤 열린 파일 상태를 공유하거나 복사하는지
+ - [[syscall-end-to-end]]: fd 숫자가 register 인자로 들어오는 전체 흐름
+ - [[user-pointer-validation-trace]]: fd와 함께 들어오는 user buffer를 왜 검증해야 하는지

@@ -1,0 +1,592 @@
+diff --git a/labs/os/mmap-shuffle-multi-page-lab.md b/labs/os/mmap-shuffle-multi-page-lab.md
+new file mode 100644
+index 0000000..9e5c546
+--- /dev/null
++++ b/labs/os/mmap-shuffle-multi-page-lab.md
+@@ -0,0 +1,554 @@
++---
++type: Lab
++status: Draft
++week:
++  - vm
++systems:
++  - Linux
++  - Windows
++  - PintOS
++  - QEMU
++tags:
++  - domain:os
++  - domain:pintos
++  - domain:qemu
++  - week:vm
++  - topic:mmap
++  - topic:page-table
++  - topic:gdb
++  - layer:user
++  - layer:memory
++  - layer:kernel
++  - layer:emulator
++related_to:
++  - "[[concept-to-code-map]]"
++  - "[[week-3-4-virtual-memory-map]]"
++  - "[[mmap-file-backed-page-knowledge]]"
++  - "[[mmap-dirty-writeback-qemu-trace]]"
++  - "[[file-backed-page-metadata-knowledge]]"
++  - "[[page-fault-instruction-retry-knowledge]]"
++---
++# mmap-shuffle은 왜 32개 page 상태를 끝까지 보존해야 하나
++
++## 작은 질문
++
++PintOS 테스트 `mmap-shuffle`은 128 KiB 파일을 만들고, 그 파일을 주소 `0x10000000`에 writable `mmap`으로 붙인다.
++
++그 다음 파일을 `write()`로 바꾸지 않는다. 대신 mapped memory를 배열처럼 직접 바꾼다.
++
++```c
++#define SIZE (128 * 1024)
++
++static char *buf = (char *) 0x10000000;
++
++mmap (buf, SIZE, 1, handle, 0);
++
++for (i = 0; i < SIZE; i++)
++  buf[i] = i * 257;
++
++shuffle (buf, SIZE, 1);
++cksum (buf, SIZE);
++```
++
++질문은 이것이다.
++
++> byte 단위 shuffle이 왜 단순한 배열 테스트가 아니라 file-backed page 32개의 lazy load, writable mapping, dirty state를 함께 검증할까?
++
++## 목차
++
++- 꼬리 질문
++- 왜 필요한가
++- 핵심 모델
++- 예시 상황
++- Linux / Windows에서는
++- PintOS에서는
++- QEMU에서는
++- 차이점
++- 코드 증거
++- 숫자와 메모리
++- 직접 확인
++- 정리
++- 다음 링크
++
++## 꼬리 질문
++
++- 왜 `mmap-shuffle`은 4096B 한 page가 아니라 128 KiB를 쓸까?
++- `shuffle(buf, SIZE, 1)`은 mapped page에 어떤 load/store를 만들까?
++- checksum이 맞는다는 것은 page fault 처리와 page table mapping에 대해 무엇을 말해 줄까?
++- 실제 OS는 여러 file-backed page의 수정 상태를 어떻게 관리할까?
++- PintOS는 `do_mmap()`에서 page별 metadata를 어디까지 만들어야 할까?
++- QEMU는 checksum이나 `mmap` 테스트 이름을 알까?
++- 숫자를 넣으면 `buf[70000]`은 몇 번째 page, 몇 번째 file offset, 몇 번째 disk sector에 대응될까?
++- GDB로 어디를 보면 32개 page가 lazy claim되고 dirty가 되는지 확인할 수 있을까?
++
++## 왜 필요한가
++
++`mmap-read`는 "파일을 mapping해서 읽을 수 있는가"를 작게 본다.
++
++`mmap-write`는 "mapping으로 쓴 데이터가 파일에 돌아가는가"를 본다.
++
++`mmap-shuffle`은 조금 다르다. 이 테스트는 큰 mapping 전체를 계속 읽고 쓰면서, 여러 page의 내용이 뒤섞여도 mapping이 하나의 연속된 byte 배열처럼 보여야 한다는 점을 확인한다.
++
++여기서 중요한 요구사항은 세 가지다.
++
++| 요구사항 | 깨지면 생기는 증상 |
++|---|---|
++| 모든 page가 같은 파일의 연속 구간으로 등록되어야 함 | page 경계 뒤 checksum이 달라짐 |
++| page fault가 난 page를 올바른 file offset에서 채워야 함 | 처음 `cksum`부터 기대값과 다름 |
++| writable PTE와 resident frame 상태가 유지되어야 함 | shuffle 중 write fault, data loss, checksum mismatch 발생 |
++
++이 말은 즉, `mmap-shuffle`은 "128 KiB짜리 char 배열"을 테스트하는 척하지만 실제로는 [[mmap-file-backed-page-knowledge|file-backed page mapping]]이 page 경계를 넘어 일관되게 유지되는지 묻는다.
++
++## 핵심 모델
++
++128 KiB는 page size 4096B 기준으로 정확히 32개 page다.
++
++```text
++SIZE   = 128 * 1024 = 131072 = 0x20000
++PGSIZE = 4096       = 0x1000
++
++page count = 0x20000 / 0x1000 = 32
++```
++
++`mmap(buf, SIZE, 1, handle, 0)`이 성공하면 커널 안에는 이런 의미가 생겨야 한다.
++
++```text
++mapping base = 0x10000000
++length       = 0x20000
++writable     = true
++file offset  = 0
++
++page 0  VA 0x10000000 -> file offset 0x00000
++page 1  VA 0x10001000 -> file offset 0x01000
++...
++page 31 VA 0x1001f000 -> file offset 0x1f000
++```
++
++처음부터 32개 frame을 모두 읽어도 배열처럼 보일 수는 있다. 하지만 PintOS VM 과제의 학습 모델은 보통 lazy loading이다.
++
++```text
++do_mmap()
++  -> 32개 VM_FILE uninit page를 SPT에 등록
++  -> page table에는 아직 present mapping이 없을 수 있음
++
++buf[i] 첫 접근
++  -> page fault
++  -> SPT에서 file-backed page metadata 확인
++  -> file_read_at(file, frame, read_bytes, ofs)
++  -> pml4_set_page(..., writable=true)
++  -> fault를 낸 instruction 재실행
++
++shuffle 중 store
++  -> PTE writable이면 frame byte 수정
++  -> x86 dirty bit가 set됨
++```
++
++checksum은 이 모든 결과를 압축해서 보여준다. 한 page라도 잘못된 file offset에서 읽히거나, page 경계에서 다른 page를 덮거나, shuffle 중 write가 사라지면 최종 checksum이 달라진다.
++
++## 예시 상황
++
++테스트는 처음에 `buf[i] = i * 257`을 수행한다.
++
++expected output을 만드는 Perl checker는 이 값을 raw byte로 이렇게 계산한다.
++
++```perl
++$buf .= chr (($i * 257) & 0xff);
++```
++
++`257 = 256 + 1`이므로 low byte만 보면 `i`와 같다.
++
++```text
++i = 0   -> 0x00
++i = 1   -> 0x01
++i = 255 -> 0xff
++i = 256 -> 0x00
++```
++
++따라서 초기 128 KiB buffer는 `0x00..0xff` 패턴이 512번 반복되는 raw byte 배열이다.
++
++그 다음 `shuffle(buf, SIZE, 1)`은 byte 하나를 다른 위치의 byte 하나와 교환한다.
++
++```text
++for i = 0..131071:
++  j = i + random % (131072 - i)
++  swap(buf[i], buf[j])
++```
++
++이 과정은 한 page 안에서만 끝나지 않는다. 예를 들어 `i=100`이고 `j=70000`이면 page 0의 byte와 page 17의 byte를 서로 바꾼다.
++
++```text
++buf[100]   -> VA 0x10000064, page 0
++buf[70000] -> VA 0x10011170, page 17
++```
++
++커널 입장에서는 두 page 모두 frame에 올라와 있어야 하고, 둘 다 writable이어야 하며, 둘 다 dirty 후보가 된다.
++
++## Linux / Windows에서는
++
++Linux에서 file-backed `mmap`은 VMA와 page cache를 연결한다. 128 KiB mapping은 하나의 VMA일 수 있지만, 실제 메모리 관리는 page 단위로 일어난다.
++
++유저 코드가 mapped address를 읽으면 page fault가 page cache의 file page를 가져오고, mapped address에 쓰면 해당 page는 dirty file page가 된다. 이후 `msync()`, `munmap()`, memory pressure, background writeback 같은 계기로 파일에 반영될 수 있다.
++
++Windows도 mapped file view를 통해 비슷한 문제를 다룬다. view는 연속된 주소 범위로 보이지만, 내부적으로는 page fault, valid/modified page 상태, file object와 section object가 맞물린다.
++
++현실 OS는 PintOS보다 더 복잡하다.
++
++- 같은 file page를 여러 프로세스가 공유할 수 있다.
++- `MAP_PRIVATE` 같은 copy-on-write mapping을 구분해야 한다.
++- page cache 일관성, file truncation, write-back error, lock ordering을 다룬다.
++- multicore에서 동시에 같은 mapping을 건드리는 상황을 제어해야 한다.
++
++처음 배울 때는 이렇게 잡으면 충분하다.
++
++```text
++실제 OS: 연속된 mapping view를 page cache와 page fault로 관리
++PintOS : SPT의 32개 file-backed page와 PTE dirty/writable bit로 축소
++QEMU   : guest load/store, page walk, dirty bit 효과만 하드웨어처럼 재현
++```
++
++## PintOS에서는
++
++현재 저장소의 file-backed VM 구현은 skeleton 상태다.
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/vm/file.c`
++  - `file_backed_swap_in()`
++  - `file_backed_swap_out()`
++  - `do_mmap()`
++  - `do_munmap()`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/vm/file.h`
++  - `struct file_page`가 비어 있음
++
++`mmap-shuffle`을 통과하려면 구현 기준을 page 단위로 세워야 한다.
++
++```text
++do_mmap(buf, 0x20000, writable=true, file, offset=0)
++  -> addr/page alignment 검사
++  -> file length와 mapping length 검사
++  -> 32개 page range가 기존 SPT entry와 겹치지 않는지 검사
++  -> file_reopen(file) 또는 mapping 전용 file reference 확보
++  -> page마다 file offset/read_bytes/zero_bytes/writable metadata 저장
++  -> VM_FILE uninit page를 SPT에 삽입
++```
++
++page별 metadata는 [[file-backed-page-metadata-knowledge]]의 기준과 같다.
++
++```text
++page index i:
++  va         = 0x10000000 + i * 0x1000
++  file_ofs   = i * 0x1000
++  read_bytes = 0x1000
++  zero_bytes = 0
++  writable   = true
++```
++
++`mmap-shuffle`의 파일 크기는 정확히 128 KiB이므로 마지막 page도 partial page가 아니다. 그래서 이 테스트에서는 모든 page의 `read_bytes`가 4096이다.
++
++첫 접근과 shuffle은 이런 흐름으로 이어진다.
++
++```text
++buf[i] = ...
++  -> page fault, 아직 resident가 아니면 file_backed_swap_in()
++  -> frame byte 수정
++  -> PTE_D dirty bit set
++
++cksum(buf, SIZE)
++  -> 32개 page 전체를 순서대로 read
++  -> page가 빠져 있으면 다시 fault/claim
++  -> raw byte 순서가 기대값과 같아야 함
++```
++
++주의할 점도 있다. `mmap-shuffle.ck`은 process가 출력한 checksum을 확인한다. 테스트 자체는 종료 뒤 파일 내용을 다시 열어 검증하지 않는다.
++
++따라서 disk write-back까지 검증하려면 `mmap-write`, `mmap-clean`, `mmap-exit`도 함께 봐야 한다. `mmap-shuffle`은 주로 "큰 writable file-backed mapping이 page 경계를 넘어 배열처럼 동작하는가"를 강하게 묻는 테스트다.
++
++## QEMU에서는
++
++QEMU는 `mmap-shuffle`이라는 테스트 이름도, checksum 기대값도 모른다.
++
++QEMU가 보는 것은 guest CPU와 guest memory의 하드웨어 효과다.
++
++```text
++유저 코드 load/store
++  -> QEMU가 guest virtual address translation 수행
++  -> present/writable/user bit 검사
++  -> store이면 dirty bit set 후보에 PG_DIRTY_MASK 포함
++  -> guest physical memory의 byte 수정
++```
++
++관련 QEMU 근거:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/cpu.h`
++  - `PG_DIRTY_BIT = 6`
++  - `PG_DIRTY_MASK`
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/tcg/system/excp_helper.c`
++  - `access_type == MMU_DATA_STORE`이면 `PG_DIRTY_MASK`를 set할 bit에 포함한다.
++
++PintOS가 나중에 dirty file-backed page를 파일에 쓰면, 그때는 QEMU IDE/block 경로가 보인다.
++
++```text
++file_write_at()
++  -> inode_write_at()
++  -> disk_write()
++  -> QEMU IDE sector write
++  -> block backend byte offset write
++```
++
++하지만 "이 dirty page는 `mmap-shuffle` 때문에 생겼다"는 의미는 QEMU가 아니라 PintOS의 SPT/page table/file metadata가 만든다.
++
++## 차이점
++
++| 항목 | Linux / Windows | PintOS | QEMU |
++|---|---|---|---|
++| mapping 단위 | VMA, mapped view, page cache | 구현자가 만든 mmap region과 SPT page | 없음 |
++| 128 KiB 처리 | 연속 view지만 page 단위 fault/dirty 관리 | 32개 VM_FILE page로 등록 | guest memory access만 실행 |
++| shuffle write | modified/dirty page 상태로 반영 | PTE dirty bit와 frame byte 변경 | store access와 dirty bit 효과 재현 |
++| checksum 의미 | 유저 프로그램의 관찰 결과 | mapping 구현이 보존한 raw byte 순서 | checksum 정책을 모름 |
++| 파일 반영 검증 | flush/unmap/writeback 정책 | 다른 mmap 테스트와 함께 확인 | guest가 sector write를 내야 보임 |
++
++## 코드 증거
++
++### 1. 테스트는 128 KiB를 writable mmap한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/vm/mmap-shuffle.c`
++
++핵심:
++
++```c
++#define SIZE (128 * 1024)
++static char *buf = (char *) 0x10000000;
++
++CHECK (create ("buffer", SIZE), "create \"buffer\"");
++CHECK ((handle = open ("buffer")) > 1, "open \"buffer\"");
++CHECK (mmap (buf, SIZE, 1, handle, 0) != MAP_FAILED, "mmap \"buffer\"");
++```
++
++`writable` 인자가 `1`이므로 page table mapping도 user write를 허용해야 한다.
++
++### 2. 초기화와 shuffle은 mapped memory를 직접 건드린다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/vm/mmap-shuffle.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/lib.c`
++
++핵심:
++
++```c
++for (i = 0; i < SIZE; i++)
++  buf[i] = i * 257;
++
++shuffle (buf, SIZE, 1);
++```
++
++`shuffle()`은 byte swap을 반복한다.
++
++```c
++for (i = 0; i < cnt; i++) {
++  size_t j = i + random_ulong () % (cnt - i);
++  swap (buf + i * size, buf + j * size, size);
++}
++```
++
++`size == 1`이므로 매 반복은 두 위치의 byte를 읽고 두 위치에 다시 쓴다.
++
++### 3. checker는 checksum으로 전체 byte 순서를 검증한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/vm/mmap-shuffle.ck`
++
++핵심 기대값:
++
++```text
++init checksum      = 3115322833
++shuffle 0 checksum = 2274652418
++...
++shuffle 9 checksum = 143675990
++```
++
++한 byte라도 다른 page에 잘못 남거나, page fault 복구가 틀리거나, write가 사라지면 checksum이 달라진다.
++
++### 4. PintOS file-backed page 구현 자리는 비어 있다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/vm/file.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/vm/file.h`
++
++핵심:
++
++```c
++static bool file_backed_swap_in (struct page *page, void *kva);
++static bool file_backed_swap_out (struct page *page);
++void *do_mmap (void *addr, size_t length, int writable,
++               struct file *file, off_t offset);
++void do_munmap (void *addr);
++```
++
++이 skeleton에 32개 page 등록, page-in, dirty 처리, cleanup 의미를 채워야 한다.
++
++### 5. QEMU는 store에서 dirty bit를 하드웨어처럼 다룬다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/tcg/system/excp_helper.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/cpu.h`
++
++핵심:
++
++```text
++access_type == MMU_DATA_STORE
++  -> PG_DIRTY_MASK set 후보 포함
++```
++
++PintOS의 `pml4_is_dirty()`가 나중에 읽는 `PTE_D = 0x40`의 하드웨어 효과가 여기와 맞물린다.
++
++## 숫자와 메모리
++
++### 1. mapping 범위
++
++```text
++base = 0x10000000
++size = 0x20000
++
++first byte = 0x10000000
++last byte  = 0x10000000 + 0x20000 - 1
++           = 0x1001ffff
++```
++
++page base는 32개다.
++
++```text
++page 0  = 0x10000000
++page 1  = 0x10001000
++...
++page 31 = 0x1001f000
++```
++
++### 2. `buf[70000]` 계산
++
++```text
++index       = 70000 = 0x11170
++base        = 0x10000000
++VA          = 0x10011170
++page index  = 0x11170 / 0x1000 = 0x11 = 17
++page base   = 0x10011000
++page offset = 0x170 = 368
++file offset = 70000
++```
++
++이 byte를 읽거나 쓰려면 page 17이 file offset `0x11000`부터 온 page로 등록되어 있어야 한다.
++
++### 3. file offset에서 sector offset으로
++
++PintOS disk sector는 512B다.
++
++```text
++file offset = 70000
++sector step = 70000 / 512 = 136
++in-sector offset = 70000 % 512 = 368
++```
++
++만약 inode의 첫 data sector가 `200`이라면 이 byte는 disk sector `336` 안 offset `368`에 있다.
++
++```text
++disk sector = 200 + 136 = 336
++QEMU block backend offset = 336 * 512 = 172032 = 0x2a000
++```
++
++이 값은 유저 VA도, 파일 안 offset도 아니다. QEMU가 보는 가상 disk image 안 byte offset이다.
++
++### 4. dirty PTE flag
++
++shuffle 뒤 page 17의 PTE flag가 `0x067`이라고 하자.
++
++```text
++0x001 PTE_P present
++0x002 PTE_W writable
++0x004 PTE_U user
++0x020 PTE_A accessed
++0x040 PTE_D dirty
++```
++
++`0x067 & 0x040 != 0`이므로 이 page는 user store를 받은 적이 있다. file-backed page cleanup에서는 이 신호를 보고 write-back 후보로 삼을 수 있다.
++
++## 직접 확인
++
++PintOS 구현 중에는 `mmap-shuffle` 하나만 돌려도 page 경계 문제를 빨리 볼 수 있다.
++
++```sh
++make -C build check TESTS=tests/vm/mmap-shuffle
++```
++
++`Make.tests`에는 이 테스트의 memory가 20MB로 잡혀 있다.
++
++```text
++tests/vm/mmap-shuffle.output: TIMEOUT = 600
++tests/vm/mmap-shuffle.output: MEMORY = 20
++```
++
++GDB에서 먼저 볼 breakpoint:
++
++```gdb
++b do_mmap
++b file_backed_swap_in
++b vm_do_claim_page
++b page_fault
++b pml4_is_dirty
++b file_backed_swap_out
++```
++
++확인할 값:
++
++```gdb
++p/x addr
++p/x length
++p writable
++p/x page->va
++p/x page->frame->kva
++p pml4_is_dirty(thread_current()->pml4, page->va)
++```
++
++page 17을 직접 보고 싶다면 구현한 metadata 이름에 맞춰 이런 의미를 확인한다.
++
++```gdb
++p/x page->va
++p file_page->ofs
++p file_page->read_bytes
++```
++
++기대 의미:
++
++```text
++page->va              = 0x10011000
++file_page->ofs        = 0x11000
++file_page->read_bytes = 4096
++```
++
++테스트 성격을 분리해서 확인하려면 다음 순서가 좋다.
++
++```text
++mmap-read     : file-backed page를 읽을 수 있는지
++mmap-write    : writable mapping이 파일에 반영되는지
++mmap-clean    : clean page를 덮어쓰지 않는지
++mmap-shuffle  : 큰 mapping의 여러 page가 배열처럼 유지되는지
++mmap-exit     : 명시적 munmap 없이 cleanup write-back이 되는지
++```
++
++## 정리
++
++- `mmap-shuffle`은 128 KiB mapping을 써서 32개 file-backed page를 한 번에 흔든다.
++- checksum은 page fault, file offset 계산, writable PTE, frame byte 보존을 압축해서 검증한다.
++- 이 테스트는 종료 뒤 파일 내용을 직접 다시 검사하지 않으므로, disk write-back은 `mmap-write`, `mmap-clean`, `mmap-exit`와 함께 봐야 한다.
++- PintOS 구현에서는 32개 page 각각에 `va`, `file offset`, `read_bytes`, `writable` 의미를 남겨야 한다.
++- QEMU는 `mmap` 정책을 모르고, guest load/store와 dirty bit, 나중의 disk sector write만 하드웨어처럼 재현한다.
++
++## 다음 링크
++
++- [[mmap-file-backed-page-knowledge]]: 파일 바이트가 유저 가상 주소 page로 보이는 전체 모델
++- [[file-backed-page-metadata-knowledge]]: page마다 file offset/read bytes/writable을 저장해야 하는 이유
++- [[mmap-dirty-writeback-qemu-trace]]: dirty file-backed page가 PintOS 파일 쓰기와 QEMU block I/O로 내려가는 흐름
++- [[mmap-munmap-range-trace]]: `munmap()`과 process exit에서 mapping 범위를 정리하는 기준
++- [[page-fault-instruction-retry-knowledge]]: fault handler가 page를 채운 뒤 같은 load/store를 재실행하는 이유
+diff --git a/maps/os/concept-to-code-map.md b/maps/os/concept-to-code-map.md
+index 137f928..becc42c 100644
+--- a/maps/os/concept-to-code-map.md
++++ b/maps/os/concept-to-code-map.md
+@@ -106,0 +107 @@ related_to:
++  - [[mmap-shuffle-multi-page-lab]]
+diff --git a/maps/os/week-3-4-virtual-memory-map.md b/maps/os/week-3-4-virtual-memory-map.md
+index b119438..b016c26 100644
+--- a/maps/os/week-3-4-virtual-memory-map.md
++++ b/maps/os/week-3-4-virtual-memory-map.md
+@@ -54,0 +55 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
++- [[mmap-shuffle-multi-page-lab]]
+@@ -81,0 +83 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
++- [[mmap-shuffle-multi-page-lab]]: 128 KiB writable mapping이 32개 page를 배열처럼 보존하는지 checksum으로 확인하는 기준
+@@ -106,0 +109 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
++- [[mmap-shuffle-multi-page-lab]]: `mmap-shuffle` 테스트로 32개 file-backed page의 lazy claim과 writable byte 보존을 확인
+diff --git a/notes/os/mmap-file-backed-page-knowledge.md b/notes/os/mmap-file-backed-page-knowledge.md
+index 948082d..14734ad 100644
+--- a/notes/os/mmap-file-backed-page-knowledge.md
++++ b/notes/os/mmap-file-backed-page-knowledge.md
+@@ -521,0 +522 @@ make -C build check TESTS=tests/vm/lazy-file
++- [[mmap-shuffle-multi-page-lab]]: 128 KiB writable mapping의 32개 page가 checksum으로 검증되는 방식
+diff --git a/traces/os/mmap-dirty-writeback-qemu-trace.md b/traces/os/mmap-dirty-writeback-qemu-trace.md
+index 09de186..5ffa005 100644
+--- a/traces/os/mmap-dirty-writeback-qemu-trace.md
++++ b/traces/os/mmap-dirty-writeback-qemu-trace.md
+@@ -495,0 +496 @@ make -C build check TESTS=tests/vm/mmap-exit
++make -C build check TESTS=tests/vm/mmap-shuffle
+@@ -503,0 +505 @@ make -C build check TESTS=tests/vm/swap-file
++- `mmap-shuffle`: 128 KiB writable mapping이 32개 page 경계를 넘어 같은 byte 배열처럼 유지되어야 한다.
+@@ -519,0 +522 @@ make -C build check TESTS=tests/vm/swap-file
++- [[mmap-shuffle-multi-page-lab]]: 큰 writable mapping에서 여러 page의 byte 상태가 checksum으로 검증되는 방식

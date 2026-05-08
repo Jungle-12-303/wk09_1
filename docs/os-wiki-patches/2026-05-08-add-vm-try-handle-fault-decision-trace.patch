@@ -1,0 +1,507 @@
+diff --git a/maps/os/concept-to-code-map.md b/maps/os/concept-to-code-map.md
+index e749381..0ddf40c 100644
+--- a/maps/os/concept-to-code-map.md
++++ b/maps/os/concept-to-code-map.md
+@@ -82,6 +82,7 @@ related_to:
+   - [[clock-hand-victim-selection-lab]]
+   - [[page-fault-error-code-knowledge]]
+   - [[page-fault-instruction-retry-knowledge]]
++  - [[vm-try-handle-fault-decision-trace]]
+   - [[tlb-cr3-address-space-switch-knowledge]]
+   - [[바이트-버퍼와-캐스팅-실험|바이트 버퍼와 캐스팅 실험]]
+ - 3.5단계: 파일이 메모리처럼 보이는 법
+@@ -265,6 +266,7 @@ related_to:
+     - [[clock-hand-victim-selection-lab]]
+     - [[page-fault-error-code-knowledge]]
+     - [[page-fault-instruction-retry-knowledge]]
++    - [[vm-try-handle-fault-decision-trace]]
+     - [[tlb-cr3-address-space-switch-knowledge]]
+     - [[supplemental-page-table-knowledge]]
+     - [[stack-growth-page-fault-knowledge]]
+@@ -413,6 +415,7 @@ related_to:
+       - [[tlb-cr3-address-space-switch-knowledge]]
+     - page fault는 왜 항상 에러가 아닌가?
+     - page fault handler가 성공하면 왜 fault를 낸 같은 명령어를 다시 실행하는가?
++    - `vm_try_handle_fault()`는 SPT 조회, stack growth, 종료를 어떤 순서로 가르는가?
+     - supplemental page table은 왜 page table만으로 부족해서 필요한가?
+     - frame이 부족하면 무엇을 내보내는가?
+     - anonymous page는 swap disk의 어느 slot으로 나갔다 돌아오는가?
+@@ -430,6 +433,7 @@ related_to:
+     - [[accessed-dirty-eviction-knowledge]]: accessed bit로 victim 후보를 미루고 dirty bit로 swap/file write-back 필요성을 판단하는 법
+     - [[page-fault-error-code-knowledge]]: `PF_P/PF_W/PF_U`가 `vm_try_handle_fault()` 판단표로 바뀌는 과정
+     - [[page-fault-instruction-retry-knowledge]]: `CR2`와 `f->rip`를 구분하고 `iretq`가 같은 명령어로 돌아가는 이유
++    - [[vm-try-handle-fault-decision-trace]]: fault 주소를 SPT hit, stack growth 후보, kill 대상으로 분기하는 구현 판단 흐름
+     - [[tlb-cr3-address-space-switch-knowledge]]: CR3가 현재 page table root를 고르고 TLB가 최근 번역을 캐시하는 방식
+     - [[supplemental-page-table-knowledge]]: fault address가 원래 어떤 backing 정보를 가진 페이지인지 찾는 표
+     - [[anonymous-page-swap-slot-knowledge]]: SPT와 `struct anon_page`가 swap slot 복원 정보를 나누어 기억하는 기준
+@@ -438,6 +442,7 @@ related_to:
+     - [[disk-sector-qemu-block-backend-knowledge]]: PintOS sector 번호가 QEMU block backend byte offset으로 바뀌는 기준
+   - 핵심 흐름
+     - [[page-fault-trace]]: “fault를 살릴지/죽일지”가 갈리는 지점
++    - [[vm-try-handle-fault-decision-trace]]: `vm_try_handle_fault()` 안에서 SPT와 유저 `RSP`를 기준으로 결정을 내리는 지점
+     - [[frame-eviction-trace]]: 빈 frame이 없을 때 victim page를 내보내고 frame을 재사용하는 지점
+     - [[mmap-syscall-handler-trace]]: `SYS_MMAP` register 인자를 검증하고 `do_mmap()`으로 넘기는 지점
+     - [[mmap-dirty-writeback-qemu-trace]]: dirty file-backed page가 `file_write_at()`과 QEMU block write로 내려가는 지점
+@@ -710,6 +715,7 @@ related_to:
+     - [[page-table-entry-bits-knowledge]]
+     - [[page-fault-error-code-knowledge]]
+     - [[page-fault-instruction-retry-knowledge]]
++    - [[vm-try-handle-fault-decision-trace]]
+     - [[stack-growth-page-fault-knowledge]]
+ - frame eviction
+   - PintOS 코드
+@@ -1180,6 +1186,7 @@ related_to:
+   - [[user-pointer-validation-trace]]
+   - [[process-wait-exit-trace]]
+   - [[frame-eviction-trace]]
++  - [[vm-try-handle-fault-decision-trace]]
+   - [[mmap-syscall-handler-trace]]
+   - [[mmap-dirty-writeback-qemu-trace]]
+ - 실험
+diff --git a/maps/os/week-3-4-virtual-memory-map.md b/maps/os/week-3-4-virtual-memory-map.md
+index 5944c55..1007022 100644
+--- a/maps/os/week-3-4-virtual-memory-map.md
++++ b/maps/os/week-3-4-virtual-memory-map.md
+@@ -39,6 +39,7 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
+ - [[accessed-dirty-eviction-knowledge]]
+ - [[page-fault-error-code-knowledge]]
+ - [[page-fault-instruction-retry-knowledge]]
++- [[vm-try-handle-fault-decision-trace]]
+ - [[tlb-cr3-address-space-switch-knowledge]]
+ - [[supplemental-page-table-knowledge]]
+ - [[stack-growth-page-fault-knowledge]]
+@@ -57,6 +58,7 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
+ - [[accessed-dirty-eviction-knowledge]]: accessed bit와 dirty bit를 victim 선택, swap, file write-back 판단으로 연결하는 법
+ - [[page-fault-error-code-knowledge]]: `CR2`와 `PF_P/PF_W/PF_U`로 not-present, write, user fault를 분류하는 법
+ - [[page-fault-instruction-retry-knowledge]]: fault handler가 page table을 고친 뒤 `iretq`로 같은 명령어를 다시 실행하는 이유
++- [[vm-try-handle-fault-decision-trace]]: `vm_try_handle_fault()`가 SPT hit, stack growth, kill 후보를 가르는 판단 순서
+ - [[tlb-cr3-address-space-switch-knowledge]]: CR3가 page table root를 고르고 TLB가 최근 VA -> PA 번역을 캐시하는 방식
+ - [[supplemental-page-table-knowledge]]: page table만으로는 기억할 수 없는 "원래 합법한 페이지" 정보
+ - [[stack-growth-page-fault-knowledge]]: `CR2`, 유저 `RSP`, `USER_STACK`으로 스택 성장 fault를 살릴지 판단하는 기준
+@@ -68,6 +70,7 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
+ ## 흐름 추적
+ 
+ - [[page-fault-trace]]: #PF가 OS 정책으로 이어지는 관문
++- [[vm-try-handle-fault-decision-trace]]: page fault를 SPT 조회, stack growth, 종료로 분기하는 결정 흐름
+ - [[frame-eviction-trace]]: 빈 frame이 없을 때 victim page를 내보내고 frame을 재사용하는 흐름
+ - [[mmap-syscall-handler-trace]]: user `mmap()` register 인자가 `syscall_handler()`에서 `do_mmap()`으로 이어지는 흐름
+ - [[mmap-munmap-range-trace]]: `do_munmap(addr)`가 mapping 범위를 찾아 dirty page와 PTE/SPT를 정리하는 흐름
+diff --git a/traces/os/page-fault-trace.md b/traces/os/page-fault-trace.md
+index a7ef445..15e231f 100644
+--- a/traces/os/page-fault-trace.md
++++ b/traces/os/page-fault-trace.md
+@@ -113,6 +113,8 @@ PintOS에서 page fault의 관문은 여기다.
+ 
+ `PF_P/PF_W/PF_U` 비트가 실제로 어떤 판단표로 바뀌는지는 [[page-fault-error-code-knowledge]]에서 따로 분해한다. 이 trace에서는 전체 흐름을 먼저 잡고, 세부 분류는 그 문서로 넘긴다.
+ 
++`vm_try_handle_fault()`가 그 정보를 받아 SPT 조회, stack growth, 종료 후보로 어떻게 가르는지는 [[vm-try-handle-fault-decision-trace]]에서 따로 본다. 이 문서에서는 page fault의 입구와 출구를 먼저 잡고, 결정 함수 내부는 별도 Trace로 내려간다.
++
+ 처리 성공 뒤 왜 프로그램이 "아무 일 없던 것처럼" 이어지는지는 [[page-fault-instruction-retry-knowledge]]에서 따로 본다. 핵심은 `CR2`의 `fault_addr`와 `struct intr_frame`의 `f->rip`가 다른 값이고, PintOS가 PTE를 설치한 뒤 `iretq`가 fault를 낸 같은 명령어로 돌아간다는 점이다.
+ 
+ ### PintOS 코드 증거 1: CR2와 error_code 해석
+@@ -248,6 +250,7 @@ page fault 처리 코드는 보통 `page base` 단위로 “어떤 페이지가
+ 
+ - [[address-translation-memory]]: 주소 변환의 큰 그림(숫자 예제 포함)
+ - [[page-fault-error-code-knowledge]]: `CR2`와 `PF_P/PF_W/PF_U`로 fault 종류를 분류하는 법
++- [[vm-try-handle-fault-decision-trace]]: SPT hit, stack growth, kill 후보를 가르는 결정 흐름
+ - [[page-fault-instruction-retry-knowledge]]: fault를 살린 뒤 같은 명령어를 다시 실행하는 이유
+ - [[stack-growth-page-fault-knowledge]]: `CR2`와 유저 `RSP`로 스택 성장 fault를 살릴지 판단하는 기준
+ - [[supplemental-page-table-knowledge]]: page table만으로는 부족한 fault 처리용 의미 장부
+diff --git a/traces/os/vm-try-handle-fault-decision-trace.md b/traces/os/vm-try-handle-fault-decision-trace.md
+new file mode 100644
+index 0000000..4b05ffe
+--- /dev/null
++++ b/traces/os/vm-try-handle-fault-decision-trace.md
+@@ -0,0 +1,392 @@
++---
++type: Trace
++status: Draft
++week:
++  - vm
++systems:
++  - Linux
++  - Windows
++  - PintOS
++  - QEMU
++tags:
++  - domain:os
++  - domain:pintos
++  - domain:qemu
++  - week:vm
++  - layer:memory
++  - layer:kernel
++  - layer:emulator
++  - topic:page-fault
++  - topic:page-table
++  - topic:stack
++  - topic:gdb
++related_to:
++  - "[[concept-to-code-map]]"
++  - "[[week-3-4-virtual-memory-map]]"
++  - "[[page-fault-trace]]"
++  - "[[supplemental-page-table-knowledge]]"
++  - "[[stack-growth-page-fault-knowledge]]"
++  - "[[page-fault-error-code-knowledge]]"
++---
++
++# vm_try_handle_fault 결정 Trace
++
++## 작은 질문
++
++PintOS의 `page_fault()`는 fault가 나면 `vm_try_handle_fault()`에게 먼저 처리 기회를 준다.
++
++그렇다면 이 함수는 무엇을 보고 이런 결정을 내려야 할까?
++
++> 이 주소는 이미 등록된 lazy page인가, 새로 자라야 할 stack page인가, 아니면 프로세스를 죽여야 할 잘못된 접근인가?
++
++이 Trace는 [[page-fault-trace]]에서 한 단계 내려와, `vm_try_handle_fault()` 안에 들어갈 판단 순서를 좁게 다룬다.
++
++## 꼬리 질문
++
++- 왜 `page_fault()`에서 바로 frame을 붙이지 않을까?
++- 실제 OS는 page fault를 어떤 주소 공간 metadata와 비교할까?
++- PintOS에서는 왜 [[supplemental-page-table-knowledge|SPT]]를 먼저 찾아야 할까?
++- SPT에 없는 주소도 언제 [[stack-growth-page-fault-knowledge|stack growth]]로 살릴 수 있을까?
++- QEMU는 이 판단 중 무엇을 알고, 무엇을 모를까?
++- 숫자를 넣으면 `fault_addr`, page base, `rsp` 차이는 어떻게 계산될까?
++- GDB에서는 어떤 값들을 나란히 봐야 할까?
++
++## 왜 필요한가
++
++page fault는 하나의 현상이지만 결말은 여러 가지다.
++
++```text
++case 1: 합법적인 lazy page
++  -> SPT에서 struct page를 찾음
++  -> frame을 claim
++  -> 파일/swap/zero page 내용을 채움
++  -> 같은 명령어 재실행
++
++case 2: 합법적인 stack growth
++  -> SPT에는 아직 없음
++  -> fault_addr가 rsp 근처이고 stack 한계 안쪽임
++  -> 새 anonymous page를 만들고 claim
++
++case 3: 불법 접근
++  -> SPT에도 없음
++  -> stack growth로도 볼 수 없음
++  -> false 반환
++  -> page_fault()가 kill()
++```
++
++이 말은 즉, `vm_try_handle_fault()`는 "프레임을 하나 얻는 함수"가 아니다. 더 정확히는 fault를 살릴 수 있는지 판단하는 작은 정책 엔진이다.
++
++## 핵심 모델
++
++`vm_try_handle_fault()`는 세 층의 정보를 합쳐 판단한다.
++
++| 정보 | 코드에서 오는 곳 | 답하는 질문 |
++|---|---|---|
++| fault 주소 | `fault_addr = rcr2()` | 어떤 VA 때문에 실패했나? |
++| fault 종류 | `PF_P/PF_W/PF_U` | not-present, write, user fault인가? |
++| 주소 공간 metadata | `thread_current()->spt` | 이 VA가 원래 합법적인 page인가? |
++| 현재 user stack 경계 | `f->rsp` 또는 저장해 둔 user `rsp` | stack이 조금 더 필요해진 접근인가? |
++
++판단 순서는 이렇게 잡으면 된다.
++
++```text
++vm_try_handle_fault(f, addr, user, write, not_present)
++  -> addr가 유저 주소인지 확인
++  -> not-present fault인지 확인
++  -> page_base = pg_round_down(addr)
++  -> page = spt_find_page(&current->spt, page_base)
++  -> page가 있으면 writable/접근 조건 확인
++     -> vm_do_claim_page(page)
++  -> page가 없으면 stack growth 후보인지 확인
++     -> vm_stack_growth(page_base)
++     -> vm_claim_page(page_base)
++  -> 둘 다 아니면 false
++```
++
++여기서 page table은 "현재 번역 가능한가"를 말하고, SPT는 "이 주소가 원래 어떤 의미였나"를 말한다. 이 둘을 섞으면 page fault 처리 흐름이 헷갈린다.
++
++## 예시 상황
++
++예를 들어 fault 주소와 user stack pointer가 다음과 같다고 하자.
++
++```text
++USER_STACK = 0x47480000
++rsp        = 0x4747f010
++fault_addr = 0x4747f008
++```
++
++계산은 이렇게 한다.
++
++```text
++page size = 0x1000
++page_base = pg_round_down(0x4747f008)
++          = 0x4747f000
++
++rsp - fault_addr = 0x8
++```
++
++`fault_addr`가 `rsp - 8`이면 x86-64 `push` 계열 접근처럼 볼 수 있다. 이 경우 SPT에 아직 없더라도 stack growth 후보가 될 수 있다.
++
++반대로 이렇게 멀면 다르다.
++
++```text
++rsp        = 0x4747f010
++fault_addr = 0x4747e010
++
++rsp - fault_addr = 0x1000
++```
++
++현재 `rsp`보다 한 페이지 아래를 갑자기 읽는 접근은 정상적인 stack growth로 보기 어렵다. PintOS VM 테스트도 이런 접근은 죽어야 한다고 확인한다.
++
++## Linux / Windows에서는
++
++Linux는 fault 주소를 현재 프로세스의 주소 공간 metadata와 비교한다. 대표적으로 VMA는 주소 범위, 권한, file mapping, stack 영역 같은 의미를 담는다. page table은 resident mapping을 담고, VMA 계열 metadata는 "이 주소가 원래 합법적인가"를 판단하는 근거가 된다.
++
++Windows도 프로세스 주소 공간, protection, section object, committed/reserved page, guard page 같은 정보를 함께 본다. 스택 성장은 guard page와 thread stack limit 정책과 연결된다.
++
++현실 OS는 copy-on-write, shared mapping, signal/exception delivery, page cache, swap, NUMA, 보안 정책까지 고려한다. PintOS는 이 복잡도를 교육용으로 줄여서 `vm_try_handle_fault()`, SPT, page type별 `swap_in()`으로 핵심 흐름을 보게 한다.
++
++## PintOS에서는
++
++PintOS의 입구는 `page_fault()`다.
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/exception.c`
++  - `fault_addr = (void *) rcr2()`
++  - `not_present = (f->error_code & PF_P) == 0`
++  - `write = (f->error_code & PF_W) != 0`
++  - `user = (f->error_code & PF_U) != 0`
++  - `vm_try_handle_fault(f, fault_addr, user, write, not_present)`
++
++그리고 결정 함수의 자리는 여기다.
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/vm/vm.c`
++  - `spt_find_page()`
++  - `spt_insert_page()`
++  - `vm_stack_growth()`
++  - `vm_try_handle_fault()`
++  - `vm_claim_page()`
++  - `vm_do_claim_page()`
++
++현재 저장소 기준으로 이 함수들은 스켈레톤이다. 따라서 이 문서는 "이미 구현된 동작"을 설명하는 것이 아니라, TODO가 요구하는 판단 흐름을 실제 코드 위치와 연결한다.
++
++가장 중요한 구조체는 다음이다.
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/vm/vm.h`
++  - `struct page`
++  - `struct frame`
++  - `struct supplemental_page_table`
++  - `struct page_operations`
++
++현재 `struct supplemental_page_table`은 비어 있다. 구현자는 이 안에 hash table, list, tree 같은 저장소를 넣고, page-rounded user VA를 key로 `struct page`를 찾을 수 있게 만들어야 한다.
++
++## QEMU에서는
++
++QEMU는 `vm_try_handle_fault()`의 판단을 모른다.
++
++QEMU가 하는 일은 guest CPU가 x86 MMU를 통해 주소 변환을 시도하는 것처럼 보이게 하는 일이다. 변환 실패나 권한 위반이 나면 page fault 예외를 guest인 PintOS에 전달한다.
++
++관련 QEMU 코드:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/emulate/x86_mmu.c`
++  - `mmu_gva_to_gpa()`
++  - `env->exception_payload = gva`
++  - `env->cr[2] = gva`
++  - `x86_emul_raise_exception(env, EXCP0E_PAGE, error_code)`
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/machine.c`
++  - page fault payload를 `env->cr[2]`로 옮기는 흐름
++- `/Users/woonyong/workspace/Krafton-Jungle/QEMU/target/i386/cpu.h`
++  - `PG_ERROR_P_MASK`
++  - `PG_ERROR_W_MASK`
++  - `PG_ERROR_U_MASK`
++  - `EXCP0E_PAGE`
++
++즉 QEMU는 `fault_addr`와 error code가 guest에게 전달되는 하드웨어 효과를 제공한다. 하지만 그 주소가 SPT에 있는지, stack growth로 살릴 수 있는지는 PintOS가 결정한다.
++
++## 차이점
++
++| 항목 | Linux / Windows | PintOS | QEMU |
++|---|---|---|---|
++| 판단 주체 | 실제 커널 VM subsystem | `vm_try_handle_fault()` 구현 | 판단하지 않음 |
++| 주소 의미 metadata | VMA, section, guard page 등 | `struct supplemental_page_table` | 없음 |
++| stack growth | stack VMA/guard page/limit 정책 | `fault_addr`와 user `rsp` 근처성으로 단순화 | 모름 |
++| page 준비 | frame, page cache, swap, COW 등 | `vm_do_claim_page()`와 page type별 `swap_in()` | guest memory/device 효과만 제공 |
++| 실패 처리 | signal/access violation/OOM 등 | `false` 반환 후 `kill(f)` | guest #PF 전달 |
++
++## 코드 증거
++
++### 1. page_fault()는 판단 재료를 만든다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/exception.c`
++
++요지는 다음이다.
++
++```c
++fault_addr = (void *) rcr2();
++
++not_present = (f->error_code & PF_P) == 0;
++write = (f->error_code & PF_W) != 0;
++user = (f->error_code & PF_U) != 0;
++
++if (vm_try_handle_fault (f, fault_addr, user, write, not_present))
++    return;
++```
++
++`return`하면 fault를 처리한 것이다. 처리하지 못하면 아래의 `printf()`와 `kill(f)`로 내려간다.
++
++### 2. vm_try_handle_fault()는 현재 프로세스의 SPT에서 시작한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/vm/vm.c`
++
++스켈레톤은 이미 출발점을 보여준다.
++
++```c
++struct supplemental_page_table *spt = &thread_current ()->spt;
++struct page *page = NULL;
++```
++
++이 말은 즉, page fault 판단은 전역 하나의 표가 아니라 현재 스레드, 즉 현재 유저 프로세스의 주소 공간 metadata에서 시작한다.
++
++### 3. page base로 내려서 찾아야 한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/include/threads/vaddr.h`
++
++핵심 상수와 매크로:
++
++```c
++#define PGBITS  12
++#define PGSIZE  (1 << PGBITS)
++#define pg_round_down(va) (void *) ((uint64_t) (va) & ~PGMASK)
++#define USER_STACK 0x47480000
++```
++
++SPT의 key는 보통 byte 주소 그대로가 아니라 page base다.
++
++```text
++fault_addr = 0x8048123
++page_base  = 0x8048000
++offset     = 0x123
++```
++
++### 4. claim은 frame과 page table을 연결한다
++
++파일:
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/vm/vm.c`
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/threads/mmu.c`
++
++`vm_do_claim_page()`는 frame을 얻고, `page->frame`과 `frame->page`를 서로 연결한 뒤 page table mapping을 설치해야 한다. 실제 PTE 설치는 `pml4_set_page()`가 담당한다.
++
++```text
++page->va       = 0x8048000
++frame->kva     = 0x800012340000
++pml4_set_page(current->pml4, page->va, frame->kva, writable)
++```
++
++그 다음 page type별 `swap_in(page, frame->kva)`가 실행 파일, anonymous swap, file-backed page 내용을 frame에 채우는 자리다.
++
++### 5. write-protect fault는 별도 갈림길이다
++
++`not_present == false`이면 "page가 없어서 난 fault"가 아니라 "권한이 맞지 않아서 난 fault"다. 이 저장소에는 `vm_handle_wp()`라는 자리가 있지만 현재 비어 있다.
++
++기본 VM 구현에서는 not-present lazy load와 stack growth부터 분리해서 처리하고, write-protect fault를 무조건 stack growth로 보면 안 된다. 현실 OS의 copy-on-write 같은 기능은 이 갈림길을 더 복잡하게 만든다.
++
++## 숫자와 메모리
++
++### SPT 조회 예시
++
++```text
++fault_addr = 0x8048123
++PGSIZE     = 0x1000
++page_base  = 0x8048000
++offset     = 0x123
++```
++
++SPT에는 `0x8048123`이 아니라 `0x8048000`을 key로 찾는다고 생각하면 된다. 같은 page 안의 `0x8048001`, `0x8048123`, `0x8048fff`는 모두 같은 `struct page`로 이어진다.
++
++### stack growth 후보 예시
++
++```text
++USER_STACK = 0x47480000
++rsp        = 0x4747f010
++fault_addr = 0x4747f008
++page_base  = 0x4747f000
++
++rsp - fault_addr = 8
++```
++
++이 접근은 `rsp` 근처다. SPT에 없더라도 새 stack page 후보로 볼 수 있다.
++
++### 죽일 fault 예시
++
++```text
++USER_STACK = 0x47480000
++rsp        = 0x4747f010
++fault_addr = 0x1000
++```
++
++이 주소는 user address일 수는 있지만 현재 stack 근처가 아니다. SPT에 등록된 page도 아니라면 `false`로 끝나야 한다.
++
++## 직접 확인
++
++PintOS GDB에서는 다음 값을 한 화면에 모아 보는 것이 좋다.
++
++```gdb
++b page_fault
++b vm_try_handle_fault
++b spt_find_page
++b vm_do_claim_page
++```
++
++`page_fault`에서:
++
++```gdb
++p/x fault_addr
++p/x f->rip
++p/x f->rsp
++p/x f->error_code
++```
++
++`vm_try_handle_fault`에서:
++
++```gdb
++p/x addr
++p/x pg_round_down(addr)
++p user
++p write
++p not_present
++p/x thread_current()->spt
++```
++
++구현 후에는 다음을 확인한다.
++
++```gdb
++p page
++p page->va
++p page->frame
++pml4_get_page(thread_current()->pml4, page->va)
++```
++
++QEMU GDB stub에 붙은 GDB가 보여주는 register와 memory는 guest 상태다. QEMU host C 함수인 `mmu_gva_to_gpa()` 내부를 보려면 PintOS GDB가 아니라 host debugger로 QEMU process를 따로 봐야 한다.
++
++## 정리
++
++- `vm_try_handle_fault()`는 page fault를 살릴지 죽일지 결정하는 정책 자리다.
++- 첫 번째 후보는 SPT에 이미 등록된 lazy/anon/file page다.
++- 두 번째 후보는 SPT에는 없지만 user `rsp` 근처에서 난 stack growth fault다.
++- 권한 위반 fault와 엉뚱한 주소 접근을 stack growth로 살리면 메모리 보호가 깨진다.
++- QEMU는 #PF와 CR2/error code 전달을 흉내 낼 뿐, SPT나 stack growth 의미를 해석하지 않는다.
++
++## 다음 링크
++
++- [[page-fault-trace]]: #PF가 PintOS handler로 들어오는 전체 흐름
++- [[page-fault-error-code-knowledge]]: `PF_P/PF_W/PF_U`가 판단표로 바뀌는 법
++- [[supplemental-page-table-knowledge]]: page table만으로 부족한 주소 의미 장부
++- [[stack-growth-page-fault-knowledge]]: stack fault를 살릴 수 있는 구체 기준
++- [[page-fault-instruction-retry-knowledge]]: fault 처리 후 같은 명령어가 다시 실행되는 이유
++- [[frame-eviction-trace]]: claim하려는 순간 빈 frame이 없을 때 이어지는 흐름
