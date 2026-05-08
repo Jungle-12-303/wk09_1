@@ -20,9 +20,7 @@ rox-simple rox-child rox-multichild bad-read bad-write bad-read2 bad-write2  \
 bad-jump bad-jump2)
 
 tests/userprog_PROGS = $(tests/userprog_TESTS) $(addprefix \
-tests/userprog/,child-simple child-args child-bad child-close child-rox child-read \
-orphan-parent orphan-reparent-wait orphan-reparent-twice orphan-reparent-killed \
-orphan-reparent-storm)
+tests/userprog/,child-simple child-args child-bad child-close child-rox child-read)
 
 tests/userprog/args-none_SRC = tests/userprog/args.c
 tests/userprog/args-single_SRC = tests/userprog/args.c
@@ -107,15 +105,6 @@ tests/userprog/child-close_SRC = tests/userprog/child-close.c
 tests/userprog/child-rox_SRC = tests/userprog/child-rox.c
 tests/userprog/child-read_SRC = tests/userprog/child-read.c \
 tests/userprog/boundary.c
-tests/userprog/orphan-parent_SRC = tests/userprog/orphan-parent.c
-tests/userprog/orphan-reparent-wait_SRC = tests/userprog/orphan-reparent-wait.c \
-tests/main.c
-tests/userprog/orphan-reparent-twice_SRC = tests/userprog/orphan-reparent-twice.c \
-tests/main.c
-tests/userprog/orphan-reparent-killed_SRC = tests/userprog/orphan-reparent-killed.c \
-tests/main.c
-tests/userprog/orphan-reparent-storm_SRC = tests/userprog/orphan-reparent-storm.c \
-tests/main.c
 
 $(foreach prog,$(tests/userprog_PROGS),$(eval $(prog)_SRC += tests/lib.c))
 
@@ -154,11 +143,3 @@ tests/userprog/wait-killed_PUTFILES += tests/userprog/child-bad
 tests/userprog/rox-child_PUTFILES += tests/userprog/child-rox
 tests/userprog/rox-multichild_PUTFILES += tests/userprog/child-rox
 tests/userprog/exec-read_PUTFILES += tests/userprog/child-read
-tests/userprog/orphan-reparent-wait_PUTFILES += tests/userprog/orphan-parent \
-tests/userprog/child-simple
-tests/userprog/orphan-reparent-twice_PUTFILES += tests/userprog/orphan-parent \
-tests/userprog/child-simple
-tests/userprog/orphan-reparent-killed_PUTFILES += tests/userprog/orphan-parent \
-tests/userprog/child-bad
-tests/userprog/orphan-reparent-storm_PUTFILES += tests/userprog/orphan-parent \
-tests/userprog/child-simple

@@ -47,11 +47,6 @@ static struct thread *idle_thread;
  */
 static struct thread *initial_thread;
 
-#ifdef USERPROG
-/* 최초 유저 프로세스를 실행하는 루트 스레드. */
-static struct thread *root_thread;
-#endif
-
 /*
  * allocate_tid()에서 사용하는 락.
  */
@@ -343,24 +338,6 @@ thread_current (void) {
 	ASSERT (t->status == THREAD_RUNNING);
 
 	return t;
-}
-
-struct thread *
-thread_root (void) {
-#ifdef USERPROG
-	return root_thread;
-#else
-	return NULL;
-#endif
-}
-
-void
-thread_set_root (struct thread *t) {
-#ifdef USERPROG
-	root_thread = t;
-#else
-	UNUSED (t);
-#endif
 }
 
 /*

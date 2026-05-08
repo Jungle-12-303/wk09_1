@@ -169,8 +169,6 @@ void thread_block (void);
 void thread_unblock (struct thread *);
 
 struct thread *thread_current (void);
-struct thread *thread_root (void);
-void thread_set_root (struct thread *t);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
