@@ -1,0 +1,538 @@
+diff --git a/labs/os/mmap-file-reference-lifetime-lab.md b/labs/os/mmap-file-reference-lifetime-lab.md
+new file mode 100644
+index 0000000..3907974
+--- /dev/null
++++ b/labs/os/mmap-file-reference-lifetime-lab.md
+@@ -0,0 +1,451 @@
++---
++type: Lab
++status: Draft
++week:
++  - vm
++systems:
++  - Linux
++  - Windows
++  - PintOS
++  - QEMU
++tags:
++  - domain:os
++  - domain:pintos
++  - domain:qemu
++  - week:vm
++  - topic:mmap
++  - topic:fd
++  - topic:inode
++  - topic:gdb
++  - layer:user
++  - layer:kernel
++  - layer:memory
++  - layer:device
++  - layer:emulator
++related_to:
++  - "[[concept-to-code-map]]"
++  - "[[week-3-4-virtual-memory-map]]"
++  - "[[mmap-file-backed-page-knowledge]]"
++  - "[[file-backed-page-metadata-knowledge]]"
++  - "[[mmap-munmap-range-trace]]"
++  - "[[mmap-dirty-writeback-qemu-trace]]"
++  - "[[file-descriptor-knowledge]]"
++---
++# mmap file reference lifetime Lab
++
++## 작은 질문
++
++`mmap()`은 fd를 받아서 파일을 메모리에 붙인다.
++
++그렇다면 다음 코드는 왜 성공해야 할까?
++
++```c
++int fd = open ("sample.txt");
++char *p = mmap ((void *) 0x10000000, 4096, 0, fd, 0);
++close (fd);
++
++memcmp (p, sample, strlen (sample));
++```
++
++질문은 이것이다.
++
++> 원래 fd를 닫았는데도 mapping은 왜 계속 파일 내용을 읽을 수 있어야 할까?
++
++## 목차
++
++- 꼬리 질문
++- 왜 필요한가
++- 핵심 모델
++- 예시 상황
++- Linux / Windows에서는
++- PintOS에서는
++- QEMU에서는
++- 차이점
++- 코드 증거
++- 숫자와 메모리
++- 직접 확인
++- 정리
++- 다음 링크
++
++## 꼬리 질문
++
++이번 Lab은 `mmap-close`, `mmap-remove`, `mmap-exit`, `mmap-twice`를 한 묶음으로 본다.
++
++- 왜 fd table entry와 mapping은 같은 생명주기를 가지면 안 될까?
++- `file_reopen()`은 실제로 어떤 counter를 늘릴까?
++- remove된 파일을 mapping으로 계속 읽을 수 있다는 말은 무엇을 뜻할까?
++- process exit에서 fd table을 먼저 닫으면 dirty mapping write-back은 어떻게 살아남아야 할까?
++- 같은 파일을 두 번 `mmap()`하면 file object와 inode reference는 어떻게 나누어야 할까?
++- 실제 Linux/Windows는 fd/handle close와 mapped view 생명주기를 어떻게 분리할까?
++- PintOS에서는 `struct file`, `struct inode`, `open_cnt`, `removed`를 어디서 볼까?
++- QEMU는 파일 이름이 remove되었는지 알까?
++- 숫자를 넣으면 open count가 어떤 순서로 변할까?
++- GDB로 어디를 보면 fd close 뒤 mapping reference가 남아 있는지 확인할 수 있을까?
++
++## 왜 필요한가
++
++`mmap()`의 인자는 fd지만, 성공한 뒤 mapping은 fd table entry보다 오래 살 수 있다.
++
++이 차이를 놓치면 다음 테스트가 깨진다.
++
++| 테스트 | 요구하는 결론 |
++|---|---|
++| `mmap-close` | 원래 fd를 닫아도 mapping으로 파일 내용을 읽을 수 있어야 함 |
++| `mmap-remove` | 파일 이름을 remove해도 기존 mapping은 내용을 읽을 수 있어야 함 |
++| `mmap-exit` | `munmap()` 없이 exit해도 dirty mapping이 파일에 write-back되어야 함 |
++| `mmap-twice` | 같은 파일을 두 주소에 mapping해도 각각 정상 읽기가 되어야 함 |
++
++이 말은 즉, `mmap()`은 fd table entry를 빌려 쓰는 호출이 아니라 **파일 객체에 대한 독립적인 mapping reference를 만드는 호출**이다.
++
++만약 mapping이 원래 fd의 `struct file *`만 그대로 들고 있으면 이런 일이 생긴다.
++
++```text
++mmap()
++  mapping.file = fd_table[3]
++
++close(3)
++  process_close_file(3)
++    -> file_close(fd_table[3])
++    -> inode_close(file->inode)
++    -> free(file)
++
++page fault or munmap later
++  mapping.file은 이미 닫힌 file을 가리킴
++```
++
++그래서 mapping은 `file_reopen()` 같은 방식으로 fd close와 별도 생명주기를 가져야 한다.
++
++## 핵심 모델
++
++처음에는 세 층을 분리해서 생각한다.
++
++| 층 | 무엇을 뜻하나 | 닫히는 시점 |
++|---|---|---|
++| fd number | 유저 프로세스가 가진 작은 정수 | `close(fd)` 또는 process exit |
++| `struct file` | 현재 위치, deny_write flag, inode pointer를 가진 열린 파일 객체 | `file_close(file)` |
++| `struct inode` | 디스크 파일의 실제 metadata와 open count | 마지막 opener가 닫힐 때 |
++
++`mmap` 성공 뒤에는 이런 모양이 안전하다.
++
++```text
++fd_table[3] -------------------> struct file A
++                                  |
++                                  v
++                                inode X
++
++mmap_region.file --------------> struct file B
++                                  |
++                                  v
++                                inode X
++```
++
++`struct file A`와 `struct file B`는 서로 다른 열린 파일 객체지만 같은 inode를 가리킨다. fd를 닫으면 A만 닫힌다. mapping은 B를 들고 있으므로 page fault, dirty write-back, `munmap()`을 계속 할 수 있다.
++
++## 예시 상황
++
++`mmap-close`는 가장 작은 재현이다.
++
++```c
++handle = open ("sample.txt");
++map = mmap (ACTUAL, 4096, 0, handle, 0);
++close (handle);
++memcmp (ACTUAL, sample, strlen (sample));
++munmap (map);
++```
++
++성공하려면 `close(handle)` 뒤에도 다음 둘 중 하나가 남아 있어야 한다.
++
++```text
++mapping 전용 struct file
++또는 mapping 전용 file/inode reference를 가진 region object
++```
++
++`mmap-remove`는 한 단계 더 간다.
++
++```c
++map = mmap (actual, 4096, 0, handle, 0);
++close (handle);
++remove ("sample.txt");
++open ("sample.txt") == -1;
++memcmp (actual, sample, strlen (sample));
++```
++
++파일 이름은 디렉터리에서 사라졌지만, mapping이 잡고 있는 inode reference가 남아 있으면 기존 파일 data block은 마지막 close 전까지 유지될 수 있다.
++
++`mmap-exit`는 반대 방향이다. child가 writable mapping으로 파일을 바꾼 뒤 `munmap()` 없이 종료한다.
++
++```c
++mmap (ACTUAL, sizeof sample, 1, handle, 0);
++memcpy (ACTUAL, sample, sizeof sample);
++return from test_main;
++```
++
++parent는 child 종료 뒤 파일 내용을 검사한다. 따라서 process exit path는 남은 file-backed mapping을 찾아 dirty page를 write-back해야 한다.
++
++## Linux / Windows에서는
++
++Linux에서 `mmap()`이 성공하면 mapping은 fd close와 독립적으로 남는다. fd는 mapping을 만들 때 backing file을 찾는 handle로 쓰이고, mapping이 만들어진 뒤에는 VMA와 file reference가 별도로 관리된다. 파일 이름을 unlink해도 이미 열린 file description이나 mapping reference가 남아 있으면 data는 마지막 reference가 사라질 때까지 유지된다.
++
++Windows도 mapped view와 handle 생명주기를 분리해서 봐야 한다. file handle, file mapping object handle, mapped view는 서로 다른 정리 지점을 가진다. view를 없애려면 `UnmapViewOfFile`이 필요하고, handle close만으로 이미 mapped view의 주소 범위가 곧바로 사라지는 모델이 아니다.
++
++현실 OS는 page cache, shared/private mapping, write-back error, file truncation, multi-process sharing까지 고려한다. PintOS는 이 복잡도를 줄여서 "mapping이 자기 file reference를 가져야 한다"는 핵심만 학습한다.
++
++## PintOS에서는
++
++PintOS 파일 계층에는 이미 생명주기 분리에 필요한 함수가 있다.
++
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/file.c`
++  - `file_reopen(file)`은 같은 inode에 대한 새 `struct file`을 만든다.
++  - `file_close(file)`은 file이 잡은 inode reference를 닫고 file 객체를 해제한다.
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/inode.c`
++  - `inode_reopen(inode)`은 `open_cnt`를 증가시킨다.
++  - `inode_remove(inode)`은 `removed = true`로 표시한다.
++  - `inode_close(inode)`은 `open_cnt`가 0이 될 때 실제 data block을 해제한다.
++- `/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/process.c`
++  - `process_exit()`은 `close_open_files(curr)` 뒤 `process_cleanup()`을 호출한다.
++  - VM이 켜져 있으면 `process_cleanup()`에서 `supplemental_page_table_kill(&curr->spt)`가 호출된다.
++
++여기서 중요한 순서가 보인다.
++
++```text
++process_exit()
++  -> close_open_files(curr)
++       fd_table의 file들을 닫음
++  -> process_cleanup()
++       supplemental_page_table_kill(&curr->spt)
++```
++
++따라서 file-backed mapping이 fd table의 원래 file만 붙잡고 있으면 exit write-back 시점에는 이미 file이 닫혔을 수 있다. `mmap-exit`을 통과하려면 mapping metadata가 fd table과 별도 file reference를 들고 있어야 한다.
++
++## QEMU에서는
++
++QEMU는 fd, inode, directory entry, `removed` flag를 모른다.
++
++QEMU가 관찰하는 것은 PintOS가 디스크 장치에 내리는 sector I/O다.
++
++```text
++PintOS file_write_at()
++  -> inode_write_at()
++  -> disk_write()
++  -> QEMU IDE model
++  -> block backend write
++```
++
++`mmap-remove`에서 파일 이름이 사라졌는지, `mmap-close`에서 fd가 닫혔는지는 PintOS 파일 시스템 정책이다. QEMU는 guest가 어느 sector를 읽고 쓰는지만 하드웨어처럼 처리한다.
++
++## 차이점
++
++| 구분 | Linux / Windows | PintOS | QEMU |
++|---|---|---|---|
++| fd close 뒤 mapping | mapping/view는 별도 reference로 유지 | `file_reopen()` 또는 mapping object 필요 | fd 의미를 모름 |
++| remove/unlink 뒤 data | 마지막 reference까지 data 유지 | `inode->removed`와 `open_cnt`로 단순화 | directory entry 의미를 모름 |
++| exit write-back | VM/page cache 정책으로 처리 | `supplemental_page_table_kill()`에서 정리 필요 | sector write만 처리 |
++| 같은 파일 두 번 mapping | VMA/view와 file reference 관리 | 각 region/page metadata가 file reference를 가져야 함 | mapping 개념을 모름 |
++
++## 코드 증거
++
++### 1. `file_reopen()`은 같은 inode의 새 file을 만든다
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/file.c`
++
++```c
++struct file *
++file_reopen (struct file *file) {
++    return file_open (inode_reopen (file->inode));
++}
++```
++
++`file_reopen()`의 핵심은 `struct file`을 공유하지 않는다는 점이다. 같은 inode를 가리키는 새 file object를 만든다.
++
++### 2. `inode_reopen()`은 open count를 증가시킨다
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/inode.c`
++
++```c
++struct inode *
++inode_reopen (struct inode *inode) {
++    if (inode != NULL)
++        inode->open_cnt++;
++    return inode;
++}
++```
++
++이 counter 덕분에 원래 fd가 닫혀도 mapping 쪽 opener가 남아 있을 수 있다.
++
++### 3. remove는 즉시 data block을 지우는 것이 아니다
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/filesys/inode.c`
++
++```c
++void
++inode_remove (struct inode *inode) {
++    inode->removed = true;
++}
++```
++
++`inode_close()`는 마지막 opener가 닫힐 때 `removed`를 확인하고 block을 해제한다. 따라서 remove된 파일도 open reference가 남아 있으면 기존 data를 읽을 수 있다.
++
++### 4. process exit은 fd close 뒤 SPT 정리를 호출한다
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/userprog/process.c`
++
++```text
++process_exit()
++  -> close_open_files(curr)
++  -> process_cleanup()
++       -> supplemental_page_table_kill(&curr->spt)
++```
++
++이 순서 때문에 mapping 전용 reference가 없으면 `mmap-exit`의 dirty write-back이 닫힌 file을 만질 위험이 있다.
++
++### 5. 테스트가 직접 요구한다
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/vm/mmap-close.c`
++
++```c
++map = mmap(ACTUAL, 4096, 0, handle, 0);
++close (handle);
++memcmp (ACTUAL, sample, strlen (sample));
++```
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/vm/mmap-remove.c`
++
++```c
++close (handle);
++remove ("sample.txt");
++open ("sample.txt") == -1;
++memcmp (actual, sample, strlen (sample));
++```
++
++`/Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos/tests/vm/child-mm-wrt.c`
++
++```c
++mmap (ACTUAL, sizeof sample, 1, handle, 0);
++memcpy (ACTUAL, sample, sizeof sample);
++```
++
++child는 `munmap()`을 직접 부르지 않는다. exit path가 write-back을 맡아야 한다.
++
++## 숫자와 메모리
++
++### 1. open count 흐름
++
++`mmap-close`를 숫자로 놓으면 이렇게 된다.
++
++```text
++open("sample.txt")
++  inode.open_cnt = 1
++  fd_table[3] -> file A
++
++mmap(..., fd=3, ...)
++  file_reopen(file A)
++  inode.open_cnt = 2
++  mmap_region.file -> file B
++
++close(3)
++  file_close(file A)
++  inode.open_cnt = 1
++  fd_table[3] = NULL
++
++page fault on 0x10000000
++  file B로 file_read_at()
++  inode.open_cnt = 1
++
++munmap()
++  file_close(file B)
++  inode.open_cnt = 0
++```
++
++### 2. remove 뒤 data 유지
++
++`mmap-remove`에서는 directory entry가 사라진다.
++
++```text
++remove("sample.txt")
++  directory entry in_use = false
++  inode.removed = true
++  inode.open_cnt = 1  (mapping file B가 남음)
++```
++
++이 상태에서 `open("sample.txt")`는 실패할 수 있다. 하지만 mapping이 가진 inode reference는 아직 같은 data block을 읽을 수 있다.
++
++### 3. exit write-back 순서
++
++`mmap-exit`의 child는 `sizeof sample`만큼 쓴다.
++
++```text
++ACTUAL = 0x10000000
++file offset = 0
++dirty bytes = sizeof sample
++```
++
++exit 정리에서 해야 할 일은 다음 의미다.
++
++```text
++if page dirty:
++  file_write_at(mapping_file, frame->kva, read_bytes, file_offset)
++clear PTE/SPT
++file_close(mapping_file)
++```
++
++fd table close보다 늦게 실행되어도 `mapping_file`이 살아 있어야 한다.
++
++## 직접 확인
++
++현재 저장소의 VM 구현은 skeleton 상태이므로 아래는 구현 후 확인 지점이다.
++
++GDB breakpoint:
++
++```gdb
++break file_reopen
++break inode_reopen
++break process_close_file
++break supplemental_page_table_kill
++break file_write_at
++break inode_remove
++```
++
++`mmap-close`에서 확인할 질문:
++
++```gdb
++p file->inode->open_cnt
++```
++
++기대 흐름:
++
++```text
++open 뒤      open_cnt = 1
++mmap 뒤      open_cnt = 2
++close(fd) 뒤 open_cnt = 1
++munmap 뒤    open_cnt = 0
++```
++
++테스트 후보:
++
++```text
++cd /Users/woonyong/workspace/Krafton-Jungle/SW_AI-W09-pintos/pintos
++make -C build check TESTS=tests/vm/mmap-close
++make -C build check TESTS=tests/vm/mmap-remove
++make -C build check TESTS=tests/vm/mmap-exit
++make -C build check TESTS=tests/vm/mmap-twice
++```
++
++`mmap-shuffle`은 128KB writable mapping을 여러 번 섞고 checksum을 확인한다. file reference lifetime보다는 dirty/write-back과 여러 page mapping 안정성을 함께 보는 회귀 테스트로 두면 좋다.
++
++## 정리
++
++- `mmap()`의 fd는 mapping을 만들기 위한 입구이지, mapping의 전체 생명주기가 아니다.
++- fd table entry, `struct file`, `struct inode`는 서로 다른 층이다.
++- `file_reopen()`은 같은 inode의 open count를 늘리고 mapping 전용 file object를 만들 수 있게 한다.
++- `mmap-close`는 fd close 뒤에도 mapping reference가 살아야 함을 확인한다.
++- `mmap-remove`는 directory entry가 사라져도 열린 inode reference가 data를 유지해야 함을 확인한다.
++- `mmap-exit`는 explicit `munmap()` 없이 process exit에서 dirty mapping을 write-back해야 함을 확인한다.
++- QEMU는 이 생명주기 정책을 모르고, PintOS가 내리는 sector I/O만 에뮬레이션한다.
++
++## 다음 링크
++
++- [[file-backed-page-metadata-knowledge]]: page별 file reference와 offset metadata를 어디에 둘지
++- [[mmap-munmap-range-trace]]: mapping 범위를 찾아 write-back하고 reference를 닫는 순서
++- [[mmap-dirty-writeback-qemu-trace]]: dirty file-backed page가 disk write로 내려가는 흐름
++- [[file-descriptor-knowledge]]: fd number와 열린 file object를 구분하는 기본 모델
++- [[mmap-file-backed-page-knowledge]]: file-backed mapping 전체 그림
+diff --git a/maps/os/concept-to-code-map.md b/maps/os/concept-to-code-map.md
+index fc9fd05..f48d17e 100644
+--- a/maps/os/concept-to-code-map.md
++++ b/maps/os/concept-to-code-map.md
+@@ -101,6 +101,7 @@ related_to:
+   - [[mmap-syscall-handler-trace]]
+   - [[mmap-invalid-argument-matrix-lab]]
+   - [[mmap-munmap-range-trace]]
++  - [[mmap-file-reference-lifetime-lab]]
+   - [[mmap-readonly-protection-lab]]
+   - [[mmap-dirty-writeback-qemu-trace]]
+ - 3.6단계: disk sector가 QEMU block backend offset으로 내려가는 법
+@@ -454,6 +455,8 @@ related_to:
+     - `mmap()`은 어떤 인자 조합에서 page 등록 전에 실패해야 하는가?
+       - [[mmap-invalid-argument-matrix-lab]]
+     - file-backed page는 원본 파일과 offset을 어디에 기억하는가?
++    - fd를 닫거나 파일 이름을 remove해도 mapping은 왜 계속 살아야 하는가?
++      - [[mmap-file-reference-lifetime-lab]]
+     - mmap은 왜 code/data/stack 또는 기존 lazy mapping 위에 새 mapping을 덮으면 안 되는가?
+       - [[mmap-overlap-validation-lab]]
+     - read-only mmap의 첫 write는 왜 SPT의 writable metadata로 막아야 하는가?
+@@ -476,6 +479,7 @@ related_to:
+     - [[mmap-file-backed-page-knowledge]]: 파일 byte가 user VA page로 보이고 dirty page가 write-back되는 흐름
+     - [[mmap-invalid-argument-matrix-lab]]: fd, 주소, 길이, offset, kernel range를 page 등록 전에 탈락시키는 기준
+     - [[file-backed-page-metadata-knowledge]]: `struct file_page`가 기억해야 할 file, offset, read/zero bytes 판단 기준
++    - [[mmap-file-reference-lifetime-lab]]: fd close/remove/exit 뒤에도 mapping file reference가 살아야 하는 이유
+     - [[mmap-overlap-validation-lab]]: lazy mapping, code/data/stack과 새 `mmap` 범위가 겹치면 실패해야 하는 이유
+     - [[disk-sector-qemu-block-backend-knowledge]]: PintOS sector 번호가 QEMU block backend byte offset으로 바뀌는 기준
+   - 핵심 흐름
+@@ -494,6 +498,7 @@ related_to:
+     - [[cow-write-protect-fault-lab]]: `cow-simple`에서 fork 직후 같은 frame을 공유하고 child write 뒤 분리되는지 확인
+     - [[stack-growth-boundary-lab]]: `pt-grow-*` 테스트로 스택 성장 허용 경계와 거절 경계를 숫자로 확인
+     - [[mmap-invalid-argument-matrix-lab]]: `mmap-bad-*`, `mmap-null`, `mmap-zero-len`, `mmap-kernel` 실패 조건을 행렬로 확인
++    - [[mmap-file-reference-lifetime-lab]]: `mmap-close/remove/exit`로 fd와 mapping 생명주기 분리를 확인
+     - [[mmap-overlap-validation-lab]]: `mmap-overlap`/`mmap-over-*` 테스트로 SPT range 점유 검사를 확인
+     - [[mmap-readonly-protection-lab]]: `mmap-ro`에서 lazy read-only page의 첫 write를 SPT metadata와 `PTE_W`로 막는 기준
+     - [[swap-lab]]: 4KB anonymous page가 512B disk sector 8개로 보존되는 실험
+diff --git a/maps/os/week-3-4-virtual-memory-map.md b/maps/os/week-3-4-virtual-memory-map.md
+index b119438..d3c0dbc 100644
+--- a/maps/os/week-3-4-virtual-memory-map.md
++++ b/maps/os/week-3-4-virtual-memory-map.md
+@@ -77,6 +77,7 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
+ - [[mmap-file-backed-page-knowledge]]: 파일 바이트가 유저 가상 주소의 page로 보이는 과정
+ - [[file-backed-page-metadata-knowledge]]: `struct file_page`에 file offset, read bytes, zero bytes가 필요한 이유
+ - [[mmap-invalid-argument-matrix-lab]]: `mmap()`이 fd, 주소, 길이, offset, kernel range 오류를 page 등록 전에 거절하는 기준
++- [[mmap-file-reference-lifetime-lab]]: fd close/remove/exit 뒤에도 mapping file reference가 살아야 하는 이유
+ - [[mmap-overlap-validation-lab]]: lazy mapping과 code/data/stack page 위에 새 `mmap`을 덮지 않도록 SPT range를 검사하는 기준
+ - [[mmap-readonly-protection-lab]]: read-only `mmap`에 첫 write가 들어왔을 때 SPT metadata와 `PTE_W`로 막는 기준
+ - [[disk-sector-qemu-block-backend-knowledge]]: PintOS disk sector 번호가 QEMU block backend byte offset으로 내려가는 기준
+@@ -102,6 +103,7 @@ PintOS 3-4주차 VM 학습에서 주소 변환, 페이지 테이블, 프레임,
+ - [[cow-write-protect-fault-lab]]: `cow-simple` 테스트로 fork 직후 frame 공유와 child write 뒤 분리를 확인
+ - [[stack-growth-boundary-lab]]: `fault_addr`, 유저 `rsp`, `USER_STACK`으로 stack growth 후보를 가르는 실험
+ - [[mmap-invalid-argument-matrix-lab]]: `mmap-bad-*`, `mmap-null`, `mmap-zero-len`, `mmap-kernel`로 인자 검증 순서를 확인
++- [[mmap-file-reference-lifetime-lab]]: `mmap-close`, `mmap-remove`, `mmap-exit`로 fd와 mapping 생명주기 분리를 확인
+ - [[mmap-overlap-validation-lab]]: `mmap-overlap`, `mmap-over-code/data/stk` 테스트로 mapping range 점유 검사를 확인
+ - [[mmap-readonly-protection-lab]]: `mmap-ro` 테스트로 lazy read-only page의 write fault를 분해
+ - [[swap-lab]]: anonymous page가 swap disk slot으로 나갔다 돌아오는 흐름
+diff --git a/notes/os/file-backed-page-metadata-knowledge.md b/notes/os/file-backed-page-metadata-knowledge.md
+index 959e251..cc3dc81 100644
+--- a/notes/os/file-backed-page-metadata-knowledge.md
++++ b/notes/os/file-backed-page-metadata-knowledge.md
+@@ -554,6 +554,7 @@ make -C build check TESTS=tests/vm/mmap-clean
+ 
+ - [[mmap-file-backed-page-knowledge]]: `mmap` 전체 흐름에서 file-backed page가 어디에 들어가는지
+ - [[mmap-syscall-handler-trace]]: `fd`, `addr`, `length`, `offset`이 `do_mmap()` 인자로 들어오기 전 검증 흐름
++- [[mmap-file-reference-lifetime-lab]]: fd close/remove/exit 뒤에도 mapping 전용 file reference가 필요한 이유
+ - [[mmap-munmap-range-trace]]: `do_munmap()`이 page별 metadata와 mapping 범위를 함께 쓰는 이유
+ - [[mmap-readonly-protection-lab]]: `writable=false` mapping의 첫 write fault를 막는 기준
+ - [[mmap-dirty-writeback-qemu-trace]]: dirty file-backed page가 `file_write_at()`과 QEMU block write로 내려가는 흐름
+diff --git a/traces/os/mmap-munmap-range-trace.md b/traces/os/mmap-munmap-range-trace.md
+index 9c3d810..db7e041 100644
+--- a/traces/os/mmap-munmap-range-trace.md
++++ b/traces/os/mmap-munmap-range-trace.md
+@@ -548,6 +548,7 @@ make -C build check TESTS=tests/vm/mmap-remove
+ - [[mmap-file-backed-page-knowledge]]: file-backed mapping 전체 모델
+ - [[mmap-overlap-validation-lab]]: `do_mmap()`이 남긴 range metadata가 처음부터 겹치면 안 되는 이유
+ - [[file-backed-page-metadata-knowledge]]: page별 file offset/read bytes metadata
++- [[mmap-file-reference-lifetime-lab]]: fd close/remove/exit가 mapping 정리와 충돌하지 않게 file reference를 분리하는 이유
+ - [[mmap-dirty-writeback-qemu-trace]]: dirty page가 파일과 QEMU block write로 내려가는 흐름
+ - [[supplemental-page-table-knowledge]]: unmap할 page를 찾는 의미 장부
+ - [[file-descriptor-knowledge]]: fd close와 file object 생명주기를 분리하는 이유
